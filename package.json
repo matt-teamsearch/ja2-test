@@ -7,8 +7,6 @@
     "test": "echo \"Error: no test specified\"",
     "start": "nodemon app.js"
   },
-  "author": "ste",
-  "license": "ISC",
   "dependencies": {
     "@ringcentral/sdk": "^4.6.0",
     "archiver": "^5.2.0",
