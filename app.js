@@ -5509,8 +5509,6 @@ global.sendCsatChase=(quote,isReminder)=>{
       outlookTransporter({
         user: "rachel@teamsearchmr.co.uk",
         pass: process.env.OUTLOOK_RACHEL_PASSWORD
-        // user: "matt@teamsearchmr.co.uk",
-        // pass: "PagesYellow16"
       }).sendMail({
         to: data.to,
         // to: "matt@teamsearchmr.co.uk",
