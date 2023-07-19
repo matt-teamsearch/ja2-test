@@ -1,10 +1,10 @@
 {
-  "name": "project-analysis",
+  "name": "ja2",
   "version": "1.0.0",
-  "description": "Project Analysis - copyright Stephen Palmer 2019",
+  "description": "Job Analysis 2.0",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "echo \"Error: no test specified\"",
     "start": "nodemon app.js"
   },
   "author": "ste",
@@ -88,17 +88,5 @@
     "xlsx-to-json-lc": "^0.5.0",
     "xml-reader": "^2.4.3",
     "zlib": "^1.0.5"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/StephenP2019/projectanalysis.git"
-  },
-  "keywords": [
-    "job",
-    "a"
-  ],
-  "bugs": {
-    "url": "https://github.com/StephenP2019/projectanalysis/issues"
-  },
-  "homepage": "https://github.com/StephenP2019/projectanalysis/projectanalysis#readme"
+  }
 }
