@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <link rel="icon" href="https://teamsearchmr.sharefile.com/styles/images/1e5ffe03-b78a-4052-af71-f7c1e17094b6.png">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+  <script src='/js/jquery.gauge.js'></script>
+  <script src='/js/Chart.bundle.min.js'></script>
+  <script src='/js/mustache.js'></script>
+  <script src='/js/flash.min.js'></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@0.7.0"></script>
+  <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <link rel="stylesheet" href="/css/jquery.timepicker.css">
+  <link rel="stylesheet" href="/resources/demos/style.css">
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+  <link rel='stylesheet' href='/css/bootstrap.min.css'>
+  <link rel='stylesheet' href='/css/fa.all.min.css'>
+  <link rel='stylesheet' href='/css/fontawesome.min.css'>
+  <link rel='stylesheet' href='/css/switch.css'>
+  <link rel='stylesheet' href='/css/flash.min.css'>
+  <script type="text/javascript" src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.min.js"></script>
+  <link href="https://cdn.datatables.net/1.10.25/css/jquery.dataTables.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.1/js/bootstrap-select.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.1/css/bootstrap-select.css" />
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.3/css/all.css" integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/" crossorigin="anonymous">
+  <script type="text/javascript" src="https://cdn.datatables.net/fixedcolumns/3.3.0/js/dataTables.fixedColumns.min.js"></script>
+  <script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.1/js/dataTables.buttons.min.js"></script>
+  <script type="text/javascript" src="https://cdn.datatables.net/fixedheader/3.1.6/js/dataTables.fixedHeader.min.js"></script>
+  <script type="text/javascript" src="/js/jquery.connections.js"></script>
+  <script type="text/javascript" src="/js/gauge.js"></script>
+  <script type="text/javascript" src="/js/moment.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-range/4.0.2/moment-range.js" integrity="sha512-XKgbGNDruQ4Mgxt7026+YZFOqHY6RsLRrnUJ5SVcbWMibG46pPAC97TJBlgs83N/fqPTR0M89SWYOku6fQPgyw==" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/1.3.2/jspdf.min.js"></script>
+  <script type="text/javascript" src="/js/chartjs-plugin-colorschemes.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-annotation/0.5.7/chartjs-plugin-annotation.min.js"></script>
+  <link href="https://cdn.datatables.net/buttons/1.6.1/css/buttons.dataTables.min.css" rel="stylesheet" />
+  <link href="https://cdn.datatables.net/fixedcolumns/3.3.0/css/fixedColumns.dataTables.min.css" rel="stylesheet" />
+  <link href="https://cdn.datatables.net/fixedheader/3.1.6/css/fixedHeader.dataTables.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="//jonthornton.github.io/jquery-timepicker/jquery.timepicker.css">
+  <script src="//jonthornton.github.io/jquery-timepicker/jquery.timepicker.js"></script>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css?family=Material+Icons|Material+Icons+Outlined|Material+Icons+Two+Tone|Material+Icons+Round|Material+Icons+Sharp" rel="stylesheet">
+  <script type='text/javascript' src='https://cdn.datatables.net/buttons/1.6.5/js/dataTables.buttons.min.js'></script>
+  <script type='text/javascript' src='https://cdn.datatables.net/buttons/1.6.5/js/buttons.flash.min.js'></script>
+  <script type='text/javascript' src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js'></script>
+  <script type='text/javascript' src='https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js'></script>
+  <script type='text/javascript' src='https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js'></script>
+  <script type='text/javascript' src='https://cdn.datatables.net/buttons/1.6.5/js/buttons.html5.min.js'></script>
+  <script type='text/javascript' src='https://cdn.datatables.net/buttons/1.6.5/js/buttons.print.min.js'></script>
+  <link href="https://unpkg.com/tabulator-tables@4.9.3/dist/css/tabulator.min.css" rel="stylesheet">
+  <script type="text/javascript" src="https://unpkg.com/tabulator-tables@4.9.3/dist/js/tabulator.min.js"></script>
+  <link href="https://unpkg.com/tabulator-tables@4.9.3/dist/css/semantic-ui/tabulator_semantic-ui.min.css" rel="stylesheet">
+  <script type="text/javascript" src="https://oss.sheetjs.com/sheetjs/xlsx.full.min.js"></script>
+  <script type="text/javascript" src="/js/autosize.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Trumbowyg/2.23.0/trumbowyg.min.js" integrity="sha512-sffB9/tXFFTwradcJHhojkhmrCj0hWeaz8M05Aaap5/vlYBfLx5Y7woKi6y0NrqVNgben6OIANTGGlojPTQGEw==" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Trumbowyg/2.23.0/ui/trumbowyg.min.css" integrity="sha512-iw/TO6rC/bRmSOiXlanoUCVdNrnJBCOufp2s3vhTPyP1Z0CtTSBNbEd5wIo8VJanpONGJSyPOZ5ZRjZ/ojmc7g==" crossorigin="anonymous" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Trumbowyg/2.23.0/plugins/mention/trumbowyg.mention.min.js" integrity="sha512-m05O5SbV9lBYpaEM5ucCeTCI5CIigoRrMmUzw1/7AZyR2AVToIWQWVUeZPbRAzIRjxMlvFctr2vrcTBXgKnSDA==" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Trumbowyg/2.23.0/plugins/indent/trumbowyg.indent.min.js" integrity="sha512-KVXf3B4sZXWXCH1k5ZfHnpXmx5/U1rhclBt2Cum6pc7XfccC6PJXhqt6QrrYHCrLQYk8GVcDfJrNyYNxKCtydg==" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Trumbowyg/2.23.0/plugins/mention/ui/trumbowyg.mention.min.css" integrity="sha512-WlssjoSZtgK20Y0glf+fvN9pMbfc76dw456SH9xJt9JsQGzFuWsr2b521gXg3lKnkSZZmFw/8sDiDgVX69doNQ==" crossorigin="anonymous" />
+  <script src="//cdn.jsdelivr.net/npm/jquery.marquee@1.6.0/jquery.marquee.min.js" type="text/javascript"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/magnific-popup.js/1.0.0/jquery.magnific-popup.min.js" integrity="sha512-+m6t3R87+6LdtYiCzRhC5+E0l4VQ9qIT1H9+t1wmHkMJvvUQNI5MKKb7b08WL4Kgp9K0IBgHDSLCRJk05cFUYg==" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/magnific-popup.js/1.0.0/magnific-popup.min.css" integrity="sha512-nIm/JGUwrzblLex/meoxJSPdAKQOe2bLhnrZ81g5Jbh519z8GFJIWu87WAhBH+RAyGbM4+U3S2h+kL5JoV6/wA==" crossorigin="anonymous" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-sparklines/2.1.2/jquery.sparkline.min.js" integrity="sha512-3PRVLmoBYuBDbCEojg5qdmd9UhkPiyoczSFYjnLhFb2KAFsWWEMlAPt0olX1Nv7zGhDfhGEVkXsu51a55nlYmw==" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.7/odometer.min.js" integrity="sha512-v3fZyWIk7kh9yGNQZf1SnSjIxjAKsYbg6UQ+B+QxAZqJQLrN3jMjrdNwcxV6tis6S0s1xyVDZrDz9UoRLfRpWw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/odometer.js/0.4.7/themes/odometer-theme-minimal.css" integrity="sha512-82n59AgQXo3NhYHeauDYw9TE2zGh9yOdXN9wbiDZA+uaf0xOkSYxGNLzKMMngZQjBTw94EujhfEfKkYybQqfOQ==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mark.js/8.11.1/mark.min.js" integrity="sha512-5CYOlHXGh6QpOFA/TeTylKLWfB3ftPsde7AnmhuitiTX4K5SqCLBeKro6sPS8ilsz1Q4NRx3v8Ko2IBiszzdww==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <link href="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/css/select2.min.css" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
+  <script type="text/javascript" src="/js/jquery.timelineMe.js"></script>
+  <link href="/css/jquery.timelineMe.css" rel="stylesheet" />
+  <script type="text/javascript" src="/js/bootstrap-filestyle.js"> </script>
+  <script src='/js/JA2.global.js'></script>
+  <link href="/css/JA2.global.css" rel="stylesheet" />
+  <script src='/js/moment-fquarter.min.js'></script>
+  <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/Snowstorm/20131208/snowstorm-min.js" integrity="sha512-rMkLONrw50boYG/6Ku0E8VstfWMRn5D0dX3QZS26Mg0rspYq4EHxYOULuPbv9Be2HBbrrmN8dpPgYUeJ4bINCA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script> -->
+
+
+  <title><%= title %></title>
+  <script>
+  // snowStorm.animationInterval = 40
+  // snowStorm.flakesMax = 30
+  function goBack() {
+    window.history.back();
+  }
+  function goForward() {
+    window.history.forward();
+  }
+
+  $("#popover").popover({ trigger: "hover" });
+
+  sendFeedback = function(){
+    window.open('/feedback/' + "'" + window.location.href.replace(/[&\/\\#,+()$~%.'":*?<>{}]/g, '') + "'", '_blank');
+  }
+
+
+</script>
+<style media="screen">
+.adminLocked{
+  <%=user.isAdmin?'':'display:none!important'%>;
+}
+.supportLocked{
+  <%=user.isSupport?'display:none!important':''%>;
+}
+</style>
+</head>
+<body>
+  <div class="page-wrapper">
+    <nav class="navbar navbar-dark" style="position:fixed; width:100%; height:50px; top:0px; background-color:#3a586d; z-index:999; padding:0px;">
+      <div  style="width:20%;" class="text-center">
+        <input type="text" id="navSearch" class="form-control autocomplete supportLocked"/>
+      </div>
+      <%
+      var MasterTdy = new Date()
+      var tdy = MasterTdy.toISOString().split("T")[0]
+      function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array
+      }
+      %>
+      <div style="width:20%;" class="text-center" id="jobMarqueeCont">
+        <div class='marquee'><%- shuffleArray(jobMarquee).join("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;") %></div>
+      </div>
+      <div class="dropdown centered text-center">
+        <!-- <a href="#" id="pdfDownload">Download as PDF</a> -->
+        <button style="border:0px; padding:2px" class="btn btn-outline-light dropdown-toggle " type="button" id="dropdownMenuButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+          <img src="/Teamsearch Logo-tree-05.webp" style="height:45px;"><span class="lead"> Job Analysis 2.0</span>
+          <img src="/santa-hat.png" id="santa-hat" alt="">
+        </button>
+        <div class="dropdown-menu " aria-labelledby="dropdownMenuButton">
+          <a href="/home" class=" dropdown-item">Home <i class="fas fa-cube"></i></a>
+          <a href="/view-planner/1/60" class=" dropdown-item supportLocked">Resource planner <i class="fas fa-chalkboard-teacher"></i></a>
+          <a href="/live-proj" class=" dropdown-item supportLocked">Live Projects <i class="fas fa-list-alt"></i></a>
+          <a href="/tally-sheet/<%=tdy%>/0/0/1/1" class=" dropdown-item supportLocked">Tally Sheet <i class="fas fa-calendar-alt"></i></a>
+          <a href="/staff-booking/d/0/ejs/1" class=" dropdown-item supportLocked">Staff booking <i class="fas fa-book"></i></a>
+          <div class="dropdown-divider"></div>
+          <button onClick="sendFeedback()" class="dropdown-item">Send Feedback</button>
+          <a href="/logOut" class="dropdown-item">Log out</a>
+        </div>
+      </div>
+      <div style="width:20%;" class="text-center" id="agentMarqueeCont">
+        <div class='marquee'><%- shuffleArray(agentMarquee).join("&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;") %></div>
+      </div>
+      <div style="width:20%;" class="text-right dropdown" id="dropdownUser">
+        <button style="border:0px; padding:2px" class="btn btn-outline-light dropdown-toggle" type="button" id="dropdownUserButton" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+          <img src="<%= userAvatar %>" style="height:45px;border-radius:50%">
+          <span class="avatarNotifications" style="visibility:hidden;"></span>
+        </button>
+        <div class="dropdown-menu dropdown-menu-right" style="left: unset;right: 0;" aria-labelledby="dropdownMenuButton">
+          <input type="text" id="notifRespData" style="display:none;">
+          <h6 class="dropdown-header"><%=user?user.staffName:''%></h6>
+          <div id="menuNotifications">
+
+          </div>
+          <a href="/edit-staff/<%= user?user.staffID:0 %>" class="btn btn-sm dropdown-item">Edit profile</a>
+          <a onClick="sendFeedback()" class="btn btn-sm dropdown-item">Send Feedback</a>
+          <a href="/logOut" class="btn btn-sm logout dropdown-item">Log out</a>
+        </div>
+      </div>
+    </nav>
+    <% if(success_msg.length>0||error_msg.length>0){%>
+    <div id="messageBar">
+      <button type='button' onclick="$('#messageBar').hide()" class='close closeBtn'>
+        <span aria-hidden='true'>&times;</span>
+      </button>
+      <h4 class="text-center text-success"><%= success_msg %></h3>
+      <h4 class="text-center text-danger"><%= error_msg %></h3>
+    </div>
+    <%}%>
+    <div class='modal fade' role='dialog' id='loginModal' data-backdrop="static" data-keyboard="false">
+      <div class='modal-dialog modal-dialog-centered' style="width:250px" role='document'>
+        <div class='modal-content'>
+          <div class='modal-body'>
+            Your session has ended. Please log in to continue.<br><br>
+            <form>
+              <input type="text" class="form-control" name="uName" id="uName" value=""><br>
+              <input type="password" class="form-control" name="pWord" id="pWord" value=""><br>
+              <button type='button' onclick="logBackIn()" class='btn btn-primary btn-block' id='login_btn'>Go</button>
+              <img src="/spinner.gif" id="loginSpinner" height="38px" style="display:none">
+            </form>
+            <div id="loginError" class="alert alert-danger fade show" style="visibility:hidden; font-size: small; text-align: center;">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script>
+      window['moment-range'].extendMoment(moment);
+      $body = $("body");
+      $body.addClass("loading")
+      $(document).on({
+          ajaxStart: function() { $body.addClass("loading");    },
+           ajaxStop: function() { $body.removeClass("loading"); }
+      });
+      window.addEventListener("beforeunload", function (event) {
+        $body.addClass("loading");
+      });
+      $(document).on('focus', '#navSearch', function(evt) {
+        $.ajax({
+          url: '/get-search',
+          type: 'GET',
+          global:false,
+          contentType: 'application/json',
+          success: function (response) {
+            var data=response.map(el=>{
+              let obj={}
+              obj.icon=['Agent','FaceAgent'].includes(el.dataType)?'<i class="fas fa-user-alt"></i>':'<i class="fas fa-chart-line"></i>'
+              obj.label=el.label
+              obj.value=el.label
+              obj.dataType=el.dataType
+              obj.dataid=el.id
+              return obj
+            })
+            $("#navSearch").autocomplete({
+              source: data,
+              autoFocus: true,
+              classes: {
+                "ui-autocomplete": "navSearch"
+              },
+              select: function (event, ui) {
+                if (ui.item.dataType=="Agent") {
+                  window.location.href="/int-performance/<%= currPayPeriodSt %>/<%= tdy %>/"+ui.item.dataid+"/0"
+                }else if (ui.item.dataType=="FaceAgent") {
+                  window.location.href="/add-f2f-agent/"+ui.item.dataid
+                }else {
+                  window.location.href="/overview/"+ui.item.dataid
+                }
+                return ui.item.label;
+              }
+            }).data("ui-autocomplete")._renderItem = function (ul, item) {
+              var inner_html = '<div class="searchItem">'+item.icon+" "+item.label+"</div>"
+              return $("<li>")
+              .data("ui-autocomplete-item", item)
+              .attr("data-id", item.label)
+              .append(inner_html)
+              .appendTo(ul);
+            };;
+          },
+          error: function (jqXHR, exception) {
+            prevent=true
+            $('#loginModal').modal('show')
+            return false
+          }
+        })
+      })
+
+      var intervalCheck = setInterval(checkSignedIn, 5000);
+      var startTime=new Date().getTime()
+      var checkingSignIn=false
+      var firstSignInCheck=true
+      function checkSignedIn(){
+        if (!checkingSignIn) {
+          checkingSignIn=true
+          $.ajax({
+            url: '/ajax-auth',
+            type: 'GET',
+            async:true,
+            global:false,
+            contentType: 'application/json',
+            success: function (response) {
+              $('#notifRespData').attr("value",JSON.stringify(response))
+              let notifCount=response.queries.newQueriesCount+response.bookings.length+response.onlineAllocations
+              if (notifCount>0) {
+                $('.avatarNotifications').css("visibility","visible")
+                if (Number($('.avatarNotifications').html())<notifCount && !firstSignInCheck) {
+                  $('.avatarNotifications').removeClass("new")
+                  $('.avatarNotifications').addClass("new")
+                }
+                $('.avatarNotifications').html(notifCount)
+              }else {
+                $('.avatarNotifications').css("visibility","hidden")
+              }
+              checkingSignIn=false
+              firstSignInCheck=false
+              return false
+            },
+            error: function (jqXHR, exception) {
+              prevent=true
+              $('#loginModal').modal('show')
+              return false
+            }
+          })
+          var time=new Date().getTime()
+          if (time>startTime+90000000) {
+            clearInterval(intervalCheck)
+          }
+        }
+      }
+      checkSignedIn()
+      function logBackIn(){
+        var data =[]
+        var jsonData={};
+        jsonData.uName=$('#uName').val()
+        jsonData.pWord=$('#pWord').val()
+        data.push(jsonData)
+        $.ajax({
+          url: '/ajax-login',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify(data),
+          async:true,
+          beforeSend: function () {
+            $('#login_btn').removeClass("btn-primary")
+            $('#login_btn').addClass("btn-secondary")
+            $('#login_btn').addClass("disabled")
+            $('#login_btn').html(" ")
+          },
+          complete: function () {
+            $('#login_btn').addClass("btn-primary")
+            $('#login_btn').removeClass("btn-secondary")
+            $('#login_btn').removeClass("disabled")
+            $('#login_btn').html("Go")
+          },
+          success: function (response) {
+            $('#loginError').css("visibility","hidden")
+            $('#loginModal').modal('hide')
+          },
+          error: function (jqXHR, exception) {
+            $('#loginError').css("visibility","visible")
+            if (jqXHR.status == 401) {
+              $('#loginError').text("Incorrect username/password")
+            }else {
+              $('#loginError').text("Connection to the server has been interrupted. Try refreshing the page. If you have unsaved work on this page, leave this tab open and contact the system administrator")
+            }
+          },
+        });
+      }
+      function getErrorMessage(jqXHR, exception) {
+        var msg = '';
+        if (jqXHR.status === 0) {
+          msg = 'Not connect.\n Verify Network.';
+        } else if (jqXHR.status == 404) {
+          msg = 'Requested page not found. [404]';
+        } else if (jqXHR.status == 500) {
+          msg = 'Internal Server Error [500]. '+JSON.parse(jqXHR.responseText).error;
+        } else if (exception === 'parsererror') {
+          msg = 'Requested JSON parse failed.';
+        } else if (exception === 'timeout') {
+          msg = 'Time out error.';
+        } else if (exception === 'abort') {
+          msg = 'Ajax request aborted.';
+        } else {
+          msg = 'Uncaught Error.\n' + jqXHR.responseText;
+        }
+        return msg;
+      }
+      $(document).ready(function () {
+        if ($('#messageBar')) {
+          $('#messageBar').addClass('msgShow')
+        }
+        function closeMessage(){
+          $('#messageBar').hide()
+        }
+        checkSignedIn()
+        $('.infoHover').each(function(i) {
+          $(this).tooltip({
+            html:true,
+            placement:'right',
+            title:$(this).html()
+          })
+          $(this).html(' <i class="fas fa-info-circle"></i>')
+        });
+        $('#dropdownUser').on('shown.bs.dropdown',function(e){
+          $('#menuNotifications').html('<img src="/spinner.gif" id="notifLoadSpinner" height="38px" style="margin:auto">')
+          let bookingsJSON=$('#notifRespData').attr('value')
+          let bookings=bookingsJSON?JSON.parse(bookingsJSON).bookings:[]
+          $.ajax({
+            url: '/get-notifications',
+            type: 'POST',
+            data:JSON.stringify({bookings:bookings}),
+            contentType: 'application/json',
+            global:false,
+            success: function(resp){
+              $('#menuNotifications').html('')
+              let notifCount=resp.queries.length+bookings.length+resp.onlineAllocations.length
+              if (notifCount>0) {
+                resp.queries.forEach((row, i) => {
+                  let html=''
+                  let avs=resp.raisedByAvs.filter(el=>el.projectID).filter(el=>el.projectID==row.projectID)
+                  html=html+'<a href="/project-queries/'+row.projectID+'" class="notificationQuery btn btn-sm dropdown-item">'+
+                  '<div class="notificationAvCont" style="width:'+(15+(avs.length*20))+'px">'+avs.map((el,i)=>'<img style="left:'+(i*20)+'px" class="notificationAvatars" src="'+el.avatar+'">').join("")+'</div>'+
+                  '<div class="notificationCount">'+row.queryCount+'</div> Queries on '+row.quoteNo+' '+row.quoteName+'</a>'
+                  $('#menuNotifications').append(html)
+                });
+                if (bookings.length>0) {
+                  let html=''
+                  let avs=resp.raisedByAvs.filter(el=>el.agentID).filter(el=>bookings.map(a=>Number(a.agentID)).includes(el.agentID))
+                  html=html+'<a href="/booking-requests/'+bookings[0].teamID+'/0" class="notificationQuery btn btn-sm dropdown-item">'+
+                  '<div class="notificationAvCont" style="width:'+(15+(avs.length*20))+'px">'+avs.map((el,i)=>'<img style="left:'+(i*20)+'px" class="notificationAvatars" src="'+el.avatar+'">').join("")+'</div>'+
+                  '<div class="notificationCount">'+bookings.length+'</div> Shift booking requests</a>'
+                  $('#menuNotifications').append(html)
+                }
+                resp.onlineAllocations.forEach((row, i) => {
+                  let html=''
+                  html=html+'<a href="/online-tracker/'+row.jobID+'" class="notificationQuery btn btn-sm dropdown-item">'+
+                  '<div class="notificationAvCont" style="width:15px"></div>'+
+                  "Add yesterday's completes for <div class='notificationCount'>"+row.neededCount+"</div> panels on "+row.quoteName+'</a>'
+                  $('#menuNotifications').append(html)
+                });
+              }else {
+                $('#menuNotifications').html('<div class="notificationQuery" style="padding:10px;color:#989898;">No notifications to show</div>')
+              }
+            }
+          });
+        })
+        $('.agentMarqHover').on('mouseenter',function(i) {
+          createMarqHover(this,'agent','agentName','fullJobName')
+        })
+        $('.jobMarqHover').on('mouseenter',function(i) {
+          createMarqHover(this,'job','fullJobName','agentName')
+        })
+        function createMarqHover(el,type,titleField,splitField) {
+          $(el).css("cursor","progress")
+          let left=$('#'+type+'MarqueeCont').position().left
+          let top=$('#'+type+'MarqueeCont').position().top+24
+          getMarq(el,type+'ID','/get-'+type+'-recents').then(function(response){
+            let jobName=function(str){return str.substring(0,50)+(str.length>50?'...':'')}
+            response=response.map(el=>{
+              el.fullJobName=jobName(el.fullJobName)
+              return el
+            })
+            let infoBox=document.createElement("div");
+            infoBox.setAttribute("class","marqInfo")
+            let html="<table>"
+            html=html+"<th colspan='2'><i>"+response[0][titleField]+"</i></th><th>Sales</th><th>Pay</th><th>Cont.</th>"
+            let yday=response.filter(el=>el.inputDate==response[0].inputDate)
+            let pday=response.filter(el=>el.inputDate<response[0].inputDate)
+            let ysales=yday.reduce((a,b)=>{
+              return a+Number(b.sales)
+            },0)
+            let psales=pday.reduce((a,b)=>{
+              return a+Number(b.sales)
+            },0)
+            let ypay=yday.reduce((a,b)=>{
+              return a+Number(b.pay)
+            },0)
+            let ppay=pday.reduce((a,b)=>{
+              return a+Number(b.pay)
+            },0)
+            let ycont=Math.round((ysales>0?ypay/ysales:0.999)*100)+"%"
+            let pcont=Math.round((psales>0?ppay/psales:0.999)*100)+"%"
+
+            html=html+"<tr style='border-top:1px solid gainsboro'><td rowspan='"+yday.length+"'>"+moment(yday[0].inputDate).format("ddd Do")+"</td><td>"+yday[0][splitField]+"</td><td>£"+(yday[0].sales?yday[0].sales.toFixed(2):0)+"</td><td>£"+yday[0].pay.toFixed(2)+"</td><td rowspan='"+yday.length+"'>"+ycont+"</td></tr>"
+            yday.forEach((entry, i) => {
+              if (i>0) {
+                html=html+"<tr><td>"+entry[splitField]+"</td><td>£"+(entry.sales?entry.sales.toFixed(2):0)+"</td><td>£"+entry.pay.toFixed(2)+"</td></tr>"
+              }
+            });
+            html=html+"<tr style='border-top:1px solid gainsboro'><td rowspan='"+pday.length+"'>"+moment(pday[0].inputDate).format("ddd Do")+"</td><td>"+pday[0][splitField]+"</td><td>£"+(pday[0].sales?pday[0].sales.toFixed(2):0)+"</td><td>£"+pday[0].pay.toFixed(2)+"</td><td rowspan='"+pday.length+"'>"+pcont+"</td></tr>"
+            pday.forEach((entry, i) => {
+              if (i>0) {
+                html=html+"<tr><td>"+entry[splitField]+"</td><td>£"+(entry.sales?entry.sales.toFixed(2):0)+"</td><td>£"+entry.pay.toFixed(2)+"</td></tr>"
+              }
+            });
+            html=html+"</table>"
+            infoBox.innerHTML=html
+            infoBox.style.left=left+"px"
+            infoBox.style.top=top+"px"
+            document.body.appendChild(infoBox)
+            let height=(response.length*27)+30
+            if ($(el).is(':hover')) {
+              $(el).css("cursor","initial")
+              $(infoBox).animate({
+                'max-height':height+"px"
+              }, 200, function(){
+                $(infoBox).css('width', '20%').animate({
+                  width:"40%"
+                },200)
+              })
+              $(infoBox).on('mouseleave',function(i) {
+                $('.marqInfo').remove()
+              })
+            }
+            // setTimeout(function(){ $(infoBox).css("max-height",height) }, 50);
+          })
+        }
+        $('.agentMarqHover, .jobMarqHover').on('mouseleave',function(i) {
+          $(this).css("cursor","initial")
+          $('.marqInfo').remove()
+        })
+        function getMarq(el,id,url){
+          let jsonData={}
+          jsonData[id]=$(el).attr("data-"+id)
+          jsonData.yday=$(el).attr("data-yday-date")
+          jsonData.past=$(el).attr("data-past-date")
+          return $.ajax({
+            url: url,
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(jsonData),
+            global:false,
+          });
+        }
+        $('.guideHover').each(function(i) {
+          $(this).tooltip({
+            html:false,
+            placement:'top',
+            title:"Click to view user guide"
+          })
+          $(this).html('<span class="material-icons-outlined">help_outline</span>')
+        });
+        $('.marquee').marquee({
+        	//duration in milliseconds of the marquee
+        	duration: 4000,
+          pauseOnHover:true,
+          startVisible:true,
+        	//gap in pixels between the tickers
+        	gap: 50,
+        	//time in milliseconds before the marquee will start animating
+        	delayBeforeStart: 0,
+        	//'left' or 'right'
+        	direction: 'left',
+        	//true or false - should the marquee be duplicated to show an effect of continues flow
+        	duplicated: true
+        });
+      })
+      $(window).on('load', function () {
+        $('body').css("visibility","visible")
+        $("body").removeClass("loading")
+      })
+    </script>
+    <div class="load"></div>

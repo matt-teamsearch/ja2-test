@@ -1,0 +1,318 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  $(document).ready(function () {
+    var buttonCommon = {
+      exportOptions: {
+        format: {
+          body: function (data, row, column, node) {
+            let val=data
+            if (column === 1) {
+              val=data.replace( /\n.*|<[^>]*>/g, '' )
+            }
+            return val;
+          }
+        }
+      }
+    };
+    $('.card-header').hover(function(e){
+      $(this).find('.supName').css('transform','rotateX(-90deg)')
+      $(this).find('.supEdit').css('transform','rotateX(0deg)')
+    },function(e){
+      $(this).find('.supName').css('transform','rotateX(0deg)')
+      $(this).find('.supEdit').css('transform','rotateX(90deg)')
+    })
+    $('#f2fAgenttable').DataTable({
+      order: [[ 0, "asc" ]],
+      dom: 'Bfrtip',
+      columnDefs:[
+        {
+          targets:'_all',
+          render:function(data){
+            if(data == 'null') {
+              return ""
+            } else {
+              return data
+            }
+          }
+        }
+      ]
+    });
+  });
+  function addSupClick(){
+    window.location.href="/add-f2f-supervisor-page/0"
+  }
+  function addClick(){
+    window.location.href="/add-f2f-agent/0"
+  }
+  function editSupClick(id){
+    window.location.href="/add-f2f-supervisor-page/"+id
+  }
+  function editClick(id){
+    window.location.href="/add-f2f-agent/"+id
+  }
+  function expandAgents(id){
+    if (Math.round($('#agentsBox-'+id).height())==42) {
+      $('#agentsBox-'+id).css('height','640px')
+      $('#agentsBox-'+id).css('background-color','#efdce4')
+      $('#agentsExpand-'+id).html('<i class="fas fa-chevron-up"></i>')
+      $('#f2fStafftable-'+id).DataTable({
+        order: [[ 0, "asc" ]],
+        dom: 'Bfrtip',
+      });
+    }else {
+      $('#agentsBox-'+id).css('height','44px')
+      $('#agentsBox-'+id).css('background-color','var(--subtle)')
+      setTimeout(function(e){
+        $('#f2fStafftable-'+id).DataTable().destroy()
+      },1000)
+      $('#agentsExpand-'+id).html('<i class="fas fa-chevron-down"></i>')
+    }
+  }
+  function filterAreas(){
+    $('.agentsBox').hide()
+    if ($('#areaFilter option:selected').length==0) {
+      $('.agentsBox').show()
+    }else {
+      $('#areaFilter option:selected').each(function(e){
+        let search=$(this).attr('value')
+        $('.agentsBox').each(function(e){
+          let el=this
+          $(el).find('.area').each(function(e){
+            if (search.includes($(this).text())) {
+              $(el).show()
+            }
+          })
+        })
+      })
+    }
+  }
+</script>
+
+<%
+ const dateIf = (inDate, seperator, order) => {
+   if(new Date(inDate).getDate() > -1)
+   {
+     let day =''
+     if (new Date(inDate).getDate() < 10) {
+       day = '0' + new Date(inDate).getDate()
+     } else {
+       day = new Date(inDate).getDate()
+     }
+     let month =''
+     if (new Date(inDate).getMonth()+1 < 10) {
+       month = '0' + (new Date(inDate).getMonth()+1)
+     } else {
+       month = (new Date(inDate).getMonth()+1)
+     }
+     let year = new Date(inDate).getFullYear()
+     if(order=="f"){
+       return(day+seperator+month+seperator+year)
+     }
+     if(order=="r"){
+       return(year+seperator+month+seperator+day)
+     }
+   }
+   else{
+     return ""
+   }
+   }
+   function shorten(str,len){
+     return str?(str.length>len+3?str.substring(0,len)+"...":str):''
+   }
+   %>
+   <style>
+     #client-table td{
+       padding:2px;
+       vertical-align: middle;
+     }
+    table.dataTable tbody tr {
+      cursor: pointer;
+    }
+    div.dt-button-collection {
+      width: max-content!important;
+    }
+    table.dataTable thead th, table.dataTable thead td, table.dataTable tbody th, table.dataTable tbody td{
+      padding: 3px 3px;
+      font-size: small;
+    }
+    .agentsBox{
+      transition: all 1s ease-out;
+      height:44px;
+      overflow:hidden;
+      border: 1px solid #bab8b8;
+      border-radius: 6px;
+      margin-bottom: 5px;
+      background-color: var(--subtle);
+    }
+    .agentsExpand {
+      position: absolute;
+      right: 8px;
+      top: 4px;
+      border:none;
+    }
+    div.card-header {
+      position: relative;
+      transition: background-color 1s ease-out;
+      background:none!important
+    }
+    .area {
+      margin: 3px;
+    }
+    .areas {
+      position: absolute;
+      left: -6px;
+      top: -6px;
+      border: none;
+    }
+    .supEdit{
+      transform: rotateX(90deg);
+      position: absolute;
+      width: 100%;
+      left: 0%;
+      top: 2px;
+      transition: all 0.5s ease-out;
+    }
+    .supName{
+      transform: rotateX(0deg);
+      display:block;
+      transition: all 0.5s ease-out;
+    }
+    .agentsBox.inactive {
+        background-color: #bbbbbb!important;
+        color: grey;
+    }
+    .dataTable td {
+      white-space: nowrap;
+    }
+  </style>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center viewerHeight">
+    <div class="card-body">
+      <h5 class="card-title">F2F Agents</h5>
+      <table class="table table-striped table-compact table-hover table-sm f2fAgenttable" id="f2fAgenttable">
+        <thead class="thead">
+          <tr>
+            <th scope="col">Agent name</th>
+            <th scope="col">Supervisor</th>
+            <th scope="col">Mobile</th>
+            <th scope="col">Landline</th>
+            <th scope="col">Email</th>
+            <th scope="col">Add1</th>
+            <th scope="col">Add2</th>
+            <th scope="col">Add3</th>
+            <th scope="col">Add4</th>
+            <th scope="col">Postcode</th>
+            <th scope="col">Badge ID</th>
+            <th scope="col">Badge issued</th>
+            <th scope="col">Active?</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% agents.forEach((agent, i) => {
+          %>
+          <tr onclick="editClick(<%= agent.agentID %>)">
+            <td><%= agent.agentName %></td>
+            <td><%= supervisors.find(el=>el.id==agent.supervisorID)?supervisors.find(el=>el.id==agent.supervisorID).supervisorName:'' %></td>
+            <td><%= agent.mobilePhone %></td>
+            <td><%= agent.landlinePhone %></td>
+            <td><%= agent.email %></td>
+            <td><%= shorten(agent.add1,10) %></td>
+            <td><%= shorten(agent.add2,10) %></td>
+            <td><%= shorten(agent.add3,10) %></td>
+            <td><%= shorten(agent.add4,10) %></td>
+            <td><%= agent.postcode %></td>
+            <td><%= agent.badgeID %></td>
+            <td><%= agent.badgeIssued?moment(agent.badgeIssued).format("DD/MM/YY"):'' %></td>
+            <td><%= agent.isActive %></td>
+          </tr>
+          <% }) %>
+        </tbody>
+      </table>
+      <button type="button" onclick="addClick()" class="btn btn-sm btn-primary btn-block" id="addClient"><i class="fas fa-plus"></i> Add new agent</button>
+      <br><br>
+      <h5 class="card-title">F2F Supervisors</h5>
+      <select id="areaFilter" onChange="filterAreas()" title="Filter by area..." multiple class="selectpicker customfilters" data-container="body" data-live-search="true">
+        <option value='North East'>North East</option>
+        <option value='North West'>North West</option>
+        <option value='Yorkshire & Humberside'>Yorkshire & Humberside</option>
+        <option value='East Midlands'>East Midlands</option>
+        <option value='West Midlands'>West Midlands</option>
+        <option value='East of England'>East of England</option>
+        <option value='London'>London</option>
+        <option value='South East'>South East</option>
+        <option value='South West'>South West</option>
+        <option value='Scotland'>Scotland</option>
+        <option value='Northern Ireland'>Northern Ireland</option>
+        <option value='Wales'>Wales</option>
+        <option value='Channel Islands'>Channel Islands</option>
+      </select>
+      <br><br>
+        <% supervisors.forEach((sup, i) => {
+        %>
+        <div class="agentsBox <%=!sup.isActive?"inactive":""%>" id="agentsBox-<%=sup.id%>">
+        <div class="card-header">
+          <span class="supName"><%=sup.supervisorName%> (<%=agents.filter(el=>el.supervisorID==sup.id).length%> agents)</span>
+          <span class="supEdit"><button type="button" class="btn btn-warning" onclick="editSupClick(<%=sup.id%>)">Edit <%=sup.supervisorName%></button></span>
+          <button type="button" class="btn btn-outline-secondary btn-flat agentsExpand" id="agentsExpand-<%=sup.id%>" onclick="expandAgents(<%=sup.id%>)"><i class="fas fa-chevron-down"></i></button>
+          <div class="areas">
+            <%areas.filter(el=>el.supervisorID==sup.id).forEach((area, i) => {%><span class="area badge badge-dark"><%=area.area%></span><%});%>
+          </div>
+        </div>
+          <div class="detailsBox">
+            <div class="phoneLine"><a target="_blank" href="tel:<%=sup.landlinePhone%>"><%=sup.landlinePhone%></a></div>
+            <div class="phoneLine"><a target="_blank" href="tel:<%=sup.mobilePhone%>"><%=sup.mobilePhone%></a></div>
+            <div class="email"><a target="_blank" href="mailto:<%=sup.email%>"><%=sup.email%></a></div>
+            <div class="addressBox">
+              <div class="addressLine"><%=sup.add1%></div>
+              <div class="addressLine"><%=sup.add2%></div>
+              <div class="addressLine"><%=sup.add3%></div>
+              <div class="addressLine"><%=sup.add4%></div>
+              <div class="addressLine"><%=sup.postcode%></div>
+            </div>
+          </div>
+          <table class="table table-striped table-compact table-hover table-sm f2fStafftable" id="f2fStafftable-<%=sup.id%>">
+            <thead class="thead">
+              <tr>
+                <th scope="col">Agent name</th>
+                <th scope="col">Mobile</th>
+                <th scope="col">Landline</th>
+                <th scope="col">Email</th>
+                <th scope="col">Add1</th>
+                <th scope="col">Add2</th>
+                <th scope="col">Add3</th>
+                <th scope="col">Add4</th>
+                <th scope="col">Postcode</th>
+                <th scope="col">Badge ID</th>
+                <th scope="col">Badge issued</th>
+                <th scope="col">Active?</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% agents.filter(el=>el.supervisorID==sup.id).forEach((agent, i) => {
+              %>
+              <tr onclick="editClick(<%= agent.agentID %>)">
+                <td><%= agent.agentName %></td>
+                <td><%= agent.mobilePhone %></td>
+                <td><%= agent.landlinePhone %></td>
+                <td><%= agent.email %></td>
+                <td><%= shorten(agent.add1,10) %></td>
+                <td><%= shorten(agent.add2,10) %></td>
+                <td><%= shorten(agent.add3,10) %></td>
+                <td><%= shorten(agent.add4,10) %></td>
+                <td><%= agent.postcode %></td>
+                <td><%= agent.badgeID %></td>
+                <td><%= agent.badgeIssued?moment(agent.badgeIssued).format("DD/MM/YY"):'' %></td>
+                <td><%= agent.isActive %></td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+          <button type="button" onclick="addClick(<%=sup.id%>)" class="btn btn-sm btn-primary btn-block" id="addClient"><i class="fas fa-plus"></i> Add new agent</button>
+        </div>
+        <% }) %>
+      <button type="button" onclick="addSupClick()" class="btn btn-primary btn-block" id="addSup"><i class="fas fa-plus"></i> Add new supervisor</button>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

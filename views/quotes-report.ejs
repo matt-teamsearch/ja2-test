@@ -1,0 +1,129 @@
+<%- include('partials/'+versionPages.header) %>
+<style media="screen">
+  .pageTables .tabulator-col-content {
+    padding: 3px!important;
+  }
+  .pageTables .tabulator-header .tabulator-col.tabulator-sortable .tabulator-col-title {
+    padding-right: 16px!important;
+  }
+  .pageTables .tabulator-cell {
+    padding: 4px!important;
+  }
+  #quoteTable .tabulator-cell[aria-checked="false"]>svg {
+    visibility: hidden;
+  }
+</style>
+<div class="container">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h2>Quotes</h2>
+      <div class="quoteTiles tileContainer">
+
+      </div>
+      <button type="button" class="btn btn-sm btn-xlsx" style="float:left;" onclick='Tabulator.prototype.findTable("#quoteTable")[0].download("xlsx", "Quotes "+moment(stdate).format("Do MMM YY")+" - "+moment(endate).format("Do MMM YY")+".xlsx")'>Excel</button>
+      <div class="pageTables" id="quoteTable">
+
+      </div>
+      <h2>Chase-ups</h2>
+      <div class="chaseTiles tileContainer">
+
+      </div>
+      <button type="button" class="btn btn-sm btn-xlsx" style="float:left;" onclick='Tabulator.prototype.findTable("#chaseTable")[0].download("xlsx", "Quote chases "+moment(stdate).format("Do MMM YY")+" - "+moment(endate).format("Do MMM YY")+".xlsx")'>Excel</button>
+      <div class="pageTables" id="chaseTable">
+
+      </div>
+    </div>
+  </div>
+</div>
+<script type="text/javascript">
+  let stdate='<%=stdate%>'
+  let endate='<%=endate%>'
+  if(stdate=='0'){
+    stdate=tsDates().lastQtrStart
+  }
+  if(endate=='0'){
+    endate=tsDates().lastQtrEnd
+  }
+  let dateSorter=(a,b,r1,r2,c,d)=>{
+    let down=d=='asc'?-1:1
+    let up=d=='desc'?1:-1
+    return a==b?0:(!a?up:(!b?down:moment(a).valueOf()-moment(b).valueOf()))
+  }
+  let quoteTable=new Tabulator('#quoteTable',{
+    ajaxURL:'/all-quotes',
+    ajaxParams:{stDate:stdate,enDate:endate},
+    layout:'fitColumns',
+    height:400,
+    columns:[
+    // {title:"",width:10},
+    // {title:"", field:"period",widthGrow:2},
+    {field:'quote',title:'Project',mutator:(v,d)=>d.quoteNo+" "+d.quoteName,widthGrow:3},
+    {field:'clientName',title:'Client',widthGrow:2},
+    {field:'contactName',title:'Contact',widthGrow:2},
+    {field:'contactEmail',title:'Email',widthGrow:2},
+    {field:'quoteDate',title:'Quoted',sorter:dateSorter,formatter:'datetime',formatterParams:{outputFormat:'DD/MM/YYYY'},hozAlign:"center"},
+    {field:'isQuoteAsBusiness',title:'B2B',formatter:'tickCross',formatterParams:{allowTruthy:true},hozAlign:"center"},
+    {field:'isQuoteAsConsumer',title:'Consumer',formatter:'tickCross',formatterParams:{allowTruthy:true},hozAlign:"center"},
+    {field:'isQuoteAsCATI',title:'CATI',formatter:'tickCross',formatterParams:{allowTruthy:true},hozAlign:"center"},
+    {field:'isQuoteAsOnline',title:'Online',formatter:'tickCross',formatterParams:{allowTruthy:true},hozAlign:"center"},
+    {field:'isQuoteAsFace',title:'F2F',formatter:'tickCross',formatterParams:{allowTruthy:true},hozAlign:"center"},
+    {field:'isQuoteAsRecruitment',title:'Recruit',formatter:'tickCross',formatterParams:{allowTruthy:true},hozAlign:"center"},
+    {field:'isQuoteAsInternational',title:'International',formatter:'tickCross',formatterParams:{allowTruthy:true},hozAlign:"center"},
+    {field:'isQuoteAsDP',title:'DP',formatter:'tickCross',formatterParams:{allowTruthy:true},hozAlign:"center"},
+    {field:'commissionDate',title:'Commissioned',formatter:'datetime',formatterParams:{outputFormat:'DD/MM/YYYY'}},
+    {field:'daysToCommission',title:'Days to commission',mutator:(v,d)=>d.commissionDate?moment(d.commissionDate).diff(d.quoteDate,'days'):null,formatter:c=>c.getValue()?Math.round(c.getValue()):''},
+    ]
+  })
+  let chaseTable=new Tabulator('#chaseTable',{
+    ajaxURL:'/all-quotes',
+    ajaxParams:{stDate:stdate,enDate:endate},
+    ajaxResponse:(u,p,data)=>data.filter(el=>el.chased && !el.projectID),
+    layout:'fitColumns',
+    height:400,
+    columns:[
+    {field:'quote',title:'Project',mutator:(v,d)=>d.quoteNo+" "+d.quoteName,widthGrow:3},
+    {field:'clientName',title:'Client',widthGrow:2},
+    {field:'contactName',title:'Contact',widthGrow:2},
+    {field:'contactEmail',title:'Email',widthGrow:2,formatter:c=>c.getValue().indexOf("@")>-1?"<a href='mailto:"+c.getValue()+"?subject=RFQ%20"+c.getData().quoteNo+"%20"+c.getData().quoteName+"'>"+c.getValue()+"</a>":'',cellClick:(e,c)=>setTimeout(()=>$('body').removeClass('loading'),1000)},
+    {field:'quoteDate',title:'Quoted',sorter:dateSorter,formatter:'datetime',formatterParams:{outputFormat:'DD/MM/YYYY'},widthGrow:2},
+    {field:'chased',title:'Chased',sorter:dateSorter,formatter:'datetime',formatterParams:{outputFormat:'DD/MM/YYYY'},widthGrow:2},
+    {field:'timeSince',title:'Days since chase',mutator:(v,d)=>moment().diff(d.chased,'days'),formatter:c=>Math.round(c.getValue())},
+    {field:'chaseOutcome',title:'Responded',formatter:'tickCross',formatterParams:{allowTruthy:true},hozAlign:"center"},
+    {field:'chaseOutcome',title:'Response',widthGrow:4},
+    ]
+  })
+  $().reportFilter({
+    filters:{
+      stDate:stdate,
+      enDate:endate,
+      client:[]
+    },
+    onRefresh:vals=>{
+      console.log(vals)
+      stdate=vals.stDate
+      endate=vals.enDate
+      vals.client=Array.isArray(vals.client)?vals.client:(vals.client!=0?[vals.client]:null)
+      let v={stDate:vals.stDate,enDate:vals.enDate,client:vals.client}
+      loadTiles(v)
+      chaseTable.setData('/all-quotes',v)
+      quoteTable.setData('/all-quotes',v)
+    }
+  })
+  function loadTiles(params){
+    $('.quoteTiles').reportTiles([
+      {preset:'quotesByMonth',presetParams:params,presetConfig:{width:'60%'}},
+      {preset:'quotesByMethod',presetParams:params},
+      {preset:'commissionRate',presetParams:params},
+      {preset:'daysToCommission',presetParams:params,presetConfig:{width:'60%'}},
+    ])
+    $('.chaseTiles').reportTiles([
+      {preset:'quoteChaseOutcomes',presetParams:params},
+      {preset:'quoteChaseOthOutcomes',presetParams:params},
+      {preset:'quoteChaseResponse',presetParams:params},
+      {preset:'quoteChaseEffectiveness',presetParams:params},
+    ])
+  }
+  loadTiles({stDate:stdate,enDate:endate})
+</script>
+</body>
+</html>

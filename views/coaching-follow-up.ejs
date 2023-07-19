@@ -1,0 +1,396 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .col-form-label{
+    text-align:left;
+  }
+  .is-invalid{
+    background-color: #dc35451a;
+  }
+  #PDP, #PDPextend{
+    -webkit-transform: scale(2);
+    margin: 12px 5px;
+    width: 15px;
+  }
+  ul{
+    padding: 4px;
+    font-size: small;
+    margin-left:12px;
+  }
+  .col-sm-1{
+    line-height: 2.2em;
+  }
+  .qcTable{
+    font-size:small;
+  }
+  .qcTable td {
+      text-align: left;
+      border-top: 1px solid gainsboro;
+      padding: 1px 10px;
+  }
+  .qcTable th {
+      background: gainsboro;
+  }
+  <%
+  const dateIf = (inDate, seperator, order) => {
+    let day =''
+    if (new Date(inDate).getDate() < 10) {
+      day = '0' + new Date(inDate).getDate()
+    } else {
+      day = new Date(inDate).getDate()
+    }
+    let month =''
+    if (new Date(inDate).getMonth()+1 < 10) {
+      month = '0' + (new Date(inDate).getMonth()+1)
+    } else {
+      month = (new Date(inDate).getMonth()+1)
+    }
+    let year = new Date(inDate).getFullYear()
+    if(order=="f"){
+      return(day+seperator+month+seperator+year)
+    }
+    if(order=="r"){
+      return(year+seperator+month+seperator+day)
+    }
+  }
+  function pad(str, max) {
+    str = str.toString();
+    return str.length < max ? pad("0" + str, max) : str;
+  }
+  %>
+</style>
+  <div class="container" id="content" style="padding-top:70px;">
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body viewerHeight">
+      <form role="form" action="" method="post" enctype="multipart/form-data" id="CoachingFollowupForm">
+        <h5 class="card-title">Coaching record</h5>
+        <button type="button" id="cmd" class="btn btn-sm btn-info">Download to Word</button>
+        <input type="number" id="coachingID" name="coachingID" value="<%= followup[0].coachingID %>" style="display:none;">
+        <input type="text" id="coachedBy" name="coachedBy" value="<%= followup[0].staffName %>" style="display:none;">
+        <input type="number" id="agentID" name="agentID" value="<%= followup[0].agentID %>" style="display:none;">
+        <input type="number" id="jobID" name="jobID" value="<%= followup[0].jobID %>" style="display:none;">
+          <div class="form-group row">
+            <label for="agent_select" class="col-sm-2 col-form-label">Agent</label>
+            <div class="col-sm-10">
+              <select class="selectpicker agent_select" data-width="100%" data-live-search="true" name="agent_select" id="agent_select" <%if (followup[0].agentID) {%>disabled<%}%> required>
+                  <option value=""></option>
+                  <%
+                  let checkAgent=0
+                  if (followup[0]) {
+                    checkAgent=followup[0].agentID
+                  }
+                  agents.forEach((agent, index) => {%>
+                    <option value="<%= agent.agentID %>" <%if (agent.agentID == checkAgent) {%>selected<%}%>><%= agent.agentName %></option>
+                  <% }) %>
+              </select>
+            </div>
+          </div>
+          <div class="form-group row">
+            <label for="coachingDate" class="col-sm-2 col-form-label">Coaching date</label>
+            <div class="col-sm-10">
+              <input class="form-control" type="date" id="coachingDate" name="coachingDate" readonly value="<%=dateIf(followup[0].coachingDate,"-","r")%>">
+            </div>
+          </div>
+          <div class="form-group row">
+            <label for="job_select" class="col-sm-2 col-form-label">Job name</label>
+            <div class="col-sm-10">
+              <select class="selectpicker job_select" data-width="100%" data-live-search="true" name="job_select" id="job_select" <%if (followup[0].jobID) {%>disabled<%}%> required>
+                  <option value=""></option>
+                  <%
+                  let checkJob=0
+                  if (followup[0]) {
+                    checkJob=followup[0].jobID
+                  }
+                  jobs.forEach((job, index) => { %>
+                    <option value="<%= job.jobID %>" <%if (job.jobID == checkJob) {%>selected<%}%>><%= job.jobName %></option>
+                  <% }) %>
+              </select>
+            </div>
+          </div>
+          <div class="form-group row">
+            <div class="col-sm-2 col-form-label"><%=followup[0].qualityControlID?followup[0].type:'QC'%> check fed back</div>
+            <div class="col-sm-10">
+              <% if (followup[0].qualityControlID) {
+                let tdStyle="text-align: left;border-top: 1px solid gainsboro;padding: 1px 10px;margin-bottom: 0pt;"
+                let thStyle="background: gainsboro;"
+                console.log(followup[0])
+                %>
+                <a href="/edit-qc-check/<%=followup[0].qualityControlID%>"><%=followup[0].qualityControlID%></a>
+                <p class='controllerQuote' align=center style="margin-bottom:0.2cm;margin-top:0.2cm;text-align:center;
+                line-height:normal;font-size: 11pt;font-family:'Calibri',sans-serif;"><i>"<%=followup[0].controllerNotes%>"</i></p>
+                <table class="qcTable" style="font-size: 10pt;font-family:'Calibri',sans-serif;">
+                  <%if(followup[0].hardScore!=null){%>
+                  <tr><th colspan="3" style="<%=thStyle%>">Hard score: <%=followup[0].hardScore%></th></tr>
+                  <%
+                  qcIssues.filter(el=>el.issueType=='Call').forEach((issue, i) => {%>
+                    <tr>
+                      <td class=MsoNormal style="<%=tdStyle%>"><%=issue.issue%></td>
+                      <td class=MsoNormal style="<%=tdStyle%>white-space: nowrap;"><%=issue.issueScore%></td>
+                      <td class=MsoNormal style="<%=tdStyle%>"><%=issue.note%></td>
+                    </tr>
+                  <%});%>
+                  <%}%>
+                  <%if(followup[0].softScore!=null){%>
+                  <tr><th colspan="3" style="<%=thStyle%>">Soft score: <%=followup[0].softScore%></th></tr>
+                  <%qcIssues.filter(el=>el.issueType=='soft').forEach((issue, i) => {%>
+                    <tr>
+                      <td class=MsoNormal style="<%=tdStyle%>"><%=issue.issue%></td>
+                      <td class=MsoNormal style="<%=tdStyle%>white-space: nowrap;"><%=issue.issueScore%></td>
+                      <td class=MsoNormal style="<%=tdStyle%>"><%=issue.note%></td>
+                    </tr>
+                  <%});%>
+                  <%}%>
+                </table>
+              <%}else {%>
+                <div style="text-align:left;width:100%">N/A</div>
+              <%}%>
+            </div>
+          </div>
+          <div class="form-group row">
+            <div class="col-sm-2 col-form-label">Advisories</div>
+            <div class="col-sm-10" id="advisories">
+              <ul style="text-align:left; padding-left:12px">
+              <%advisories.forEach((advisory, index) => { %>
+                <li><%= advisory.issue %></li>
+              <%})%>
+              </ul>
+            </div>
+          </div>
+          <hr/>
+          <div class="form-group row">
+            <label for="coachingFollowUpDate" class="col-sm-2 col-form-label">Follow-up due date</label>
+            <div class="col-sm-10">
+              <input type="date" style="display:none;" id="originalFollowUpDate" name="originalFollowUpDate" value="<%=(followup[0].coachingFollowUpDate) ? dateIf(followup[0].coachingFollowUpDate,"-","r") : ""%>"/>
+              <input class="form-control checkRO" type="date" id="coachingFollowUpDate" name="coachingFollowUpDate" min="<%=dateIf(followup[0].coachingDate,"-","r")%>" value="<%=(followup[0].coachingFollowUpDate) ? dateIf(followup[0].coachingFollowUpDate,"-","r") : ""%>"/>
+            </div>
+          </div>
+          <div class="form-group row" id="coachingFollowUp">
+            <label for="coachingFollowUpNotes" class="col-sm-2 col-form-label">SMART Target</label>
+            <div class="col-sm-10">
+              <textarea id="coachingFollowUpNotes" name="coachingFollowUpNotes" rows="8" class="form-control checkRO"><%=followup[0].coachingFollowUpNotes%></textarea>
+            </div>
+          </div>
+          <hr/>
+          <div class="form-group row">
+            <label for="coachingfollowedUpDate" class="col-sm-2 col-form-label">Date followed-up</label>
+            <div class="col-sm-10">
+              <input class="form-control checkRO" type="date" id="coachingfollowedUpDate" name="coachingfollowedUpDate" min="<%=dateIf(followup[0].coachingDate,"-","r")%>" value="<%=(followup[0].coachingfollowedUpDate) ? dateIf(followup[0].coachingfollowedUpDate,"-","r") : ""%>" <%if (followup[0].coachingfollowedUpDate) {%>readonly<%}%>/>
+            </div>
+          </div>
+          <div class="form-group row" id="coachingfollowedUp">
+            <label for="coachingfollowedUpNotes" class="col-sm-2 col-form-label">Review of SMART Target</label>
+            <div class="col-sm-10">
+              <textarea id="coachingfollowedUpNotes" name="coachingfollowedUpNotes" rows="8" class="form-control checkRO" placeholder="Notes regarding the success or failure to achieve the SMART Target"><%=followup[0].coachingfollowedUpNotes%></textarea>
+            </div>
+          </div>
+          <hr/>
+          <div class="form-group row">
+            <label for="PDP" class="col-sm-2 col-form-label">Trigger PDP?</label>
+            <div class="col-sm-10">
+              <input type="checkbox" id="PDP" name="PDP" class="form-control checkDis" <%if (followup[0].PDP==1) {%>checked<%}%>/>
+            </div>
+          </div>
+          <div id="PDPcont">
+            <div class="form-group row">
+              <label for="pdpStartDate" class="col-sm-2 col-form-label">PDP starts</label>
+              <div class="col-sm-10">
+                <input class="form-control checkRO" type="date" id="pdpStartDate" name="pdpStartDate" min="<%=(followup[0].coachingfollowedUpDate) ? dateIf(followup[0].coachingfollowedUpDate,"-","r") : ""%>" value="<%=(followup[0].pdpStartDate) ? dateIf(followup[0].pdpStartDate,"-","r") : ""%>" <%if (followup[0].pdpStartDate) {%>readonly<%}%>/>
+              </div>
+            </div>
+            <div class="form-group row">
+              <label for="pdpEndDate" class="col-sm-2 col-form-label">PDP expires</label>
+              <div class="col-sm-10">
+                <input class="form-control checkRO" type="date" id="pdpEndDate" name="pdpEndDate" min="<%=(followup[0].coachingfollowedUpDate) ? dateIf(followup[0].coachingfollowedUpDate,"-","r") : ""%>" value="<%=(followup[0].pdpEndDate) ? dateIf(followup[0].pdpEndDate,"-","r") : ""%>" <%if (followup[0].pdpEndDate) {%>readonly<%}%>/>
+              </div>
+            </div>
+            <div class="form-group row">
+              <label for="PDPNotes" class="col-sm-2 col-form-label">PDP Notes</label>
+              <div class="col-sm-10">
+                <textarea id="PDPNotes" name="PDPNotes" rows="8" class="form-control checkRO"><%=followup[0].pdpNotes%></textarea>
+              </div>
+            </div>
+            <div class="form-group row">
+              <label for="PDPextend" class="col-sm-2 col-form-label">Extend PDP?</label>
+              <div class="col-sm-10">
+                <input type="checkbox" id="PDPextend" name="PDPextend" class="form-control checkDis" <%if (followup[0].pdpExtensionDate) {%>checked<%}%>/>
+              </div>
+            </div>
+            <div class="form-group row extend">
+              <label for="pdpExtensionDate" class="col-sm-2 col-form-label">PDP extended until</label>
+              <div class="col-sm-10">
+                <input class="form-control checkRO" type="date" id="pdpExtensionDate" name="pdpExtensionDate" min="<%=(followup[0].pdpEndDate) ? dateIf(followup[0].pdpEndDate,"-","r") : ""%>" value="<%=(followup[0].pdpExtensionDate) ? dateIf(followup[0].pdpExtensionDate,"-","r") : ""%>" <%if (followup[0].pdpExtensionDate) {%>readonly<%}%>/>
+              </div>
+            </div>
+            <div class="form-group row">
+              <label for="pdpOutcome" class="col-sm-2 col-form-label">PDP Outcome</label>
+              <div class="col-sm-10">
+                <select class="selectpicker pdpOutcome" data-width="100%" data-live-search="true" name="pdpOutcome" id="pdpOutcome">
+                    <option value=""></option>
+                      <option value="Completed" <%if (followup[0].pdpOutcome == "Completed") {%>selected<%}%>>Completed</option>
+                      <option value="Failed" <%if (followup[0].pdpOutcome == "Failed") {%>selected<%}%>>Failed</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        <button type="submit" id="formSubmit" class="btn btn-primary">Update</button>
+        <button type="button" id="delete" class="btn btn-danger">Delete</button>
+      </form>
+      </div>
+    </div>
+  </div>
+<div id="emeditor" style="display:none;"></div>
+<script>
+  $(document).ready(function () {
+    if ($('#pdpOutcome').val()!="") {
+      $(".checkRO").each(function(){
+        $(this).prop("readonly",true)
+      })
+      $(".checkDis").each(function(){
+        $(this).prop("disabled",true)
+      })
+    }
+    checkHides()
+    function exportHTML(){
+      var bulletStart=`<li><p class=MsoNormal style='margin-bottom:0cm;line-height:normal'><span
+      style='color:black'>`
+      var bulletEnd="</span></p></li>"
+      var dte=new Date()
+      fetch('/templates/Coaching record template.htm')
+       .then((response) => response.text())
+       .then((template) => {
+         var rendered = Mustache.render(template, {
+           coachingID: $('#coachingID').val(),
+           AgentName: $('#agent_select option:selected').text(),
+           coachingDate: dateIf($('#coachingDate').val(),"/","f"),
+           coachedBy: $('#coachedBy').val(),
+           jobName: $('#job_select option:selected').text(),
+           advisories: $('#advisories ul').html().replace(/\<li>/g, bulletStart).replace(/\<\/li>/g,bulletEnd),
+           qcCheck: <%-followup[0].qualityControlID?"$('.controllerQuote')[0].outerHTML+$('.qcTable')[0].outerHTML":"'N/A'"%>,
+           followUpNotes: $('textarea#coachingFollowUpNotes').val(),
+           followUpDate: $('#coachingFollowUpDate').val()?dateIf($('#coachingFollowUpDate').val(),"/","f"):"N/A",
+           coachingFollowedUpDate: $('#coachingFollowedUpDate').val()?dateIf($('#coachingFollowedUpDate').val(),"/","f"):"N/A",
+           coachingFollowedUpNotes: $('#coachingfollowedUpNotes').val(),
+           PDP: $('#coachingFollowedUpDate').val()?$('#PDP').prop('checked') ? "Y":"N":"N/A",
+           pdpStartDate: $('#pdpStartDate').val()?dateIf($('#pdpStartDate').val(),"/","f"):"N/A",
+           pdpEndDate: $('#pdpEndDate').val()?dateIf($('#pdpEndDate').val(),"/","f"):"N/A",
+           pdpExtensionDate: $('#pdpExtensionDate').val()?dateIf($('#pdpExtensionDate').val(),"/","f"):"N/A",
+           pdpNotes: $('textarea#pdpNotes').val(),
+           pdpOutcome: $('#pdpOutcome option:selected').text(),
+           date: dte.toISOString()
+         });
+         document.getElementById('emeditor').innerHTML = rendered;
+         var sourceHTML = document.getElementById("emeditor").innerHTML;
+         var source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
+         var fileDownload = document.createElement("a");
+         document.body.appendChild(fileDownload);
+         fileDownload.href = source;
+         fileDownload.download = $('#agent_select option:selected').text()+' Coaching Record - ID '+$('#coachingID').val()+' - '+dateIf(dte,"","f")+'.doc';
+         fileDownload.click();
+         document.body.removeChild(fileDownload);
+         document.getElementById('emeditor').innerHTML=""
+       });
+    }
+    $('#cmd').click(function () {
+      exportHTML()
+    });
+  })
+  $(document).on('change', '#PDP, #coachingFollowUpDate, #coachingfollowedUpDate, #PDPextend, #pdpOutcome', function(evt) {
+    checkHides()
+    checkDisabled()
+  })
+  function checkHides(){
+    if ($('#PDP').prop("checked")) {
+      $("#PDPcont").show()
+      $("#pdpStartDate").prop("required",true)
+      $("#pdpEndDate").prop("required",true)
+    }else {
+      $("#PDPcont").hide()
+      $("#pdpStartDate").prop("required",false)
+      $("#pdpEndDate").prop("required",false)
+    }
+    if ($('#coachingFollowUpDate').val()!="") {
+      $("#coachingFollowUp").show()
+    }else {
+      $("#coachingFollowUp").hide()
+    }
+    if ($('#coachingfollowedUpDate').val()!="") {
+      $("#coachingfollowedUp").show()
+    }else {
+      $("#coachingfollowedUp").hide()
+    }
+    if ($('#PDPextend').prop("checked")) {
+      $(".extend").show()
+      $("#pdpExtensionDate").prop("required",true)
+    }else {
+      $(".extend").hide()
+      $("#pdpExtensionDate").prop("required",false)
+    }
+  }
+  function checkDisabled(){
+    if ($('#pdpOutcome').val()!="") {
+      $(".checkRO").each(function(){
+        $(this).prop("readonly",true)
+      })
+      $(".checkDis").each(function(){
+        $(this).prop("disabled",true)
+      })
+    }else {
+      $(".checkRO").each(function(){
+        $(this).prop("readonly",false)
+      })
+      $(".checkDis").each(function(){
+        $(this).prop("disabled",false)
+      })
+    }
+  }
+  $(document).on('click', '#delete', function(evt) {
+    if (confirm("Are you sure you want to delete this coaching session, along with any related follow-ups & PDPs?")) {
+      window.location.href=("/delete-coaching-session/" + $('#coachingID').val())
+    }
+  })
+  function getErrorMessage(jqXHR, exception) {
+    var msg = '';
+    if (jqXHR.status === 0) {
+       msg = 'Not connect.\n Verify Network.';
+    } else if (jqXHR.status == 404) {
+       msg = 'Requested page not found. [404]';
+    } else if (jqXHR.status == 500) {
+       msg = 'Internal Server Error [500]. '+JSON.parse(jqXHR.responseText).error;
+    } else if (exception === 'parsererror') {
+       msg = 'Requested JSON parse failed.';
+    } else if (exception === 'timeout') {
+       msg = 'Time out error.';
+    } else if (exception === 'abort') {
+       msg = 'Ajax request aborted.';
+    } else {
+       msg = 'Uncaught Error.\n' + jqXHR.responseText;
+    }
+    return msg;
+  }
+  function pad(str, max) {
+    str = str.toString();
+    return str.length < max ? pad("0" + str, max) : str;
+  }
+  const dateIf = (inDate, seperator, order) => {
+    let day =''
+    if (new Date(inDate).getDate() < 10) {
+      day = '0' + new Date(inDate).getDate()
+    } else {
+      day = new Date(inDate).getDate()
+    }
+    let month =''
+    if (new Date(inDate).getMonth()+1 < 10) {
+      month = '0' + (new Date(inDate).getMonth()+1)
+    } else {
+      month = (new Date(inDate).getMonth()+1)
+    }
+    let year = new Date(inDate).getFullYear()
+    if(order=="f"){
+      return(day+seperator+month+seperator+year)
+    }
+    if(order=="r"){
+      return(year+seperator+month+seperator+day)
+    }
+  }
+</script>
+</body>
+</html>

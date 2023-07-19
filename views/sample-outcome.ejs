@@ -1,0 +1,1402 @@
+<%- include('partials/'+versionPages.header) %>
+<script type="text/javascript" src="https://survey.teamsearchsurvey.co.uk/AskiaVistaReader.Net4/Scripts/askiavista.js"></script>
+<script type="text/javascript" src="/js/jstelnumbers.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<script type="text/javascript">
+  function shorten(str,len){
+    return str.length>len+3?str.substring(0,len)+"...":str
+  }
+  function maxLen(str,max){
+    let ret=str
+    if (str && (typeof str === 'string' || str instanceof String)) {
+      ret=str.substring(0,max)
+    }
+    return ret
+  }
+  function validateEmail(email) {
+    const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    return re.test(String(email).toLowerCase());
+  }
+  function cleanStr(input) {
+    var output = "";
+    for (var i=0; i<input.length; i++) {
+      if ((input.charCodeAt(i) <= 127 && input.charCodeAt(i)>31) || input.charCodeAt(i)==9) {
+        output += input.charAt(i);
+      }else if(input.charCodeAt(i)==8216 || input.charCodeAt(i)==8217) {
+        output +="'"
+      }else if(input.charCodeAt(i)==8211) {
+        output +="-"
+      }
+    }
+    if (output.split(/\t/g)[0]) {
+      output=output.split(/\t/g)[0]
+    }
+    return output;
+  }
+  var socket = io();
+  $(document).ready(function () {
+
+    $('#sid').attr("value",socket.id)
+    $('.pasteCont')[0].addEventListener('paste',function(e){
+      e.preventDefault();
+      const data = e.clipboardData.getData('text');
+      if (data.length>1000000) {
+        alert("Too many records to paste in. Try uploading a file instead.")
+      }else {
+        $('.fileUpload.sample').removeClass("required")
+        $('.fileUpload.sample').attr("required",false)
+        uploadFile('sample',false,data)
+      }
+    })
+    $('.selectpicker:last').on('loaded.bs.select',function(e){
+      $('.dropdown-toggle.bs-placeholder, .addManualInput').tooltip()
+    })
+    $('.page-wrapper').loader()
+
+
+
+
+    askiaVista.config({
+        url: "https://survey.teamsearchsurvey.co.uk/AskiaVistaReader.Net4/AjaxEmbedHandler.aspx",
+        authenticityToken: "9a2bf464-c055-4743-810c-716672cead5c",
+    });
+    //Forsta Release
+    $.ajax("/get-forsta-surveys").then(data=>{
+      var opt=new Option('Upload data export (txt or Excel)', '')
+      opt.className="manualUpload"
+      $("select.jobSelect.completes").append(opt);
+      let optGrp=document.createElement("optgroup")
+      optGrp.label="Forsta"
+      data.forEach((item, i) => {
+        let opt=new Option(item.name, item.id)
+        $(opt).attr("data-source","Forsta")
+        $(optGrp).append(opt);
+      });
+      $("select.jobSelect.completes").append(optGrp);
+      //AskiaVista
+      askiaVista.getSurveys({
+        success : function (data, query) {
+          var vistaData=JSON.parse(data)
+          let optGrp=document.createElement("optgroup")
+          optGrp.label="Askia"
+          vistaData.forEach((item, i) => {
+            let opt=new Option(item.name, item.name)
+            $(opt).attr("data-source","Askia")
+            $(optGrp).append(opt);
+          });
+          $("select.jobSelect.completes").append(optGrp);
+          updateMapping(true,true)
+          $("select.jobSelect.completes").selectpicker('refresh')
+          $('.page-wrapper').loader('done')
+        },
+        error : function (message, query) {
+          alert(message);
+        }
+      });
+      //AskiaVista end
+      // updateMapping(true,true)
+      // $("select.jobSelect.completes").selectpicker('refresh')
+      // $('.page-wrapper').loader('done')
+    })
+
+    $('select:required').addClass("required")
+    $('.fileUpload.sample').addClass("required")
+    $('.fileUpload.sample').attr("required",true)
+    $('select.surveyQs,select.customList').on('change',function(e){
+      let el=this
+      let type=$(this).hasClass('completes')?'completes':'sample'
+      updateMapping()
+      $('.submitData.'+type).prop('disabled',true)
+      $(".fileUpload."+type).removeClass("is-invalid")
+      $('.previewTable.'+type).hide()
+      if ($('select.jobSelect.'+type).val() || $(".fileUpload."+type).val() || $(".uploadJSON."+type).attr('value')) {
+        if ($(el).val()=="addManual") {
+          $(el).closest('.bootstrap-select').after('<input type="'+($(el).attr('id')=='interviewedQ'+type?'date':'text')+'" class="form-control addManualInput '+($(el).hasClass('oneRequired')?'oneRequired':'')+' '+type+'" data-field="'+$(el).attr("title")+'" id="'+$(el).attr('id')+'-manual"></input>')
+          $(el).closest('.bootstrap-select').hide()
+          var man=$("[data-field='"+$(el).attr('title')+"'].addManualInput."+type)
+          man.tooltip()
+          man.focus()
+          man.on("change",function(e){
+            if (man.val()) {
+              if ($('select.jobSelect.'+type).val() || $(".uploadJSON."+type).attr('value')) {
+                // loadData($('select.jobSelect.'+type).val(),$('select.surveyQs.'+type+':first option').map((e,t)=>t.value).get().includes("JA2ID"),type)
+                $('.refreshData.'+type).prop('disabled',false)
+              }else {
+                $('select.jobSelect.bootstrap-select.'+type).addClass("is-invalid")
+                $('.refreshData.'+type).prop('disabled',true)
+
+              }
+            }else {
+              $('.refreshData.'+type).prop('disabled',false)
+              // loadData($('select.jobSelect.'+type).val(),$('select.surveyQs.'+type+':first option').map((e,t)=>t.value).get().includes("JA2ID"),type)
+              $(el).val(null)
+              $(el).selectpicker('refresh')
+              $(el).closest('.bootstrap-select').show()
+              man.remove()
+            }
+          })
+        }else {
+          $('.refreshData.'+type).prop('disabled',false)
+          // loadData($('select.jobSelect.'+type).val(),$('select.surveyQs.'+type+':first option').map((e,t)=>t.value).get().includes("JA2ID"),type)
+        }
+      }else {
+        $('.refreshData.'+type).prop('disabled',true)
+        $('select.jobSelect.bootstrap-select.'+type).addClass("is-invalid")
+        $(".fileUpload."+type).addClass("is-invalid")
+      }
+    })
+    $('.refreshData').on('click',function(e){
+      let type=$(this).hasClass('completes')?'completes':'sample'
+      if (checkFormValidiy(type)) {
+        loadData($('select.jobSelect.'+type).val(),$('select.surveyQs.'+type+':first option').map((e,t)=>t.value).get().includes("JA2ID"),type)
+      }
+    })
+    $('.resetForm').on('click',function(e){
+      let type=$(this).hasClass('completes')?'completes':'sample'
+      $('select.surveyQs.'+type).val(null).selectpicker('refresh')
+      $('.fileUpload.'+type).val(null)
+      $('select.jobSelect.'+type).val(null).selectpicker('refresh')
+      $('.addManualInput.'+type).val(null)
+      $('.pasteOutcomes').val('')
+      $('.respCount.'+type).html(0)
+      $('.dbUpdateCount.'+type).html(0)
+      $('.addManualInput:not(#dmQ'+type+'-manual)').hide()
+      $('.bootstrap-select').show()
+      var table=Tabulator.prototype.findTable('.previewTable.'+type)[0]
+      if (table) {
+        table.setData([])
+      }
+      $(".previewTable."+type).hide()
+      if (type=='completes') {
+        $('.fileUpload.'+type).hide()
+      }
+      $('.fileUpload.sample').addClass("required")
+      $('.fileUpload.sample').attr("required",true)
+      updateMapping()
+    })
+    <% if(project.outcomesDone){%>
+      $("#sampleInputs,#completesInputs").hide()
+      $('.ignoreOutcomes').closest(".row").hide()
+      $('.doneSection').show()
+    <%}%>
+  })
+  function addDM(type){
+    if ($('select.jobSelect.'+type).val() || $(".uploadJSON."+type).attr('value')) {
+      $('.refreshData.'+type).prop('disabled',false)
+      $('.submitData.'+type).prop('disabled',true)
+      // loadData($('select.jobSelect.'+type).val(),$('select.surveyQs.'+type+':first option').map((e,t)=>t.value).get().includes("JA2ID"),type,false)
+    }else {
+      $('.refreshData.'+type).prop('disabled',true)
+      $('.submitData.'+type).prop('disabled',true)
+    }
+  }
+  function getQs(id,type){
+    let isForsta=$('select.jobSelect.'+type+' option:selected').attr("data-source")=="Forsta"
+    return new Promise(res=>{
+      $('.previewTable.'+type).html('')
+      $('.respCount.'+type).html('0')
+      $('.dbUpdateCount.'+type).html('0')
+      $('.jobSelect.'+type).removeClass("is-invalid")
+      if (!$('select.jobSelect.'+type).val()) {
+        $('.fileUpload.'+type).show()
+        $('.fileUpload.'+type).click()
+        res()
+      }else {
+        $('.fileUpload.'+type).hide()
+        var q=[
+        {
+          "shortcut": "Serial"
+        },
+        {
+          "shortcut": "FINALNAME"
+        },
+        {
+          "shortcut": "IntEnd"
+        },
+        ]
+        $("select.surveyQs."+type).html('')
+        if (isForsta) {
+          // Forsta Release
+          $.ajax("/get-forsta-survey-questions?pid="+id).then(d=>{
+            var optNA=new Option('None', '')
+            $("select.surveyQs.completes").append(optNA);
+            var opt=new Option('Add manually', 'addManual')
+            opt.className="manualAdd"
+            $("select.surveyQs.completes").append(opt);
+            d.forEach((item, i) => {
+              $("select.surveyQs.completes").append(new Option(shorten(item.name+": "+item.titles[0].text,75), item.name));
+            });
+            updateMapping().then(e=>updateMapping(true))
+            $("select.surveyQs.completes").selectpicker('refresh')
+            res()
+          })
+        }else {
+          //AskiaVista
+          askiaVista.getQuestions({
+            survey:{
+              name:id
+            },
+            success : function (data, query) {
+              var vistaData
+              try{
+                vistaData=JSON.parse(data)
+              }catch(err){
+                alert("Could not retrieve the survey. Check that the survey can be accessed via Vista, there may be an error with the QEX.")
+              }
+              function flattenChildren(d){
+                var ret=[]
+                function loop(d){
+                  var childCount=0
+                  var newData=[]
+                  d.forEach((item, i2) => {
+                    if (item.children) {
+                      item.children.forEach((child, i) => {
+                        childCount++
+                        newData.push(child)
+                      });
+                      delete item.children
+                      newData.push(item)
+                    }else {
+                      newData.push(item)
+                    }
+                  })
+                  if (childCount>0) {
+                    loop(newData)
+                  }else {
+                    ret=newData.filter(el=>el.type>0)
+                  }
+                }
+                loop(d)
+                return ret
+              }
+              if (vistaData) {
+                vistaData=flattenChildren(vistaData)
+                var missing=q.filter(el=>!vistaData.map(el2=>el2.shortcut).includes(el.shortcut)).map(el=>el.shortcut)
+                if (missing.length==0) {
+                  var optNA=new Option('None', '')
+                  $("select.surveyQs.completes").append(optNA);
+                  var opt=new Option('Add manually', 'addManual')
+                  opt.className="manualAdd"
+                  $("select.surveyQs.completes").append(opt);
+                  vistaData.forEach((item, i) => {
+                    $("select.surveyQs.completes").append(new Option(shorten(item.shortcut+": "+item.caption,75), item.shortcut));
+                  });
+                  updateMapping().then(e=>updateMapping(true))
+                  $("select.surveyQs.completes").selectpicker('refresh')
+                  res()
+                  // loadData(id,vistaData.map(el=>el.shortcut).includes("JA2ID"),'completes')
+                }else {
+                  alert("The selected project is missing required questions: "+missing.join(", "))
+                  $('select.jobSelect.completes').val(null)
+                  updateMapping(true)
+                  $('select.jobSelect.completes').selectpicker('refresh')
+                  res()
+                }
+              }else {
+                res()
+              }
+            },
+            error : function (message, query) {
+              alert(message);
+            }
+          });
+          //AskiaVista end
+        }
+      }
+    })
+  }
+  function fetchRecords(questions,surveyName,subpop,isUpload,type){
+    let isForsta=$('select.jobSelect.'+type+' option:selected').attr("data-source")=="Forsta"
+    return new Promise((resolve,reject) => {
+      let p=0
+      let data=[]
+      function loopPages(){
+        if (isForsta) {
+          //Forsta Release
+          $.ajax("/get-forsta-completes?pid="+surveyName+"&sampleData=true&captions=true&variables="+questions.map(q=>q.shortcut.indexOf("$")>-1?q.shortcut.split("$")[0]:q.shortcut).join(",")).then(d=>{
+            resolve(d)
+          })
+        }else {
+          // AskiaVista
+          askiaVista.getInterviews({
+            page:p,
+            maxPerPage:1000,
+            "format": "json",
+            subPopulation : subpop,
+            "questions": questions,
+            "survey": {
+              "name": surveyName
+            },
+            success:function(d,query){
+              if (JSON.parse(d).interviews.length>0) {
+                p++
+                data=data.concat(JSON.parse(d).interviews)
+                loopPages()
+              }else {
+                resolve(data)
+              }
+            },
+            error: function (message) {
+              if (p>0) {
+                resolve(data)
+              }else {
+                console.log(message,questions,subpop,data);
+                reject("Could not find all required questions. Please ask the PM to review the script, and ensure Vista is up to date")
+              }
+            }
+          })
+          //AskiaVista end
+        }
+      }
+      if (isUpload) {
+        let uploadJSON=JSON.parse($(".uploadJSON."+type).attr('value'))
+        let telnum=$('[title="Telnum..."].'+type).val()
+        let telnumAlt=$('[title="Alternative telnum..."].'+type).val()
+        console.log("pre-map",uploadJSON)
+        uploadJSON=uploadJSON.map(el=>{
+          let obj={}
+          questions.forEach((q, i) => {
+            if (isNaN(el[q.shortcut]/1)) {
+              obj[q.shortcut]=el[q.shortcut]?maxLen(el[q.shortcut],250):''
+            }else {
+              obj[q.shortcut]=el[q.shortcut]
+            }
+            if ((q.shortcut==telnum || q.shortcut==telnumAlt) && !isNaN(el[q.shortcut]) && el[q.shortcut][0]!='0') {
+              obj[q.shortcut]="0"+obj[q.shortcut]
+            }
+          });
+          return obj
+        })
+        console.log("post-map",uploadJSON)
+        uploadJSON=uploadJSON.filter(el=>el['FINALNAME'] || el['Name'])
+        console.log("post-filter",uploadJSON)
+        if (uploadJSON.length==0) {
+          $('.resetForm.'+type).click()
+          reject("Could not find any FINALNAME or Name values in the file. The form has been reset.")
+        }
+        if (type=='sample') {
+          uploadJSON=uploadJSON.filter(el=>el['Last call'])
+          if (uploadJSON.length==0) {
+            $('.resetForm.'+type).click()
+            reject("The file does not look like it has any 'Last call' data, please check it is a sample outcome file. The form has been reset.")
+          }
+          uploadJSON=uploadJSON.filter(el=>['In use','Unused','Quotas Closed'].includes(el['State']) && Number(el['Call count'])<3)
+        }
+        if (uploadJSON.length==0) {
+          $('.resetForm.'+type).click()
+          reject("It doesn't look like there are any usable records to add to the database. The form has been reset.")
+        }
+        let vistaFormat=uploadJSON.map(el=>{
+          let arr=[]
+          delete el.State
+          for (const [key, value] of Object.entries(el)) {
+            arr.push({
+              shortcut:key,
+              responses:[value || value===0?value:'']
+            })
+          }
+          return arr
+        })
+        resolve(vistaFormat)
+      }else {
+        loopPages()
+      }
+    });
+  }
+  function loadData(id,hasJA2ID,type){
+    var q=[]
+    var titles={}
+    let isForsta=$('select.jobSelect.'+type+' option:selected').attr("data-source")=="Forsta"
+    titles.Serial='Serial'
+    let sp={}
+    if (type=='completes') {
+      if (isForsta) {
+        // Forsta Release
+        q=[
+        {
+          "shortcut": "Serial"
+        },
+        {
+          "shortcut": "FINALNAME"
+        },
+        {
+          "shortcut": "E2"
+        },
+        ]
+        titles.E2='E2'
+        titles.FINALNAME='Name'
+
+      }else {
+        q=[
+        {
+          "shortcut": "Serial"
+        },
+        {
+          "shortcut": "FINALNAME"
+        },
+        {
+          "shortcut": "E2"
+        },
+        ]
+        titles.E2='E2'
+        titles.FINALNAME='Name'
+        sp={
+          name : "Completed",
+          script : "??OnlineOutcome?? has {16}"
+        }
+      }
+    }else {
+      q=[
+      {
+        "shortcut": "Serial"
+      },
+      {
+        "shortcut": "Name"
+      },
+      {
+        "shortcut": "Last call"
+      },
+      {
+        "shortcut": "State"
+      },
+      {
+        "shortcut": "Last call time"
+      },
+      {
+        "shortcut": "Call count"
+      },
+      ]
+      titles['Last call']='Last call'
+      titles['Last call time']='Last call time'
+      titles['Call count']='Call count'
+      titles.Name='Name'
+    }
+    if (hasJA2ID) {
+      q.push({shortcut: "JA2ID"})
+      titles['JA2ID']='JA2ID'
+    }
+    $('select.surveyQs.'+type).each(function(e){
+      if ($(this).val()) {
+        q.push({
+          shortcut:$(this).val()
+        })
+      }
+      titles[$(this).val()]=$(this).attr('title')
+    })
+    let isUpload=($(".uploadJSON."+type).attr('value') && !$('select.jobSelect.'+type).val())
+    fetchRecords(q,id,sp,isUpload,type).then(vistaData=>{
+      if (vistaData.filter(el=>isForsta?true:el.find(el=>el.shortcut=="JA2ID")).length==0) {
+        alert("Warning: cannot find the JA2ID variable on vista. If you have used JA2 sample, please make the JA2ID accessible in Vista then reload this page.")
+      }
+      $(".previewTable."+type).show()
+      function isIsoDate(str) {
+        if (!/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z/.test(str)) return false;
+        var d = new Date(str);
+        return d.toISOString()===str;
+      }
+      var headerMenu = [
+      {
+        label:"Re-code",
+        action:function(e, column){
+          $('#modal-body').html('')
+          let colVals=column.getTable().getData().map(el=>el[column.getField()]).filter((el,i,self)=>self.indexOf(el)==i)
+          let codeFrame
+          if (colVals.filter(el=>!isNaN(el/1)).length==colVals.length) {
+            colVals=colVals.map(el=>Number(el))
+            codeFrame=[...Array(Math.max.apply(null, colVals)).keys()].map(el=>el+1)
+          }else {
+            codeFrame=colVals.sort()
+          }
+          let html="<div id='recodeTable'></div>"
+          $('#modal-body').html(html)
+          $('#Modal-title').html('Recoding '+column.getField())
+          $('#Modal').modal('show')
+          var editor = function(cell, onRendered, success, cancel, editorParams){
+            var editor = document.createElement("input");
+            editor.style.width = "100%";
+            editor.style.height = "100%";
+            editor.value = cell.getValue()?cell.getValue():''
+            onRendered(function(){
+              $(editor).focus().select()
+            });
+            editor.addEventListener("paste",function(event){
+              $(editor).blur()
+              event.preventDefault()
+              var lines=event.clipboardData.getData('text').split(/\n/g).filter(el=>el.length>1).map(el=>cleanStr(el.trim()))
+              let row=cell.getRow()
+              for (var i = 0; i < lines.length; i++) {
+                if (row) {
+                  row.update({recode:lines[i]})
+                  row=row.getNextRow();
+                }
+              }
+            })
+            function successFunc(){
+              success(editor.value);
+            }
+            editor.addEventListener("blur", successFunc);
+            return editor;
+          }
+          $('#Modal').one('shown.bs.modal', function (e) {
+            var rTable=new Tabulator("#recodeTable",{
+              autoResize:true,
+              layout:"fitColumns",
+              data:codeFrame.map(el=>{return {orig:el,recode:''}}),
+              columns:[
+              {field:'orig',title:'Original'},
+              {field:'recode',editor:editor,title:'New'},
+              ]
+            })
+            $('#applyRecodeBtn').one('click',function(e){
+              let lookup={}
+              rTable.getData().forEach((row, i) => {
+                lookup[row.orig]=row.recode
+              });
+              let rAcc=function(value){
+                return lookup[value]
+              }
+              let rForm=function(cell){
+                return lookup[cell.getValue()]
+              }
+              column.updateDefinition({accessor:rAcc,formatter:rForm}).then(e=>{
+                updateJSON(column.getTable().getData())
+                $('#Modal').modal('hide')
+              })
+            })
+          })
+        }
+      },
+      ]
+      function updateJSON(data){
+        var clean=data.map(el=>{
+          Object.keys(el).forEach((k, i) => {
+            el[k]=maxLen(el[k],250)
+          });
+          return el
+        })
+        $('.finalData.'+type).val(JSON.stringify(clean))
+        $('.respCount.'+type).html(data.filter(el=>!el.JA2ID).length)
+        $('.dbUpdateCount.'+type).html(data.filter(el=>el.JA2ID).length)
+        if (data.length<1) {
+          $('.submitData.'+type).prop('disabled',true)
+          $('.refreshData.'+type).prop('disabled',false)
+          $('.previewTable.'+type).hide()
+        }else {
+          $('.submitData.'+type).prop('disabled',false)
+          $('.refreshData.'+type).prop('disabled',true)
+          $('.previewTable.'+type).show()
+        }
+      }
+      let previewData=vistaData.map(row=>{
+        var obj={}
+        if (isForsta) {
+          // Forsta Release
+          // console.log(row)
+          Object.keys(titles).forEach((key, i) => {
+            // console.log(titles,key)
+            if (key.indexOf("$")>-1) {
+              let k=key.split("$")[0]
+              let i=key.split("$")[1]
+              // console.log(k,i,row[k][i])
+              obj[titles[key].replace("...","")]=row[k][i]
+            }else {
+              obj[titles[key].replace("...","")]=row[key]
+            }
+
+          });
+          // console.log(obj.Telnum)
+        }else {
+          //AskiaVista
+          row.forEach((item, i) => {
+            obj[titles[item.shortcut].replace("...","")]=item.responses[0]
+          });
+          //
+        }
+        Object.keys(obj).forEach((key, i) => {
+          if (obj[key]===undefined) {
+            obj[key]=""
+          }
+        })
+        $('.addManualInput.'+type).each(function(e){
+          var el=this
+          obj[$(el).attr('data-field').replace("...","")]=$(el).val()
+        })
+        obj['Specialist DB']=$('#specialistDbQ'+type).val()
+        if (type=='completes') {
+          obj['Last call']='Success'
+          obj['Last call time']=obj['Interviewed date']
+          obj['Call count']=1
+        }
+        // console.log(obj.Telnum)
+        return obj
+      }).filter(el=>el.Name && el.Telnum)
+      if (previewData[0]) {
+        console.log(previewData)
+        var rTable=new Tabulator(".previewTable."+type,{
+          autoResize:true,
+          // layout:"fitColumns",
+          pagination:"local", //enable local pagination.
+          paginationSize:10,
+          // resizableColumns:false,
+          data:previewData,
+          autoColumns:true,
+          autoColumnsDefinitions:function(def){
+            def.forEach((col, i) => {
+              if (col.field=='Email' || col.field=='Alternative email') {
+                col.formatter=function(cell){
+                  var html
+                  if (validateEmail(cell.getValue())) {
+                    html=cell.getValue()
+                  }else {
+                    html='<span class="invalid-field">'+cell.getValue()+'</span>'
+                  }
+                  return html
+                }
+                col.sorter=function(a, b, aRow, bRow, column, dir, sorterParams){
+                  var strA=(validateEmail(a)?'1':'0')+a
+                  var strB=(validateEmail(b)?'1':'0')+b
+                  return strA.localeCompare(strB)
+                }
+              }else if (col.field=='Telnum' || col.field=='Alternative telnum') {
+                if (col.field=='Telnum') {
+                  col.mutator=(v,d)=>!checkUKTelephone(v)?(d['Alternative telnum']?d['Alternative telnum']:''):v
+                }else {
+                  col.mutator=(v,d)=>checkUKTelephone(v)==checkUKTelephone(d.Telnum)?"":v
+                }
+                col.formatter=function(cell){
+                  var html
+                  if (!checkUKTelephone(cell.getValue())) {
+                    html='<span class="invalid-field">'+cell.getValue()+'</span>'
+                  }else {
+                    // cell.setValue(checkUKTelephone(cell.getValue()))
+                    html=checkUKTelephone(cell.getValue())
+                  }
+                  return html
+                }
+                col.sorter=function(a, b, aRow, bRow, column, dir, sorterParams){
+                  var strA=(checkUKTelephone(a)?'1':'0')+a
+                  var strB=(checkUKTelephone(b)?'1':'0')+b
+                  return strA.localeCompare(strB)
+                }
+              }else if (col.field=='Interviewed date') {
+                col.mutator=function(v){
+                  return v.name?v.name:(isIsoDate(v)?moment.utc(v).format("YYYY-MM-DD HH:mm"):!isNaN(v/1)?moment.utc(Math.round((v-25569)*86400*1000)).format("YYYY-MM-DD HH:mm"):v)
+                }
+                col.formatter=function(c){
+                  return c.getValue()?moment.utc(c.getValue()).format("DD/MM/YYYY HH:mm"):""
+                }
+              }else if (['Last call time','JA2ID'].includes(col.field)) {
+                col.visible=false
+              }else {
+                col.formatter=function(cell){
+                  return cell.getValue().name?cell.getValue().name:(isIsoDate(cell.getValue())?moment.utc(cell.getValue()).format("DD/MM/YYYY HH:mm"):cell.getValue())
+                }
+                col.mutator=function(value){
+                  return value.name?value.name:value
+                }
+                col.sorter=function(a, b, aRow, bRow, column, dir, sorterParams){
+                  var strA=a
+                  var strB=b
+                  if (a.name) {
+                    strA=a.name?a.name:' '
+                    strB=b.name?b.name:' '
+                  }
+                  if (isNaN(a/1)) {
+                    return strA.localeCompare(strB)
+                  }else {
+                    return strA-strB
+                  }
+                }
+              }
+              col.headerMenu=headerMenu
+              col.headerContextMenu=headerMenu
+              col.editable=true
+              col.editor="input"
+            });
+            def.push({
+              title:"",
+              formatter:function(cell){
+                return '<button type="button" class="btn rem-date-row remBtn btn-outline-danger"><i class="fas fa-minus"></i></button>'
+              },
+              cellClick:function(e, cell){
+                cell.getRow().delete()
+              },
+              width:30,
+              cssClass:'addRemCol'
+            })
+            return def
+          },
+          rowFormatter:function(row){
+            row.getCells().forEach((cell, i) => {
+              cell.getElement().style.padding= "4px";
+              cell.getElement().style.fontSize= "smaller";
+            })
+          },
+          dataChanged:function(data){
+            updateJSON(data)
+          },
+          dataLoaded:function(data){
+            Object.keys(data[0]).forEach((key, i) => {
+              if (data.filter(row=>row[key]).length==0) {
+                this.getColumn(key).hide()
+              }
+              if (data.filter(row=>!isNaN(row[key]/1) || !row[key]).length==data.length && !['Call count','Telnum','Alternative telnum','Serial'].includes(key)) {
+                let col=this.getColumn(key).getElement()
+                $(col).addClass('colWarning').tooltip({
+                  title:'<small>It looks like this column is all numbers. It might need re-coding to make sense. Right click to re-code it.</small>',
+                  html:true,
+                  sanitize:false
+                })
+              }
+            });
+            updateJSON(data)
+          },
+        })
+      }else {
+        alert("No interviews found with a phone number and a name. Check the FINALNAME variable has responses and the Telnum dropdown is pointing to the correct variable")
+      }
+    }).catch(err=>{
+      alert(err)
+      console.log(err)
+    })
+  }
+  function uploadFile(type,bypass,data){
+    $('.uploadJSON.'+type).removeClass("is-invalid")
+    let lines=null
+    if (data) {
+      lines=data.split(/\r\n/g)
+      $('.fileUpload.'+type).val(null)
+      $('.pasteOutcomesCount').text(lines.length)
+      $('.pasteCheck').show()
+    }else {
+      $('.pasteCheck').hide()
+    }
+    var formData = new FormData();
+    formData.append("sampleOutcome", $('.fileUpload.'+type)[0].files[0]);
+    formData.append("sampleOutcomePaste", data);
+    formData.append("acceptLarge", (bypass?1:0));
+    formData.append("sid", socket.id);
+    formData.append("projectID", '<%=project.projectID%>');
+    $('.refreshData.'+type).loader()
+    $('#'+type+'Section').loader()
+    socket.on('file-headers-ready-<%=project.projectID%>',response=>{
+      let options=document.createElement("select")
+      console.log(response)
+      $("select.surveyQs."+type).html('')
+      var optNA=new Option('None', '')
+      $("select.surveyQs."+type).append(optNA);
+      var opt=new Option('Add manually', 'addManual')
+      opt.className="manualAdd"
+      $(options).append(opt);
+      response.headers.forEach((key, i) => {
+        // let perc=(response.data.filter(el=>el[key[1]]).length/response.data.length)*100
+        let opt=new Option(shorten(key,75), key)
+        // if (perc<1) {
+        //   $(opt).attr('disabled',true)
+        // }
+        // key.push(perc)
+        $(options).append(opt);
+      });
+      $("select.surveyQs."+type).html($(options).html());
+      function findQ(arr,q,exclSystem){
+        let heads=exclSystem && type=='sample'?response.headers.slice(27,999):response.headers
+        arr.forEach((str, i) => {
+          if (!$('#'+q+'Q'+type).val()) {
+            let h=heads.find(key=>key.toLowerCase().indexOf(str.toLowerCase())>-1)
+            if (h) {
+              $('#'+q+'Q'+type).val(h)
+            }
+          }
+        });
+      }
+      console.log(response.headers)
+      findQ(['IntEnd','Intstart'],'interviewed')
+      findQ(['INC_mobile','FINALPHONE','phone number','telnum'],'telnum')
+      findQ(['email'],'email')
+      findQ(['region'],'region',true)
+      findQ(['pcode','postcode'],'postcode',true)
+      findQ(['gender'],'gender',true)
+      findQ(['age'],'age',true)
+      findQ(['seg','social'],'seg',true)
+      findQ(['ward','district'],'ward',true)
+      findQ(['company'],'coName',true)
+      findQ(['employee'],'emps',true)
+      findQ(['turnover'],'turnover',true)
+      findQ(['industry','sector'],'industry',true)
+      $('#sampleQ'+type).val('Sample')
+      $("select.surveyQs."+type).selectpicker('refresh')
+      updateMapping(true)
+      $('#'+type+'Section').loader('done')
+    })
+    $.ajax({
+      url: '/upload-sample-outcome/',
+      type: 'POST',
+      global:false,
+      processData: false,
+      contentType: false,
+      data:formData,
+      success: function (response) {
+        console.log(response)
+        if (response.warning && !bypass) {
+          if (confirm(response.warning)) {
+            console.log("resending")
+            uploadFile(type,true)
+          }
+        }else {
+          // let o=0
+          // console.log("relabelling options")
+          $("select.surveyQs."+type+" option").each(function(){
+            // o++
+            // console.log(o)
+            let opt=this
+            let key=response.headers.find(k=>k[1]==$(opt).attr('value'))
+            if (key) {
+              // console.log(response.headers,$(opt).attr('value'),key)
+              // let perc=(response.data.filter(el=>el[key[1]]).length/response.data.length)*100
+              if (key[2]<1) {
+                $(opt).attr('disabled',true)
+              }
+              $(opt).text(shorten(key[1],75)+" ("+Math.round(key[2])+"% valid)")
+            }
+          })
+          $("select.surveyQs."+type).one('show.bs.select',function(e){
+            // console.log(this,e)
+            $(this).selectpicker('refresh')
+          })
+          // console.log("triggering change")
+          $(".uploadJSON."+type).attr('value',JSON.stringify(response.data))
+          $('#telnumQ'+type).trigger('change')
+        }
+        $('.refreshData.'+type).loader('done')
+        $('.refreshData.'+type).attr('disabled',false)
+      },
+      error: function (jqXHR, exception) {
+        try {
+          alert(getErrorMessage(jqXHR, exception))
+        } catch (e) {
+          alert("Unknown error")
+        }
+        $('.refreshData.'+type).loader('done')
+        $('#'+type+'Section').loader('done')
+      },
+    });
+  }
+  function submitForm(type){
+    let form=$('#'+type+'UploadForm')
+    if (checkFormValidiy(type)) {
+      // $(form).submit()
+      $(form).loader()
+      socket.on('progress-update-outcomes-<%=project.projectID%>',msg=>{
+        console.log(msg)
+        $(form).loader('info',msg)
+      })
+      $.ajax({
+        type: "POST",
+        url: form.attr('action'),
+        data: form.serialize(),
+        global:false,
+        success: function(data){
+          alert(data);
+          $(form).loader('done')
+          $('#'+type+"Inputs").hide()
+          $('.ignoreOutcomes.'+type).closest(".row").hide()
+          $('.doneSection.'+type).show()
+        },
+        error:(j,e)=>{
+          console.log("An error occurred",e)
+          $(form).loader('done')
+          alert("An error occurred")
+        }
+      });
+    }
+  }
+  function checkFormValidiy(type){
+    let form=$('#'+type+'UploadForm')
+    let ok=true
+    if (form[0].checkValidity()) {
+      let validQs=0
+      if (!$('.ignoreOutcomes.'+type).is(":checked")) {
+        $('select.oneRequired.'+type).each((i,t)=>{
+          validQs=validQs+($(t).val()?1:0)
+        })
+        if (validQs==0) {
+          alert("Cannot upload "+type+" without any demographics selected")
+          ok=false
+        }
+      }else {
+        $('select[required].'+type).attr('required',false)
+      }
+    }else {
+      if ($('.ignoreOutcomes.'+type).is(":checked")) {
+        $('[required].'+type).attr('required',false)
+      }
+      ok=false
+      form[0].reportValidity()
+    }
+    return ok
+  }
+  function updateMapping(load,initial){
+    console.log("updating mapping",load,initial,$('#completesUploadForm').serializeArray().filter(el=>el.value && !['completesData','completesUploadData','completesJSON'].includes(el.name)))
+    let mapping=JSON.stringify({completes:$('#completesUploadForm').serializeArray().filter(el=>el.value && !['completesData','completesUploadData','completesJSON'].includes(el.name)),sample:$('#sampleUploadForm').serializeArray().filter(el=>el.value && !['sampleData','sampleUploadData','sampleJSON'].includes(el.name))})
+    return $.ajax({
+      type:'POST',
+      url:'/update-outcomes-map',
+      global:false,
+      data:{projectID:<%=project.projectID%>,mapping:load?'':mapping},
+      success:(data)=>{
+        if (load) {
+          console.log(data)
+          let d=JSON.parse(data)
+          console.log(d)
+          let updateInputs=(type)=>{
+            let unmappable=[]
+            let mappable=[]
+            if (d[type]) {
+              function whenDone(){
+                if (unmappable.length) {
+                  $('.unmappable.'+type).html("Some saved variable mapping could not be applied. The source data may need to be refreshed:<ul>"+unmappable.map(el=>"<li>"+el.name+": "+el.value+"</li>").join("")+"</ul>")
+                  $('.unmappable.'+type).parent().show()
+                }else {
+                  $('.unmappable.'+type).html("")
+                  $('.unmappable.'+type).parent().hide()
+                }
+                if (mappable.length) {
+                  $('.refreshData.'+type).prop('disabled',false)
+                }
+              }
+              if($('.fileUpload.'+type).val()){
+                $('#'+type+'UploadForm [name="jobSelect"]')[0].selectedIndex=1
+                $('#'+type+'UploadForm [name="jobSelect"]').selectpicker('refresh')
+              }else{
+                $('#'+type+'UploadForm [name="jobSelect"]').val((d[type].find(el=>el.name=='jobSelect') || {}).value).selectpicker('refresh')
+              }
+              let ignore=(d[type].find(el=>el.name=='ignoreOutcomes'+type) || {}).value
+              if (ignore && !$('#'+type+'UploadForm [name="ignoreOutcomes'+type+'"]').is(":checked")) {
+                $('#'+type+'UploadForm [name="ignoreOutcomes'+type+'"]').prop('checked',true).trigger('change')
+              }else {
+                if (initial && type=='completes' && d[type].find(el=>el.name=='jobSelect')) {
+                  console.log(type,"running getQs",load,initial,d[type])
+                  getQs((d[type].find(el=>el.name=='jobSelect') || {}).value,type).then(e=>{
+                    d[type].filter(el=>el.name.indexOf("Q"+type)>-1).forEach((item, i) => {
+                      $('#'+type+'UploadForm [name="'+item.name+'"]').val(item.value)
+                      if ($('#'+type+'UploadForm [name="'+item.name+'"]').hasClass("selectpicker")) {
+                        $('#'+type+'UploadForm [name="'+item.name+'"]').selectpicker('refresh')
+                      }
+                      if (!$('#'+type+'UploadForm [name="'+item.name+'"]').val()) {
+                        unmappable.push(item)
+                      }else {
+                        mappable.push(item)
+                      }
+                    });
+                    whenDone()
+                  })
+                }else {
+                  console.log(type,"NOT running getQs",load,initial,d[type])
+                  d[type].filter(el=>el.name.indexOf("Q"+type)>-1).forEach((item, i) => {
+                    $('#'+type+'UploadForm [name="'+item.name+'"]').val(item.value)
+                    if ($('#'+type+'UploadForm [name="'+item.name+'"]').hasClass("selectpicker")) {
+                      $('#'+type+'UploadForm [name="'+item.name+'"]').selectpicker('refresh')
+                    }
+                    if (!$('#'+type+'UploadForm [name="'+item.name+'"]').val()) {
+                      unmappable.push(item)
+                    }else {
+                      mappable.push(item)
+                    }
+                  });
+                  whenDone()
+                }
+              }
+            }
+          }
+          updateInputs('sample')
+          updateInputs('completes')
+        }
+        console.log("mapping updated")
+      }
+    })
+  }
+</script>
+<script src="/js/JA2tableFuncs.js" type="text/javascript"></script>
+<script>
+</script>
+<style>
+  .form-group{
+    width:90%;
+    margin:auto;
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+  .checkboxes{
+    margin: auto;
+    transform: scale(1.5);
+  }
+  .remBtn, .addBtn{
+    padding: 3px;
+    height: 100%;
+    border: none;
+    width: 100%;
+  }
+  .noRightBorder{
+    border-right:none!important;
+  }
+  .addRemCol{
+    padding:0px!important
+  }
+  .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+    padding: 2px;
+    font-size: small;
+  }
+  tr {
+    border-bottom: 1px solid #d8d8d8;
+  }
+  .qSection{
+    display: flex;
+    flex-wrap: wrap;
+    border: 1px solid gainsboro;
+    padding: 12px;
+    width: 80%;
+    margin: 10px auto;
+    justify-content: space-evenly;
+  }
+  .qSectionLabels{
+    margin-top: -24px;
+    margin-left: -3px;
+    position: absolute;
+    white-space:nowrap;
+    z-index: 2;
+  }
+  #sampleSection .qSectionLabels{
+    color: #97c8f9;
+    background: #e8f0f8;
+  }
+  #completesSection .qSectionLabels{
+    color: #74e9ae;
+    background: #e8f8f0;
+  }
+  .is-invalid{
+    border-color: #dc3545;
+    background: #d7000014;
+    box-shadow: 0px 0px 5px #ff0000;
+  }
+  .is-invalid:focus-within{
+    border-color: inherit;
+    background: inherit;
+    box-shadow: none;
+  }
+  .tabCont{
+    max-width: 1260px;
+    margin:auto;
+  }
+  .invalid-field::after{
+    content: "!";
+    color: red;
+    font-size: x-large;
+    line-height: 0.8em;
+    font-weight: 700;
+    position: absolute;
+    right: 4px;
+    text-shadow: 1px 1px 2px #000000a8;
+  }
+  .manualAdd, .manualUpload{
+    color:var(--primary);
+    font-weight:bold;
+  }
+  .addManualInput{
+    width:220px!important
+  }
+  select.surveyQs, .addManualInput {
+    margin-top: 5px;
+    margin-bottom: 0px;
+    margin-left: 0px;
+  }
+  .required::before {
+    content: "*";
+    color: red;
+    font-weight: bold;
+    position: absolute;
+    left: 3px;
+    z-index: 2;
+  }
+  .fileUpload.completes{
+    display:none;
+  }
+  #completesSection {
+    background: #e8f8f0;
+    border: 10px solid #b6f5d580;
+    border-radius: 48px;
+    position:relative;
+    transition:all 0.3s;
+  }
+  #sampleSection {
+    background: #e8f0f8;
+    border: 10px solid #d8e8f8;
+    border-radius: 48px;
+    margin: 10px auto;
+    position:relative;
+    transition:all 0.3s;
+  }
+  .decoration{
+    position: absolute;
+    font-size: 135px;
+    top: -27px;
+    left: 26px;
+    transform: rotateZ(-5deg);
+    transition:all 0.3s;
+  }
+  .decoration.smaller{
+    font-size: 112px;
+  }
+  #sampleSection .decoration{
+    color: #d8e8f8;
+  }
+  #completesSection .decoration{
+    color: #b6f5d580;
+  }
+  button.btn.dropdown-toggle.btn-light {
+    margin: 3px;
+  }
+  .dropdown-menu.show {
+    max-width: 400px;
+    min-width: unset!important;
+  }
+  #completesSection label.h5.col-sm-12.col-form-label {
+    font-size: 28px;
+    padding: 0px 0px 16px 0px;
+    color: #80ebb5;
+  }
+  #sampleSection label.h5.col-sm-12.col-form-label {
+    font-size: 28px;
+    padding: 0px 0px 16px 0px;
+    color: #97c8f9;
+  }
+  .required::before {
+    content: "*";
+    color: red;
+    font-weight: bold;
+    position: absolute;
+    left: 3px;
+    z-index: 2;
+  }
+  .required {
+    display: inline-flex;
+  }
+  h6.card-title.warning {
+    color: #dc3545;
+  }
+  .colWarning div {
+    background-color: #ffbdc3;
+  }
+  .pasteLabel{
+    position: absolute;
+    bottom: -18px;
+    font-size: smaller;
+    opacity: 0.5;
+    right: -43px;
+  }
+  .pasteCont{
+    position:relative;
+    width:100%;
+  }
+  .pasteOutcomes{
+    width: 100%;
+    border-radius: 5px;
+    border: 1px solid gainsboro;
+    padding: 5px;
+    height: 40px;
+  }
+  .pasteCheck {
+    position: absolute;
+    top: 0px;
+    width: 100%;
+    height: 100%;
+    font-size: 33px;
+    line-height: 0px;
+    background: #e8f0f8;
+    border: 3px solid #99caf9;
+    border-radius: 5px;
+    color: #99caf9;
+    opacity: 0.9;
+    display:none;
+  }
+  .unmappableCont{
+    display:none;
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    z-index: 1;
+    font-size: small;
+    text-align: left;
+    background: #ffffff80;
+    border: 2px solid;
+    border-color: inherit;
+    border-radius: 10px;
+    padding: 7px;
+    color: gray;
+    width: 400px;
+    max-height: 150px;
+    overflow-y: scroll;
+  }
+</style>
+<div class="container" style="padding-top:70px;max-width: 99%;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+        <h5><%=project.quoteNo+" "+project.quoteName%></h5>
+        <h6 class="card-title">Final sample & data uploads</h6>
+        <%if(project.pcCount>0){%>
+          <h6 class="card-title warning">There are currently <%=project.pcCount%> records from this job in the database. You can still add more using the form below though.</h6>
+        <%}%>
+          <%
+          let types=['completes','sample']
+          types.forEach((type,i)=>{%>
+            <form role="form" method="post" id="<%=type%>UploadForm">
+              <div class="hiddenFields <%=type%>" style="display:none">
+                <input type="text" name="jobName" value="<%=project.quoteNo+" "+project.quoteName%>">
+                <input type="number" name="projectID" id="<%=type%>-projectID" value="<%=project.projectID%>">
+                <input type="text" name="sid" id="<%=type%>-sid" value="">
+              </div>
+            <div class="form-group row uploadSection" id="<%=type%>Section">
+              <div class="unmappableCont">
+                <div class="unmappable <%=type%>">
+
+                </div>
+              </div>
+
+              <div class="decoration <%=type%>">
+                <%if(type=='completes'){%>
+                <i class="fas fa-user-check"></i>
+                <%}else{%>
+                <i class="far fa-list-alt"></i>
+                <%}%>
+              </div>
+              <label for="outcomes" class="h5 col-sm-12 col-form-label">Upload <%=type%></label>
+              <div class=" row" style="text-align:center;flex-direction: row;margin: auto;">
+                <label style="display: inline;font-size: medium;font-weight: unset;margin:auto;" for="ignoreOutcomes<%=type%>">
+                <input type="checkbox" style="transform: scale(1.5);margin: 5px;margin-bottom:none;" class="ignoreOutcomes <%=type%>" value="true" onchange="$('#<%=type%>Inputs').toggle();$('.decoration.<%=type%>').toggleClass('smaller');updateMapping()" name="ignoreOutcomes<%=type%>">
+                No <%=type%> to upload</label>
+              </div>
+              <div class="row" style="text-align:center;flex-direction: column;" id="<%=type%>Inputs">
+                <div class="row" style="margin:10px auto;flex-direction: column;align-items: center;">
+                  <%if(type=='completes'){%>
+                  <select class="selectpicker selectFilters jobSelect <%=type%>" name="jobSelect" required title="Select Vista survey..." style="display:inline; width:auto;" data-live-search="true" data-section="<%=type%>Section" onchange="getQs($(this).val(),'<%=type%>')">
+                  </select>
+                  <%}%>
+                  <input type="file" class="form-control fileUpload <%=type%>" name="fileUpload" accept=".txt, .xlsx, .xls" style="position: relative;" onchange="uploadFile('<%=type%>')" placeholder="Or upload data export..." data-section="<%=type%>Section">
+                  <%if(type=='sample'){%>
+                    <div class="pasteCont">
+                      <input type="text" placeholder="Or paste in here from find/edit contacts...." class="pasteOutcomes" onblur="if($('.uploadJSON.sample').val() && !$('.fileUpload').val()){$('.pasteCheck').show()}">
+                      <span class="pasteLabel"><span class="pasteOutcomesCount">0</span> rows detected</span>
+                      <div class="pasteCheck" onclick="$(this).hide();$('.pasteOutcomes').focus()">
+                        <i class="fas fa-check"></i>
+                      </div>
+                    </div>
+                  <%}%>
+                  <input type="text" class="uploadJSON <%=type%>" name="<%=type%>JSON" style="display:none;">
+                </div>
+                <span class="qSection <%=type%>">
+                  <h6 class="qSectionLabels" style="width: 83px;">All</h6>
+                  <%if(type=='completes'){%>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick" required title="Interviewed date..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="interviewedQ<%=type%>" name="interviewedQ<%=type%>">
+                  </select>
+                  <%}%>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick" required title="Telnum..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="telnumQ<%=type%>" name="telnumQ<%=type%>">
+                  </select>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick" title="Alternative telnum..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="altTelnumQ<%=type%>" name="altTelnumQ<%=type%>">
+                  </select>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick" required title="Sample source..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="sampleQ<%=type%>" name="sampleQ<%=type%>">
+                  </select>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick" title="Region..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="regionQ<%=type%>" name="regionQ<%=type%>">
+                  </select>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick" title="Email..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="emailQ<%=type%>" name="emailQ<%=type%>">
+                  </select>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick" title="Alternative email..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="altEmailQ<%=type%>" name="altEmailQ<%=type%>">
+                  </select>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick" title="Postcode..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="postcodeQ<%=type%>" name="postcodeQ<%=type%>">
+                  </select>
+                  <select class="selectpicker selectFilters customList <%=type%> show-tick" title="Specialist database..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="specialistDbQ<%=type%>" name="specialistDbQ<%=type%>">
+                    <option value="">None</option>
+                    <option value="Trades">Trades</option>
+                    <option value="IFA">IFA</option>
+                    <option value="IT DM">IT Decision Makers</option>
+                    <option value="Consumer HNW">Consumer HNW</option>
+                    <option value="Internet Non-users">Internet Non-users</option>
+                    <option value="Consumer Manchester">Consumer Manchester</option>
+                    <option value="Govt Public Sector & MPs">Govt Public Sector & MPs</option>
+                  </select>
+                </span>
+                <span id="consumerQs" class="qSection">
+                  <h6 class="qSectionLabels" style="width: 83px;">Consumer</h6>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick oneRequired" title="Gender..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="genderQ<%=type%>" name="genderQ<%=type%>">
+                  </select>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick oneRequired" title="Age..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="ageQ<%=type%>" name="ageQ<%=type%>">
+                  </select>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick oneRequired" title="Ethnicity..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="ethQ<%=type%>" name="ethQ<%=type%>">
+                  </select>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick " title="Social Grade..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="segQ<%=type%>" name="segQ<%=type%>">
+                  </select>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick " title="Working Status..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="workQ<%=type%>" name="workQ<%=type%>">
+                  </select>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick " title="Ward/District..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="wardQ<%=type%>" name="wardQ<%=type%>">
+                  </select>
+                </span>
+                <span id="b2bQs" class="qSection">
+                  <h6 class="qSectionLabels" style="width: 35px;">B2B</h6>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick" title="Company name..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="coNameQ<%=type%>" name="coNameQ<%=type%>">
+                  </select>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick oneRequired" title="Employee size..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="empsQ<%=type%>" name="empsQ<%=type%>">
+                  </select>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick oneRequired" title="Turnover..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="turnoverQ<%=type%>" name="turnoverQ<%=type%>">
+                  </select>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick oneRequired" title="Industry..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="industryQ<%=type%>" name="industryQ<%=type%>">
+                  </select>
+                  <select class="selectpicker selectFilters surveyQs <%=type%> show-tick oneRequired" title="Job title..." data-size="8" style="display:inline; width:auto;" data-live-search="true" id="jobTitleQ<%=type%>" name="jobTitleQ<%=type%>">
+                  </select>
+                  <input type="text" class="form-control addManualInput <%=type%> manual oneRequired" title="Decision making areas..." data-field="Decision making areas..." id="dmQ<%=type%>-manual" onblur="addDM('<%=type%>')" placeholder="Decision making areas..."></input>
+                </span>
+                <div class="tabCont <%=type%>">
+                  <div class="previewTable <%=type%>" style="display:none"></div>
+                  <div class="infoRow">
+                    Importing <span class="respCount <%=type%>">0</span> new respondents.
+                  </div>
+                  <div class="infoRow">
+                    Updating <span class="dbUpdateCount <%=type%>">0</span> database respondents.
+                  </div>
+                  <input type="text" class="finalData <%=type%>" name="<%=type%>Data" style="display:none;"/>
+                  <input type="text" class="dbUpdateData <%=type%>" name="<%=type%>UpdateData" id="<%=type%>UpdateData" style="display:none;"/>
+                </div>
+
+                <div class="row" style="margin: auto;width: 300px;">
+                  <button type="button" style="margin:auto" class="btn btn-light resetForm <%=type%>">Reset</button>
+                  <button type="button" style="margin:auto" disabled class="btn btn-secondary refreshData <%=type%>">Preview data</button>
+                  <button type="button" style="margin:auto" disabled onclick="submitForm('<%=type%>')" class="btn btn-primary submitData <%=type%>">Submit</button>
+                </div>
+              </div>
+              <div class="doneSection <%=type%>" style="display:none;width: 100%;margin: 13px auto;">
+                <button type="button" style="margin:auto" onclick="$('#<%=type%>Inputs').show();$('.ignoreOutcomes.<%=type%>').closest('.row').show();$('.doneSection.<%=type%>').hide()" class="btn btn-white uploadAgain <%=type%>">Upload again</button>
+              </div>
+            </div>
+          </form>
+          <%})%>
+    </div>
+  </div>
+</div>
+<div class='modal fade' role='dialog' id='Modal'>
+  <div class='modal-dialog modal-dialog-centered' role='document'>
+    <div class='modal-content'>
+      <div class='modal-header'>
+        <h5 class='modal-title' id='Modal-title'></h5>
+        <button type='button' class='close modalClose' data-dismiss='modal' aria-label='Close'>
+          <span aria-hidden='true'>&times;</span>
+        </button>
+      </div>
+      <div class='modal-body' id='modal-body'>
+
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="applyRecodeBtn">Apply</button>
+        <button type="button" class="btn btn-secondary" data-dismiss='modal' aria-label='Close'>Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,716 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .tabulator-col-content {
+    padding: 3px!important;
+    font-size: smaller;
+  }
+  .card-body.viewerHeight {
+    min-height: 88vh;
+  }
+  .container {
+    max-width: 97%;
+  }
+  .tabulator-row .tabulator-cell.tabulator-editing {
+    padding: 0px!important;
+  }
+  .tabulator-cell.missingCell {
+    background-color: #ff000029;
+    box-shadow: inset 0px 0px 5px 4px #ff000029;
+  }
+  .tabulator-cell.missingCellParent {
+    background-color: #ff7c0029;
+    box-shadow: inset 0px 0px 5px 4px #ff6c0029;
+  }
+  .ignoreCellBtn, .reviveCellBtn{
+    opacity:0;
+    position: absolute;
+    right: 2px;
+    width:20px;
+    top: 2px;
+    padding: 0px;
+    border: none;
+    transition: all 0.5s;
+    border-radius: 0px;
+    background: transparent;
+  }
+  .reviveCellBtn:hover{
+    color:var(--success)
+  }
+  .inputCell::has(.reviveCellBtn){
+    background:#80808061;
+  }
+  .isManual{
+    font-weight:bold;
+    color:var(--primary);
+  }
+  .good{
+    color:var(--success)
+  }
+  .bad{
+    color:var(--danger)
+  }
+  .includeCheck{
+    transform: scale(1.5);
+  }
+</style>
+<script type="text/javascript">
+  var hr=moment.utc().format("YYYY-MM-DD")=='<%=dte%>'?moment().hour():22
+  <%
+  var hr=moment.utc().format("YYYY-MM-DD")==dte?moment().hour():22
+  %>
+  function loadInts(survey){
+    var tableData=[]
+    // return getVistaPortfolio(survey,'Live Report',"<%=dte%>",["Agent","IntStart","IntEnd","OnlineOutcome"],`IntStart.Value.Format("yyyy-MM-dd")="<%=dte%>"`,true).then(d=>{
+    //   var vistaData=d
+    //   if (!vistaData[0][0] || !vistaData[0][1] || !vistaData[0][2] || !vistaData[0][3]) {
+    //     alert(query.survey.name+" is missing either the 'Agent', 'IntStart', 'IntEnd' or 'OnlineOutcome' variable, so cannot be shown - please inform the PM")
+    //   }else {
+    //     return formatData(vistaData,survey)
+    //   }
+    // })
+    //Forsta Release
+    return false
+    return $.ajax("/get-forsta-completes?incompletes=true&pid="+survey).then(d=>{
+      console.log(d)
+      return formatData(d,survey)
+    })
+  }
+  function formatData(vistaData,surveyName){
+    // Forsta Release
+    vistaData=vistaData.map(el=>{
+      var obj={}
+      obj.agentName=el.LastAgentID
+      obj.surveyTime=moment.utc(el.interview_end)
+      obj.surveyHour=obj.surveyTime.hour()
+      obj.surveyDate=moment(obj.surveyTime).startOf('d')
+      obj.isComplete=el.status=="complete"
+      return obj
+    })
+    vistaData=vistaData.filter(el=>el.surveyDate.isSame(moment.utc("<%=dte%>"),'day'))
+    if (vistaData.length==0) {
+      alert("No activity found for "+surveyName+". If this is unexpected, ask the PM to check the IntEnd variable is set up correctly & Vista is up to date.")
+    }else {
+      // console.log(vistaData.filter(el=>el.agentName=="Anthony Bentley"))
+      // console.log(vistaData.filter(el=>el.agentName=="Anthony Bentley" && el.isComplete))
+      // console.log(vistaData.filter(el=>el.agentName=="Anthony Bentley" && el.surveyDate.isSame(moment(),'day')))
+      // console.log(vistaData.filter(el=>el.agentName=="Anthony Bentley" && el.isComplete && el.surveyDate.isSame(moment(),'day')))
+      var totalRow={}
+      totalRow.Total=0
+      for (var i = 9; i < hr; i++) {
+        var header=i+":00-"+(i+1)+":00"
+        totalRow[header]=0
+      }
+      var table=Tabulator.prototype.findTable('#reportTable')[0]
+      return getReportEdits('<%=dte%>').then(function(e){
+        table.getRows().forEach((row, i) => {
+          row.treeCollapse()
+          let edits=e.filter(el=>el.jobID==row.getData().jobID)
+          var sqlData=[]
+          if (row.getData().surveyMatch==surveyName && row.getData().includeRow && row.getTreeChildren().length>0) {
+            var ret=[]
+            vistaData.forEach((vrow, i) => {
+              if (!ret.map(el=>el.agentMatch).includes(vrow.agentName)) {
+                var tableRow={}
+                tableRow.agentMatch=vrow.agentName
+                for (var i = 9; i < hr; i++) {
+                  var header=i+":00-"+(i+1)+":00"
+                  tableRow[header]=vistaData.filter(ag=>ag.agentName==vrow.agentName && ag.surveyHour==i && row.getTreeChildren().map(el=>el.getData().agentMatch).includes(ag.agentName) && ag.isComplete).length
+                  if (vistaData.filter(ag=>ag.agentName==vrow.agentName && ag.surveyHour==i && row.getTreeChildren().map(el=>el.getData().agentMatch).includes(ag.agentName)).length==0) {
+                    tableRow[header]=""
+                  }
+                  var editCell=edits.find(el=>row.getTreeChildren().find(el2=>Number(el2.getData().agentID)==el.agentID).getData().agentMatch==tableRow.agentMatch && el.reportHour==i)
+                  if (editCell) {
+                    tableRow[header]=editCell.inputInterviews
+                  }
+                  totalRow[header]=totalRow[header]+Number(tableRow[header]==''?0:tableRow[header])
+                }
+                ret.push(tableRow)
+              }
+            });
+            let myPromise = new Promise(function(myResolve, myReject) {
+              let c=0
+              function populateChild(){
+                if (c<row.getTreeChildren().length) {
+                  var child=row.getTreeChildren()[c]
+                  var dataRow=ret.find(el=>(el.agentMatch==child.getData().agentMatch || el.agentMatch==child.getData().agentName) && child.getData().includeRow && el.agentMatch!=="")
+                  if (dataRow && !child.getData().agentMatch) {
+                    updateNames('Agent',child.getData().agentID,dataRow.agentMatch)
+                  }
+                  if (dataRow) {
+                    var sum=0
+                    var cnt=0
+                    for (var i = 9; i < hr; i++) {
+                      sqlData.push({
+                        agentID:child.getData().agentID,
+                        hour:i,
+                        ints:Number(dataRow[i+":00-"+(i+1)+":00"]),
+                        hourWorked:dataRow[i+":00-"+(i+1)+":00"]===''?0:1
+                      })
+                      var editCell=edits.find(el=>el.agentID==child.getData().agentID && el.reportHour==i)
+                      if (editCell) {
+                        dataRow[i+":00-"+(i+1)+":00"]=editCell.inputInterviews
+                      }
+                      cnt=cnt+(dataRow[i+":00-"+(i+1)+":00"]===''?0:1)
+                      sum=sum+Number(dataRow[i+":00-"+(i+1)+":00"])
+                    }
+                    var avg=sum/cnt
+                    var ints=row.getData().isJobHourly=="true"?cnt:sum
+                    dataRow.Total=(cnt==0?'':(Math.round(avg * 100) / 100)+"ph")
+                    dataRow.hours=cnt
+                    dataRow.totalSurveys=sum
+                    dataRow.jobSales=ints*row.getData().CPI
+                    dataRow.cont=(row.getData().avgWage*cnt)/dataRow.jobSales
+                    child.update(dataRow).then(function(e){
+                      c++
+                      populateChild()
+                    })
+                  }else {
+                    c++
+                    populateChild()
+                  }
+                }else {
+                  myResolve(sqlData);
+                }
+              }
+              populateChild()
+            })
+            return myPromise.then(function(e){
+              if (e.length>0) {
+                var sum=0
+                var cnt=0
+                var obj={}
+                for (var i = 9; i < hr; i++) {
+                  var header=i+":00-"+(i+1)+":00"
+                  var thisSum=row.getTreeChildren().reduce((a,b)=>a+Number(b.getData()[header]),0)
+                  sum=sum+thisSum
+                  cnt=cnt+row.getTreeChildren().filter(el=>el.getData()[header]!=="").length
+                  var avg=thisSum/row.getTreeChildren().filter(el=>el.getData()[header]!=="").length
+                  obj[header]=row.getTreeChildren().filter(el=>el.getData()[header]!=="").length==0?'':(Math.round(avg * 100) / 100)+"ph"
+                }
+                obj.allAgents=ret.map(el=>el.agentMatch)
+                var avg=sum/cnt
+                var ints=row.getData().isJobHourly=="true"?cnt:sum
+                obj.Total=cnt==0?'':(Math.round(avg * 100) / 100)+"ph",
+                obj.hours=cnt,
+                obj.totalSurveys=sum,
+                obj.jobSales=ints*row.getData().CPI,
+                obj.cont=(row.getData().avgWage*cnt)/obj.jobSales
+                row.update(obj)
+                if (sqlData.length>0) {
+                  saveReport(row.getData().jobID,"<%=dte%>",sqlData)
+                }
+                table.redraw()
+                loadChart()
+              }
+            })
+          }
+        });
+      })
+    }
+  }
+  $(document).on('click', '#refreshReport', function(evt) {
+    var table=Tabulator.prototype.findTable('#reportTable')[0]
+    _.uniq(table.getData().map(el=>el.surveyMatch)).filter(j=>j).forEach((vistaName, i) => {
+      window.blockAjaxLoader=true
+      let rowsToUpdate=table.getRows().filter(el=>el.getData().surveyMatch==vistaName)
+      rowsToUpdate.forEach((row, i) => {
+        $(row.getElement()).loader()
+      });
+      loadInts(vistaName).then(e=>{
+        rowsToUpdate.forEach((row, i) => {
+          $(row.getElement()).loader('done')
+        });
+        window.blockAjaxLoader=false
+      })
+    });
+  })
+  $(document).on('click', '#downloadReport', function(evt) {
+    var table=Tabulator.prototype.findTable('#reportTable')[0]
+    // table.download("xlsx", "JA2 Hourly Report "+moment.utc().format("DD-MM-YYYY HH:mm")+".xlsx", {sheetName:"MyData"})
+    table.setFilter("Total","!=","")
+    let data={}
+    let shift=$('#shiftSelect').val()=='de'?"TOTAL":($('#shiftSelect').val()=='d'?"DAY":"EVE")
+    data.subject=shift+" UPDATE PER HOUR"
+    data.HTMLbody=table.getHtml("visible", true,{dataTree:false});
+    let tableData=table.getData().filter(el=>el.Total!=="")
+    let style='"background-color: rgb(127, 234, 127); padding: 4px; border-width: 0px 1px 0px 0px; border-style: none solid none none; border-color: rgb(51, 51, 51) rgb(170, 170, 170) rgb(51, 51, 51) rgb(51, 51, 51); font-weight: 700; font-family: -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Roboto, &quot;Helvetica Neue&quot;, Arial, sans-serif, &quot;Apple Color Emoji&quot;, &quot;Segoe UI Emoji&quot;, &quot;Segoe UI Symbol&quot;; font-size: 14px;"'
+    let totals="<tr><td style="+style+">Total hours</td><td style="+style+">"+tableData.reduce((a,b)=>a+Number(b.hours),0)+"</td></tr>"
+    +"<tr><td style="+style+">Total surveys</td><td style="+style+">"+tableData.reduce((a,b)=>a+Number(b.totalSurveys),0)+"</td></tr>"
+      +"<tr><td style="+style+">Total sales</td><td style="+style+">£"+tableData.reduce((a,b)=>a+Number(b.jobSales),0).toFixed(2)+"</td></tr>"
+      +"<tr><td style="+style+">Approx. wage per hour</td><td style="+style+">£"+(tableData.reduce((a,b)=>a+Number(b.avgWage),0)/tableData.length).toFixed(2)+"</td></tr>"
+      +"<tr><td style="+style+">Wage bill</td><td style="+style+">£"+tableData.reduce((a,b)=>a+Number(b.avgWage*b.hours),0).toFixed(2)+"</td></tr>"
+      +"<tr><td style="+style+">Contribution</td><td style="+style+">"+((tableData.reduce((a,b)=>a+Number(b.avgWage*b.hours),0)/tableData.reduce((a,b)=>a+Number(b.jobSales),0))*100).toFixed(2)+"%</td></tr>"
+      +"</tbody></table>"
+    data.HTMLbody=data.HTMLbody.replace("</tbody></table>",totals)
+    data.sendTo=["telunit@teamsearchmr.co.uk","officeadmin@teamsearchmr.co.uk","cm@teamsearchmr.co.uk"]
+    // data.sendTo=["matt@teamsearchmr.co.uk"]
+    $.ajax({
+      url: '/send-email',
+      type: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify(data),
+      success: function (response) {
+        table.clearFilter()
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  })
+  function loadChart(){
+    var table=Tabulator.prototype.findTable('#reportTable')[0]
+    var dataset=[]
+    var labels=[]
+    var axis=0
+    table.getData().forEach((row, i2) => {
+      if (row.Total) {
+        var calcs=row
+        var data=[]
+        labels=[]
+        for (var i = 9; i < hr; i++) {
+          var header=i+":00-"+(i+1)+":00"
+          if (!calcs[header]) {
+            data.push(NaN)
+          }else {
+            data.push(Number(calcs[header].replace('ph','')))
+          }
+          labels.push(i+":00")
+        }
+        dataset.push({
+          label: calcs.surveyName,
+          data: data,
+          backgroundColor: [
+          'rgba(0, 0, 0, 0)',
+          ],
+          pointHitRadius: 5,
+          borderWidth: 3,
+          yAxisID: axis,
+          spanGaps:false,
+        })
+        axis++
+      }
+    });
+    if (dataset) {
+      const data = {
+        labels:labels,
+        datasets: dataset
+      };
+      var axes=[]
+      for (var i = 0; i <= axis; i++) {
+        axes.push({
+          display: false,
+          ticks: {
+            beginAtZero: true
+          },
+          id:i
+        })
+      }
+      const config = {
+        type: 'line',
+        data: data,
+        options: {
+          plugins: {
+            datalabels: {
+              display:false
+            },
+          },
+          tooltips: {
+            callbacks: {
+            //   label: function(tooltipItem, data) {
+            //     return data['datasets'][0]['label']+": "+data['datasets'][0]['data'][tooltipItem['index']]+"ph";
+            //   },
+              // afterLabel: function(tooltipItem, data) {
+              //     return 'ph';
+              //   }
+            }
+          },
+          scales: {
+            yAxes: axes,
+            xAxes: [{
+              display: true
+            }]
+          },
+          legend: {
+            display: true,
+          },
+        },
+      };
+      if (window.rChart) {
+        window.rChart.destroy()
+      }
+      window.rChart = new Chart($('#chart'),config)
+    }else {
+      if (window.rChart) {
+        window.rChart.destroy()
+      }
+    }
+  }
+  function updateNames(type,id,name){
+    return $.ajax({
+      url: '/save-live-report-names',
+      type: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify({type:type,id:id,vistaName:name}),
+      success:function(response){
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  function saveReport(jobID,dte,data){
+    return $.ajax({
+      url: '/save-live-report',
+      type: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify({jobID:jobID,date:dte,data:data}),
+      success:function(response){
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  function saveReportEdit(jobID,dte,agentID,hour,ints,hourWorked){
+    return $.ajax({
+      url: '/save-live-report-edit',
+      type: 'POST',
+      global:false,
+      contentType: 'application/json',
+      data: JSON.stringify({jobID:jobID,date:dte,agentID:agentID,hour:hour,ints:ints,hourWorked:hourWorked}),
+      success:function(response){
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  function getReportEdits(dte){
+    return $.ajax({
+      url: '/get-live-report-edits/'+moment.utc(dte).format("YYYY-MM-DD"),
+      type: 'GET',
+      global:false,
+      contentType: 'application/json',
+      success:function(response){
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+$(document).ready(function () {
+  try{
+    $().reportFilter({
+      filters:{
+        stDate:"<%=dte%>",
+        enDate:null,
+        shift:[<%- shift=='de'?"":"'"+shift+"'" %>],
+      },
+      onRefresh:(vals)=>{
+        window.location.href="/live-report/"+vals.stDate+"/"+(vals.shift?vals.shift:"de")
+      }
+    })
+  }catch(e){
+    $('#oldFilters').show()
+  }
+  //Forsta Release
+  $.ajax("/get-forsta-surveys").then(data=>{
+    $("#surveys").attr('value',JSON.stringify(data.map(el=>({value:el.id,label:el.name}))))
+  })
+  $('#updateReport').on('click',function(e){
+    window.location.href="/live-report/"+$('#dte').val()+"/"+$('#shiftSelect').val()
+  })
+  var tableData=[
+    <%
+    var r=0
+    jobs.filter(job=>dailys.find(el=>el.jobID==job.jobID)).forEach((job, i) => {
+      var sumJ=0
+      var cntJ=0
+      var avgJ=0
+      var jobReports=reports.filter(el=>el.jobID==job.jobID && el.hourWorked==1 && dailys.filter(d=>d.jobID==el.jobID).map(d=>d.agentID).includes(el.agentID))
+      var jobInts=job.isHourly==1?jobReports.length:jobReports.reduce((a,b)=>a+Number(b.inputInterviews),0)
+      %>
+      {rowID: <%=r%>,jobID:'<%=job.jobID%>',includeRow:<%=dailys.filter(el=>el.jobID==job.jobID).filter(el=>!el.excludeFromLiveReport).length>0%>,isJobHourly:'<%=job.isHourly==1%>',hours:'<%=jobReports.length%>',avgWage:'<%=dailys.filter(el=>el.jobID==job.jobID).reduce((a,b)=>a+Number(b.payrate),0)/dailys.filter(el=>el.jobID==job.jobID).length%>', totalSurveys:'<%= jobReports.reduce((a,b)=>a+Number(b.inputInterviews),0) %>',hourlyTarget:'<%=job.hourlyTarget%>', agentName:'<%=job.fullJobName%>',surveyName:'<%=job.fullJobName%>',surveyMatch:'<%=job.vistaName%>', CPI:'<%=job.CPI%>', jobSales:'<%=job.CPI*jobInts%>',cont:'<%=dailys.filter(el=>el.jobID==job.jobID).reduce((a,b)=>a+Number(b.payrate*jobReports.filter(el=>el.agentID==b.agentID).length),0)/(job.CPI*jobInts)%>',
+      <% for (var i = 9; i < hr; i++) {
+        var header=i+":00-"+(i+1)+":00"
+        var agentReport=reports.filter(el=>el.jobID==job.jobID && el.reportHour==i && dailys.filter(d=>d.jobID==el.jobID).map(d=>d.agentID).includes(el.agentID))
+        var val=agentReport.filter(el=>el.hourWorked).length>0?(agentReport.reduce((a,b)=>a+Number(b.hourWorked?b.inputInterviews:0),0)/agentReport.filter(el=>el.hourWorked).length):''
+        %>
+        '<%= header %>':'<%=val===''?'':(Math.round(val * 100) / 100)+"ph" %>',
+      <%}%>
+      "_children":[
+        <% dailys.filter(el=>el.jobID==job.jobID).forEach((daily, i) => {
+          var sum=0
+          var cnt=0
+          var avg=0
+          var agInts=job.isHourly==1?reports.filter(el=>el.jobID==job.jobID && el.agentID==daily.agentID && el.hourWorked==1).length:reports.filter(el=>el.jobID==job.jobID && el.agentID==daily.agentID && el.hourWorked==1).reduce((a,b)=>a+Number(b.inputInterviews),0)
+          r++%>
+          {rowID: <%=r%>,jobID:'<%=job.jobID%>',includeRow:<%=!daily.excludeFromLiveReport%>,shift:'<%=daily.isDay==1?'d':'e'%>',agentID:'<%=daily.agentID%>',avgWage:'<%=daily.payrate%>',hours:'<%=reports.filter(el=>el.jobID==job.jobID && el.hourWorked==1 && el.agentID==daily.agentID).length%>',totalSurveys:'<%= reports.filter(el=>el.jobID==job.jobID && el.agentID==daily.agentID && el.hourWorked==1).reduce((a,b)=>a+Number(b.inputInterviews),0) %>',agentName:'<%=daily.agentName%>',surveyName:'<%=daily.fullJobName%>',surveyMatch:'<%=daily.jvName%>',agentMatch:'<%=daily.avName%>', jobSales:'<%=job.CPI*agInts%>',cont:'<%=(daily.payrate*reports.filter(el=>el.jobID==job.jobID && el.hourWorked==1 && el.agentID==daily.agentID).length)/(job.CPI*agInts)%>',
+          <% for (var i = 9; i < hr; i++) {
+            var header=i+":00-"+(i+1)+":00"
+            var agentReport=reports.find(el=>el.agentID==daily.agentID && el.jobID==job.jobID && el.reportHour==i)
+            var val=agentReport?(agentReport.hourWorked?agentReport.inputInterviews:''):''
+            sum=sum+Number(val)
+            cnt=cnt+(val===''?0:1)
+            %>
+            '<%= header %>':'<%=val %>',
+          <%}
+          sumJ=sumJ+sum
+          cntJ=cntJ+cnt
+          avg=sum/cnt
+          %>
+          Total:'<%= cnt==0?'':(Math.round(avg * 100) / 100)+"ph" %>',
+        },
+        <%});
+        r++
+        avgJ=sumJ/cntJ
+        %>
+      ], Total:'<%=cntJ==0?'':(Math.round(avgJ * 100) / 100)+"ph"%>'
+    },
+    <%});%>
+  ]
+  var colDef=[
+    {field:"", visible:true, width:10, download:false, htmlOutput:false},
+    {field:"rowID", visible:false},
+    {field:"isJobHourly", visible:false},
+    {field:"agentName", title:"Name", HtmlOutput:"Survey",width:130},
+    {field:"surveyName", visible:false},
+    {field:"jobID", visible:false},
+    {field:"agentID", visible:false},
+    {field:"allAgents", visible:false},
+    {field:"surveyMatch", title:"Forsta survey", download:false, htmlOutput:false,width:90, editor:'autocomplete', editorParams:function(cell){
+      return {
+        values:JSON.parse($('#surveys').attr('value')),
+        showListOnEmpty:true,
+        searchingPlaceholder:"Searching...",
+        emptyPlaceholder:"(no matching surveys found)"
+      }
+    }, cellEdited:function(cell){
+      cell.getRow().getCell('includeRow').setValue(true)
+      cell.getRow().getTreeChildren().forEach((row, i) => {
+        row.update({surveyMatch:cell.getValue()})
+      });
+      loadInts(cell.getValue())
+      updateNames('Job',cell.getData().jobID,cell.getValue())
+      cell.getRow().reformat()
+    },formatter:function(cell){
+      if (!cell.getValue()) {
+        $(cell.getElement()).addClass('missingCell')
+      }
+      return cell.getValue()
+    }},
+    {field:'includeRow',htmlOutput:false,mutator:v=>(v===false?false:true),formatter:(c,p,onRendered)=>{
+      onRendered(()=>{
+        $(c.getElement()).find(".includeCheck").change(function(e){
+          c.setValue($(this).is(":checked"))
+          if (c.getRow().getTreeChildren().length>0) {
+            c.getRow().getTreeChildren().forEach((child, i) => {
+              child.update({includeRow:$(this).is(":checked")})
+            });
+          }else {
+            if (c.getRow().getTreeParent().getTreeChildren().filter(ch=>ch.getData().includeRow).length==0) {
+              c.getRow().getTreeParent().update({includeRow:false})
+            }else {
+              c.getRow().getTreeParent().update({includeRow:true})
+            }
+          }
+          let d=c.getData()
+          d.includeRow=$(this).is(":checked")
+          d.inputDate='<%=dte%>'
+          $.ajax({
+            type:'POST',
+            data:d,
+            global:false,
+            url:'/update-live-report-inclusion',
+            success:(a,b)=>console.log(a,b)
+          })
+        })
+      })
+      return `<input type="checkbox" class="includeCheck" `+(c.getValue()?'checked':'')+` >`
+    }},
+    {field:"agentMatch", title:"Forsta agent", download:false, htmlOutput:false,editor:'autocomplete', editorParams:function(cell){
+      var allAgents=cell.getRow().getTreeParent().getData().allAgents
+      if (!allAgents) {
+        allAgents=['<i>Refresh report to get agents</i>']
+      }
+      return {values:allAgents, showListOnEmpty:true}
+    }, width:90, cellEdited:function(cell){
+      if (cell.getValue()=='<i>Refresh report to get agents</i>') {
+        cell.setValue(undefined)
+        loadInts(cell.getData().surveyMatch)
+      }else {
+        updateNames('Agent',cell.getData().agentID,cell.getValue())
+        loadInts(cell.getData().surveyMatch)
+      }
+      cell.getRow().reformat()
+    },formatter:function(cell){
+      var type=cell.getRow().getTreeChildren().length==0?'a':'j'
+      $(cell.getElement()).removeClass('missingCell')
+      $(cell.getElement()).removeClass('missingCellParent')
+      if (type=='j' && cell.getRow().getTreeChildren().map(el=>el.getData().agentMatch).includes("")) {
+        $(cell.getElement()).addClass('missingCellParent')
+      }
+      if (type=='a' && !cell.getValue()) {
+        $(cell.getElement()).addClass('missingCell')
+      }
+      return cell.getValue()
+    }},
+    {field:"shift", visible:false},
+    {field:"hours",title:"Hours worked"},
+    {field:"avgWage",title:"Wage rate",formatter:"money", formatterParams:{symbol:"£"}},
+    {field:"totalSurveys",title:"Surveys achieved"},
+    {field:"hourlyTarget",title:"AHR Target"},
+    {title:"Total", field:"Total", width:60,cssClass:'totalCell'},
+  ]
+  for (var i = 9; i < hr; i++) {
+    colDef.push({field:i+":00-"+(i+1)+":00",title:i+":00-"+(i+1)+":00",visible:i<=moment().hour() || "<%=dte%>"!=moment.utc().format("YYYY-MM-DD"),editor:'input',cssClass:'inputCell',editable:function(cell){return cell.getRow().getTreeChildren().length==0}, cellEdited:function(cell){
+      let cnt=0
+      let sum=0
+      let row=cell.getRow().getTreeParent()
+      let childData=cell.getRow().getData()
+      if (cell.getValue()==="" && $(cell.getElement()).hasClass("isManual")) {
+        $(cell.getElement()).removeClass("isManual")
+      }else {
+        $(cell.getElement()).addClass("isManual")
+      }
+      row.getTreeChildren().forEach((child, i) => {
+        for (const [key, value] of Object.entries(child.getData())) {
+          if (key.includes(":") && value!=="") {
+            cnt++
+            sum=sum+Number(value)
+          }
+        }
+      });
+      let ccnt=0
+      let csum=0
+      for (const [key, value] of Object.entries(childData)) {
+        if (key.includes(":") && value!=="") {
+          ccnt++
+          csum=csum+Number(value)
+        }
+      }
+      let cints=row.getData().isJobHourly=="true"?ccnt:csum
+      cell.getRow().update({
+        Total:ccnt==0?'':(Math.round((csum/ccnt) * 100) / 100)+"ph",
+        hours:ccnt,
+        totalSurveys:csum,
+        jobSales:cints*row.getData().CPI,
+        cont:(childData.avgWage*ccnt)/(cints*row.getData().CPI)
+      })
+      let sqlData=[]
+      saveReportEdit(row.getData().jobID,'<%=dte%>',childData.agentID,Number(cell.getField().split(":")[0]),cell.getValue(),1)
+      let avg=sum/cnt
+      let ints=row.getData().isJobHourly=="true"?cnt:sum
+      row.update({
+        Total:cnt==0?'':(Math.round(avg * 100) / 100)+"ph",
+        hours:cnt,
+        totalSurveys:sum,
+        jobSales:ints*row.getData().CPI,
+        cont:(row.getData().avgWage*cnt)/(ints*row.getData().CPI)
+      })
+      var obj={}
+      var header=cell.getField()
+      avg=row.getTreeChildren().filter(el=>el.getData()[header]!=="").reduce((a,b)=>a+Number(b.getData()[header]),0)/row.getTreeChildren().filter(el=>el.getData()[header]!=="").length
+      obj[header]=row.getTreeChildren().filter(el=>el.getData()[header]!=="").length==0?'':(Math.round(avg * 100) / 100)+"ph"
+      row.update(obj).then(function(e){
+        loadChart()
+      })
+    }})
+  }
+  colDef.push({field:"CPI",title:"CPI",formatter:"money", formatterParams:{symbol:"£"}})
+  colDef.push({field:"jobSales",title:"Sales",formatter:"money", formatterParams:{symbol:"£"}})
+  colDef.push({field:"cont",title:"Cont.",formatter:function(cell){
+    let cl="#7fea7f"
+    let children=cell.getRow().getTreeChildren()
+    let shift=cell.getData().shift
+    let inf=cell.getValue()=='Infinity' && cell.getData().Total!==""
+    if (children.length>0) {
+      shift=children.filter(el=>el.getData().shift=="e").length>children.filter(el=>el.getData().shift=="d").length?'e':'d'
+    }
+    if ((cell.getValue()>0.4 && shift=="d") || (cell.getValue()>0.35 && shift=="e") || inf) {
+      cl="#ffaaaa"
+    }
+    if (cell.getData().Total!=="") {
+      cell.getElement().style.backgroundColor=cl
+    }
+    return cell.getData().Total===""?'':(inf?'999%':Math.round(cell.getValue()*100)+"%")
+  }})
+  var rTable=new Tabulator("#reportTable",{
+    autoResize:true,
+    index:"rowID",
+    layout:"fitColumns",
+    height:'1200px',
+    data:tableData,
+    dataTree:true,
+    dataTreeFilter:true,
+    headerSort:false,
+    columns:colDef,
+    cellHozAlign:"center",
+    rowFormatter:function(row){
+      row.getCells().forEach((cell, i) => {
+        cell.getElement().style.padding= "4px";
+        cell.getElement().style.fontSize= "14px";
+        cell.getElement().style.height= "25px";
+      })
+    },
+    dataTreeRowExpanded:function(row, level){
+      row.getCells().forEach((cell, i) => {
+        cell.getElement().style.padding= "4px";
+        cell.getElement().style.fontSize= "14px";
+        cell.getElement().style.height= "25px";
+      })
+    },
+    dataChanged:function(data){
+      this.redraw()
+    },
+    dataTreeRowExpanded:function(row, level){
+      getReportEdits('<%=dte%>').then(function(e){
+        let thisJob=e.filter(el=>el.jobID==row.getData().jobID)
+        if (thisJob.length>0) {
+          row.getTreeChildren().forEach((child, i) => {
+            let thisAgent=thisJob.filter(el=>el.agentID==child.getData().agentID)
+            if (thisAgent.length>0) {
+              child.getCells().forEach((cell, i) => {
+                let thisHour=thisAgent.filter(el=>el.reportHour==Number(cell.getField().split(":")[0]))
+                if (thisHour.length>0) {
+                  $(cell.getElement()).addClass("isManual")
+                }
+              });
+            }
+          });
+        }
+      })
+    },
+  })
+  loadChart()
+  $('body').addClass("loading")
+  $('#shiftSelect').on('rendered.bs.select',function () {
+    $('body').removeClass("loading")
+  })
+})
+
+</script>
+  <div class="container" style="padding-top:70px;">
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body viewerHeight">
+        <h4 class="card-title">Live Report</h4>
+        <div id="oldFilters" style="display:none">
+          <input type="date" style="display:inline; width:auto;" class="form-control inputdate selectFilters" id="dte" name="dte" value="<%=dte%>" max="<%=tdy%>" style="width:200px; margin:auto;">
+          <input type="text" style="display:none;"id="surveys" name="surveys">
+          <select class="selectpicker" id="shiftSelect" title="Shifts">
+            <option <% if(shift=='de'){ %>selected<% } %> value="de">All shifts</option>
+            <option <% if(shift=='d'){ %>selected<% } %> value="d">Day only</option>
+            <option <% if(shift=='e'){ %>selected<% } %> value="e">Eve only</option>
+          </select>
+          <button type="button" class="btn btn-primary" name="updateReport" id="updateReport">Go</button>
+          <br>
+        </div>
+        <canvas id='chart' height="75" style="margin-top:30px"></canvas>
+        <button type="button" class="btn btn-primary" style="display: inline-block;margin: auto;" name="refreshReport" id="refreshReport">Refresh report</button>
+        <button type="button" class="btn btn-secondary" style="display: inline-block;margin: auto;" name="downloadReport" id="downloadReport">Email report</button>
+        <div id="reportTable" style="margin-top:40px"></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

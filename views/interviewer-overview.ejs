@@ -1,0 +1,651 @@
+<%- include('partials/'+versionPages.header) %>
+<script type="text/javascript">
+
+  function fnExcelReport(id)
+  {
+    var tab_text="<table border='2px'><tr bgcolor='#87AFC6'>";
+      var textRange; var j=0;
+      tab = document.getElementById(id); // id of table
+
+      for(j = 0 ; j < tab.rows.length ; j++)
+      {
+        tab_text=tab_text+tab.rows[j].innerHTML+"</tr>";
+        //tab_text=tab_text+"</tr>";
+      }
+
+      tab_text=tab_text+"</table>";
+      tab_text= tab_text.replace(/<A[^>]*>|<\/A>/g, "");
+      tab_text= tab_text.replace(/<a[^>]*>|<\/a>/g, "");
+      tab_text= tab_text.replace(/<img[^>]*>/gi,"");
+      tab_text= tab_text.replace(/<input[^>]*>|<\/input>/gi, "");
+
+      var ua = window.navigator.userAgent;
+      var msie = ua.indexOf("MSIE ");
+
+      if (msie > 0 || !!navigator.userAgent.match(/Trident.*rv\:11\./))
+      {
+        txtArea1.document.open("txt/html","replace");
+        txtArea1.document.write(tab_text);
+        txtArea1.document.close();
+        txtArea1.focus();
+        sa=txtArea1.document.execCommand("SaveAs",true,"Project_Deadlines.xls");
+      }
+      else
+      sa = window.open('data:application/vnd.ms-excel,' + encodeURIComponent(tab_text));
+
+      return (sa);
+    }
+    let overallStats=[]
+    function one2oneForm(month){
+      let monthlies=<%-JSON.stringify(monthly)%>
+      let kpis=month===undefined?overallStats[0]:monthlies[month]
+      let stdate=month===undefined?'<%=stdate%>':moment("01-"+monthlies[month].mnth,"DD-MMM-YY").format()
+      let mnth=month===undefined?'<%=stdate%>-<%=endate%>':monthlies[month].mnth
+      console.log(kpis)
+      $.ajax({
+        url: '/get-o2o-form/',
+        type: 'POST',
+        data:{agentName:"<%= intNames.agentName %>",month:mnth,agentID:<%= intNames.agentID %>,monthly:monthlies,prevO2os:<%-JSON.stringify(prevO2os)%>,kpis:kpis,stdate:stdate},
+        success: function (response) {
+          var source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(response);
+          var fileDownload = document.createElement("a");
+          document.body.appendChild(fileDownload);
+          fileDownload.href = source;
+          fileDownload.download = 'Interviewer One-to-One form - <%= intNames.agentName %> - '+mnth+'.doc';
+          fileDownload.click();
+          document.body.removeChild(fileDownload);
+        },
+        error: function (jqXHR, exception) {
+          console.log(jqXHR)
+          alert(getErrorMessage(jqXHR,exception))
+        },
+      });
+    }
+    function downloadFile(url){
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download="";
+      document.body.appendChild(a);
+      console.log(url)
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }
+  </script>
+  <style>
+    .container .fas:not(.bold), .container .far:not(.bold){
+      color: rgb(0 0 0 / 19%);
+    }
+    .head{
+
+    }
+    .alt{
+      background-color: #3784691a;
+    }
+    .text-container{
+      font-size:22px;
+    }
+    .value{
+      stroke-width:9;
+      transition: stroke 3000ms ease 0s!important;
+    }
+    .dial{
+      stroke-width:10;
+      stroke: #80808054;
+    }
+    .stats{
+      display: block;
+      width: 100%;
+      padding: 10px;
+      white-space: nowrap;
+      margin: 10px 0px;
+    }
+    .stats td{
+      padding-left:10px;
+      padding-right:10px;
+    }
+    .viewerHeight {
+      overflow: scroll;
+      display:flex;
+    }
+    .agentList {
+      width: 100%;
+      text-align: center;
+      margin: auto;
+    }
+    .agentList tr{
+      border: 1px solid gray;
+    }
+    .tabulator-calcs-bottom {
+      text-align: center;
+    }
+    .container {
+      max-width: fit-content;
+    }
+    .infoCard {
+      width: fit-content;
+      border: 1px solid var(--subtle);
+      padding: 9px;
+      display: flex;
+      margin: auto;
+    }
+    .infoCard table {
+      white-space: nowrap;
+      text-align: left;
+      margin: 12px;
+    }
+    .infoCard table td {
+      padding: 0px 5px;
+    }
+    .avatar {
+        margin: auto;
+        border: 2px solid #ffffff70;
+        width: 80%;
+        height: auto;
+        border-radius: 50%;
+    }
+    .namePlate{
+      text-align:center;
+      padding-top: 10px;
+    }
+    .dropdown-item.disabled {
+      pointer-events: none;
+      color: gainsboro;
+    }
+    span.barCont {
+      position: absolute;
+      width: 84%;
+      height: 100%;
+      top: 0;
+      left: 8%;
+    }
+    span.bar {
+      height: 60%;
+      background: black;
+      position: absolute;
+      left: 0;
+      top: 50%;
+      transform: translateY(-50%);
+      opacity: 0.15;
+    }
+    div#monthlyTable_filter {
+      display: none;
+    }
+    .stats.gauges {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-evenly;
+    }
+  </style>
+  <%
+
+  function dateIf(inDate, seperator, order){
+    let day =''
+    if (new Date(inDate).getDate() < 10) {
+      day = '0' + new Date(inDate).getDate()
+    } else {
+      day = new Date(inDate).getDate()
+    }
+    let month =''
+    if (new Date(inDate).getMonth()+1 < 10) {
+      month = '0' + (new Date(inDate).getMonth()+1)
+    } else {
+      month = (new Date(inDate).getMonth()+1)
+    }
+    let year = new Date(inDate).getFullYear()
+    if(order=="f"){
+      return(day+seperator+month+seperator+year)
+    }
+    if(order=="r"){
+      return(year+seperator+month+seperator+day)
+    }
+  }
+  %>
+  <div class="container" style="padding-top:70px;">
+    <div class="card text-dark bg-light mb-2 text-center viewerHeight">
+      <div class="card-body">
+        <h2><a href="/editint/<%= intNames.agentID %>"><%= intNames.agentName %></a></h2>
+        <div id="oldFilters" style="display:none;">
+          <h5 class=""><input type="date" style="display:inline; width:auto;" class="form-control inputdate" id="stdate" name="stdate" style="width:200px; margin:auto;"> to <input type="date" style="display:inline; width:auto;" class="inputdate form-control" id="endate" name="endate" style="width:200px; margin:auto;"> <button id="dateChange" class="btn btn-primary">Confirm</button></h5>
+          <h5 class="">Filter stats by activity within
+            <select class="selectpicker selectFilters" style="display:inline; width:auto;" data-live-search="true" id="team_search" name="team_search">
+              <option value="0">All teams</option>
+              <% teams.forEach((team,i) => {%>
+                <option value="<%=team.agentTeamID%>" <%if(team.agentTeamID==sessTeam){%>selected<%}%>><%=team.teamName%></option>
+                <% }) %>
+              </select>
+            </h5>
+            <div class="alert alert-danger fade show" id="datemessage" role="alert">Please enter a valid date range</div>
+        </div>
+        <div class="infoCard">
+          <img class="avatar" src="<%= breatheAgent.photo_url %>" height="120px"></img>
+          <table>
+            <tr><td>Age:</td><td><%=intAge%></td></tr>
+            <tr><td>DOB:</td><td><%=dateIf(intNames.agentDOB,"/","f")%></td></tr>
+            <tr><td>Time employed:</td><td><%=intEmployed%></td></tr>
+            <tr><td>Date joined:</td><td><%=dateIf(intNames.agentJoined,"/","f")%></td></tr>
+            <tr><td>Team:</td><td><%=intNames.teamName%></td></tr>
+            <tr><td>Shift:</td><td><%if (intNames.isDay==1) {%>Day<%}else if(intNames.isEve==1){%>Eve<%}else{%>Unknown<%}%></td></tr>
+          </table>
+        </div>
+        <a class="btn btn-light" href="/editint/<%= intNames.agentID %>">Edit details</a>
+        <div class="btn-group actionButtons">
+          <%
+          %>
+          <button type="button" class="btn btn-info" onclick="one2oneForm()">Download one-to-one form for selected date range</button>
+          <button type="button" class="btn btn-info dropdown-toggle dropdown-toggle-split" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            <span class="sr-only">Toggle Dropdown</span>
+          </button>
+          <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+            <%monthly.forEach((month,m)=>{%>
+              <a class="dropdown-item" href="#" onclick="one2oneForm('<%=m%>')"><%=month.mnth%></a>
+            <%})%>
+          </div>
+        </div>
+        <br>
+        <div class="stats gauges">
+        </div>
+        <div class="stats">
+          <div class="agentList" id="agentList_0">
+
+          </div>
+        </div>
+        <div class="stats">
+          <h5>Historic Performance</h5>
+          <table id="monthlyTable" class="table-sm table-striped" width="100%">
+            <thead>
+              <tr>
+                <th>Month</th><th class="statBars">Contribution</th><th class="statBars">Shifts on target</th><th class="statBars">Avg QC score</th><th class="statBars">Dials p/h</th><th class="statBars">Shifts absent</th><th class="statBars">Hours worked</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% monthly.forEach((mnth, i) => {%>
+                <tr>
+                  <td><%=mnth.mnth%></td>
+                  <td data-max="<%= Math.max.apply(null, monthly.map(el=>Number(el.contribution))) %>" data-dp="2" data-perc="true"><%=mnth.contribution%></td>
+                  <td data-max="<%= Math.max.apply(null, monthly.map(el=>Number(el.onTarget))) %>" data-dp="2" data-perc="true"><%=mnth.onTarget%></td>
+                  <td data-max="<%= Math.max.apply(null, monthly.map(el=>Number(el.QCscore))) %>" data-dp="2"><%=mnth.QCscore%></td>
+                  <td data-max="<%= Math.max.apply(null, monthly.map(el=>Number(el.avgDials))) %>" data-dp="2"><%=mnth.avgDials%></td>
+                  <td data-max="<%= Math.max.apply(null, monthly.map(el=>1-Number(el.percAbsent))) %>" data-dp="2" data-perc="true"><%=mnth.percAbsent%></td>
+                  <td data-max="<%= Math.max.apply(null, monthly.map(el=>Number(el.hrs))) %>" data-dp="2"><%=mnth.hrs%></td>
+                </tr>
+                <%});%>
+              </tbody>
+            </table>
+            <canvas id="monthlyChart" width="600" height="150" style="display: none;"></canvas>
+          </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    let monthlyChart
+    let monthlyDatasets=<%-JSON.stringify(monthly.map(m=>({
+      label: m.mnth,
+      data: [m.contribution*100, m.avgDials, m.QCscore, m.onTarget*100, m.hrs, (1-m.percAbsent)*100],
+      fill: true,
+    })))%>
+    function buildMonthlyChart(){
+      const data = {
+        labels: [
+          'Contribution',
+          'Dials',
+          'QC',
+          'Shifts on target',
+          'Hours worked',
+          'Absence'
+        ],
+        datasets: monthlyDatasets.slice(monthlyDatasets.length-5,monthlyDatasets.length-1)
+      };
+      const config = {
+        type: 'radar',
+        data: data,
+        options: {
+          elements: {
+            line: {
+              borderWidth: 3
+            }
+          },
+          legend:{
+            display:false,
+          }
+        },
+      };
+      monthlyChart = new Chart($('#monthlyChart')[0], config)
+    }
+   function dateIf(inDate, seperator, order){
+     let day =''
+     if (new Date(inDate).getDate() < 10) {
+       day = '0' + new Date(inDate).getDate()
+     } else {
+       day = new Date(inDate).getDate()
+     }
+     let month =''
+     if (new Date(inDate).getMonth()+1 < 10) {
+       month = '0' + (new Date(inDate).getMonth()+1)
+     } else {
+       month = (new Date(inDate).getMonth()+1)
+     }
+     let year = new Date(inDate).getFullYear()
+     if(order=="f"){
+       return(day+seperator+month+seperator+year)
+     }
+     if(order=="r"){
+       return(year+seperator+month+seperator+day)
+     }
+   }
+   $('#dateChange').hide()
+   $(document).ready(function() {
+     try{
+       $().reportFilter({
+         filters:{stDate:'<%=stdate%>',enDate:'<%=endate%>',team:<%-JSON.stringify(sessTeam==0?[]:sessTeam.split(",").map(Number))%>},
+         onRefresh:(vals)=>{
+           window.location.href=("/int-performance/" + vals.stDate + "/" + vals.enDate + "/<%=intNames.agentID%>/"+vals.team)
+         }
+       })
+     }catch(e){
+       $('#oldFilters').show()
+     }
+     // buildMonthlyChart()
+     $('#datemessage').css("display","none")
+     $("#stdate").val('<%=stdate%>')
+     $("#endate").val('<%=endate%>')
+     $('.inputdate').change(function() {
+       let en=new Date($("#endate").val())
+       let st=new Date($("#stdate").val())
+       let empty=new Date("1970-01-01")
+       if (st<=en && en > empty && st > empty) {
+         $('#datemessage').css("visibility","hidden")
+         $('#dateChange').show()
+       }else if (st>en) {
+         $("#datemessage").text('Start date cannot be after end date')
+         $('#datemessage').css("display","block")
+       }else if (en <= empty || st <= empty) {
+         $("#datemessage").text('Must enter both dates')
+         $('#datemessage').css("display","block")
+       }
+     })
+     $('#dateChange').click(function(){
+       window.location.href=("/int-performance/" + $("#stdate").val() + "/" + $("#endate").val() + "/<%=intNames.agentID%>/"+$('#team_search').val() )
+     })
+     $('.selectFilters').change(function() {
+       let en=new Date($("#endate").val())
+       let st=new Date($("#stdate").val())
+       $('#dateChange').show()
+     })
+     function targetClass(f,t,reverse){
+       var valClass
+       if (reverse) {
+         if (f*0.8>t) {
+           valClass="bad"
+         }else if (f<=t) {
+           valClass="good"
+         }else {
+           valClass="neutral"
+         }
+       }else {
+         if (f<t*0.8) {
+           valClass="bad"
+         }else if (f>=t) {
+           valClass="good"
+         }else {
+           valClass="neutral"
+         }
+       }
+       return valClass
+     }
+     var contFormatter=function(cell, formatterParams, onRendered){
+       var val=cell.getValue()
+       if (typeof val === 'number' && isFinite(val)) {
+         val=(val*100).toFixed(0)+"%"
+       }else {
+         val="-"
+       }
+       return "<span class='"+targetClass(cell.getValue(),0.40,true)+"'>" + val + "</span>";
+     }
+     var otFormatter=function(cell, formatterParams, onRendered){
+       var val=cell.getValue()
+       if (typeof val === 'number' && isFinite(val)) {
+         val=(val*100).toFixed(0)+"%"
+       }else {
+         val="-"
+       }
+       return "<span class='"+targetClass(cell.getValue(),0.8,false)+"'>" + val + "</span>";
+     }
+     var qcFormatter=function(cell, formatterParams, onRendered){
+       var val=cell.getValue()
+       if (typeof val === 'number' && isFinite(val)) {
+         val=val.toFixed(0)
+       }else {
+         val="-"
+       }
+       return "<span class='"+targetClass(cell.getValue(),85,false)+"'>" + val + "</span>";
+     }
+     var coachFormatter=function(cell, formatterParams, onRendered){
+       var val=cell.getValue()
+       if (typeof val === 'number' && isFinite(val)) {
+         val=val.toFixed(0)
+       }else {
+         val="-"
+       }
+       return "<span class='"+targetClass(cell.getValue(),1,false)+"'>" + val + "</span>";
+     }
+     var dialsFormatter=function(cell, formatterParams, onRendered){
+       var val=cell.getValue()
+       if (typeof val === 'number' && isFinite(val) && (cell.getData().projectID>2 || cell.getData().jobID==undefined)) {
+         val=(val/cell.getData().jobhrs).toFixed(0)
+       }else {
+         val="-"
+       }
+       return "<span class='"+targetClass(val,60,false)+"'>" + val + "</span>";
+     }
+     var jobNamer=function(cell, formatterParams, onRendered){
+       var val=""
+       if (cell.getData().isJobHourly) {
+         val='<i class="bold far fa-clock"></i> '
+       }
+       return val+cell.getValue()
+     }
+    var contTotal = function(values, data, calcParams){
+      var sales = 0;
+      var pay = 0;
+      data.forEach(function(row){
+        sales=sales+Number(row.sales)
+        pay=pay+Number(row.pay)
+      });
+      return pay/sales;
+    }
+   var otTotal = function(values, data, calcParams){
+     return <%=intStats[0].onTarget%>;
+   }
+    var customAvg = function(values, data, calcParams){
+      var tot=0
+      var cnt=0
+      values.forEach(function(val){
+        if (typeof val === 'number' && isFinite(val)) {
+          tot=tot+val
+          cnt++
+        }
+      });
+      return tot/cnt;
+    }
+    var sumJobs = function(values, data, calcParams){
+      var tot=0
+      data.forEach(function(row,i){
+        if (typeof values[i] === 'number' && isFinite(values[i]) && row.projectID>2) {
+          tot=tot+values[i]
+        }
+      });
+      return tot;
+    }
+    var numFormat = function(cell, formatterParams, onRendered){
+      return Math.round(cell.getValue())
+    }
+
+     <%
+     function targetClass(f,t,reverse){
+       var valClass
+       if (reverse) {
+         if (f*0.8>t) {
+           valClass="bad"
+         }else if (f<=t) {
+           valClass="good"
+         }else {
+           valClass="neutral"
+         }
+       }else {
+         if (f<t*0.8) {
+           valClass="bad"
+         }else if (f>=t) {
+           valClass="good"
+         }else {
+           valClass="neutral"
+         }
+       }
+       return valClass
+     }
+     function getNumWorkDays(st, en) {
+         var numWorkDays = 0;
+         var currentDate = new Date(st);
+         var startDate = new Date(st);
+         var endDate = new Date(en);
+         while (currentDate <= endDate) {
+             // Skips Sunday and Saturday
+             if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
+                 numWorkDays++;
+             }
+             currentDate = currentDate.addDays(1);
+         }
+         return numWorkDays;
+     }
+     var days=getNumWorkDays(stdate,endate)
+     intStats.forEach((team, i) => {%>
+       overallStats.push(<%-JSON.stringify(team)%>)
+       var jobData<%=i%>=[
+       <% jobs.forEach((job, i2) => {
+         %>
+         {
+           jobName:'<%=job.jobName%>',
+           jobID:<%=job.jobID%>,
+           projectID:<%=job.projectID%>,
+           jobDates:'<%=dateIf(job.dateStart,"/","f")+" - "+dateIf(job.dateEnd,"/","f")%>',
+           hrs:<%-job.hrs?job.hrs:"''"%>,
+           jobhrs:<%-job.jobhrs===null?'null':job.jobhrs%>,
+           ints:<%-job.Ints?job.Ints:"''"%>,
+           cont:<%-job.contribution?job.contribution:"''"%>,
+           onTargetPerc:<%-job.onTargetPerc?job.onTargetPerc:"''"%>,
+           onTarget:<%-job.onTarget?job.onTarget:0%>,
+           shifts:<%-job.shifts?job.shifts:0%>,
+           qcScore:<%-job.QCscore?job.QCscore:"''"%>,
+           dials:<%-job.dials?job.dials:"null"%>,
+           pay:<%-job.pay?job.pay:"''"%>,
+           CPI:<%-job.CPI?job.CPI:"''"%>,
+           sales:<%-job.sales?job.sales:"''"%>,
+           isJobHourly:<%-job.isJobHourly?job.isJobHourly:"''"%>
+         },
+       <%})%>
+       ]
+       let agentList_<%=i%> = new Tabulator('#agentList_<%=i%>',{
+         data: jobData<%=i%>,
+         layout:'fitColumns',
+         columns:[
+           {title:"Job", field:"jobName", formatter:jobNamer, bottomCalc:function(){return "Total"},width:200},
+           {title:"Dates worked", field:"jobDates",width:200},
+           {title:"", field:"jobID",visible:false},
+           {title:"", field:"projectID",visible:false},
+           {title:"Hours", field:"hrs", bottomCalc:"sum",width:90},
+           {title:"", field:"jobhrs", bottomCalc:"sum",visible:false},
+           {title:"Wages", field:"pay",width:90, formatter:"money", bottomCalc:"sum", bottomCalcFormatter:"money", bottomCalcFormatterParams:{symbol:"£"}, formatterParams:{symbol:"£"}},
+           {title:"Ints", field:"ints",width:90, bottomCalc:"sum"},
+           {title:"CPI", field:"CPI",width:90, formatter:"money", formatterParams:{symbol:"£"}},
+           {title:"Sales", field:"sales",width:90, formatter:"money", bottomCalc:"sum", bottomCalcFormatter:"money", bottomCalcFormatterParams:{symbol:"£"}, formatterParams:{symbol:"£"}},
+           {title:'<i class="fas fa-pound-sign"></i>', field:"cont", maxWidth:60, bottomCalc: contTotal, bottomCalcFormatter:contFormatter, formatter:contFormatter},
+           {title:'<i class="fas fa-bullseye"></i>', field:"onTargetPerc", maxWidth:60, bottomCalc:otTotal, bottomCalcFormatter:otFormatter, formatter:otFormatter},
+           {title:'<i class="fas far fa-check-square"></i>', field:"qcScore", bottomCalc:customAvg, bottomCalcFormatter:qcFormatter, bottomCalcFormatterParams:{precision:0}, maxWidth:60, formatter:qcFormatter},
+           {title:'<i class="fas fa-phone"></i>', field:"dials", maxWidth:60, bottomCalc:sumJobs, bottomCalcFormatter:dialsFormatter, formatter:dialsFormatter},
+         ]
+     	});
+       $('.stats.gauges').reportTiles([
+         {
+           title:'<i class="fas fa-phone"></i> Average dials p/h',
+           visual:[
+             {
+               type:'gauge',
+               data:<%=team.avgDials?team.avgDials.toFixed(0):0%>,
+               target:60,
+               softMax:100
+             },
+           ],
+         },{
+           title:'<i class="fas fa-pound-sign"></i> Contribution',
+           visual:[
+             {
+               type:'gauge',
+               data:<%=team.contribution?(team.contribution*100).toFixed(0):999%>,
+               format:'%',
+               reverse:true,
+               target:<%if(intNames.isDay){%>40<%}else{%>35<%}%>,
+               max:130
+             },
+           ]
+         },{
+           title:'<i class="fas far fa-check-square"></i> Avg QC score',
+           visual:[
+             {
+               type:'gauge',
+               data:<%=team.QCscore?team.QCscore:0%>,
+               target:85,
+               softMax:100
+             },
+           ]
+         },{
+           title:'<i class="fas fa-bullseye"></i> % shifts on target',
+           visual:[
+             {
+               type:'gauge',
+               data:<%=team.onTarget?Math.round(team.onTarget*100):0%>,
+               target:80,
+               format:'%'
+             },
+           ]
+         },{
+           title:'<i class="fas fa-briefcase-medical"></i> Shifts attended',
+           visual:[
+             {
+               type:'gauge',
+               data:<%=team.percAbsent?100-Math.round(team.percAbsent*100):100%>,
+               target:100,
+               format:'%'
+             },
+           ]
+         },
+       ])
+
+     <%});%>
+
+     let statForm=(val,dp,perc)=>{
+       return Math.round(val*(perc?100:1)*Math.pow(10,dp))/Math.pow(10,dp)+(perc?'%':'')
+     }
+     let cellStyle=(td, cellData, rowData, row, col,a,b)=>{
+         $(td).html('')
+         $(td).css('position','relative')
+         let max=$(td).attr('data-max')
+         $(td).html(statForm(cellData,$(td).attr('data-dp'),$(td).attr('data-perc'))+`<span class="barCont" width="100%"><span class="bar" style="width:`+Math.round((cellData/max)*100)+`%;"></span></span>`)
+       }
+     $('#monthlyTable').DataTable({
+        paging: false,
+        scrollY: '200px',
+        ordering:false,
+        info: false,
+        drawCallback:(settings)=>{
+          $('.dataTables_scrollBody')[0].scrollTo(0, $('#monthlyTable')[0].scrollHeight);
+        },
+        columnDefs:[{
+          targets:'statBars',
+          createdCell:cellStyle,
+          width:'12%'
+        }]
+      });
+   })
+  </script>
+  </body>
+  </html>

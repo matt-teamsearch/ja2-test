@@ -1,0 +1,2649 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+.audience-type {
+  width:60px;
+  height:40px;
+  background:#3a586d;
+  border:0px;
+  color:#fff;
+  padding-top:7px;
+  border-radius:5px;
+  font-size:1rem;
+  display:inline-block;
+}
+.kpiSpinner{
+  width: 155px;
+  margin-left: -10px;
+}
+div#kpiContainer {
+    display: flex;
+    justify-content: space-evenly;
+}
+.imgRed{
+  filter: invert(17%) sepia(69%) saturate(7458%) hue-rotate(358deg) brightness(102%) contrast(118%);
+}
+.imgGreen{
+  filter: invert(21%) sepia(98%) saturate(5205%) hue-rotate(111deg) brightness(98%) contrast(102%);
+}
+.is-invalid{
+  border-color: #dc3545;
+  background: #d7000014;
+  box-shadow: 0px 0px 5px #ff0000;
+}
+.is-invalid:focus-within{
+  border-color: inherit;
+  background: inherit;
+  box-shadow: none;
+}
+#refreshOverlay{
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  font-size: 150px;
+  background-color: #0f0f0f66;
+  mix-blend-mode: initial;
+  color: white;
+  left: -2000px;
+  cursor:pointer;
+}
+#refreshOverlay:hover{
+  background:unset;
+  color:black;
+}
+#refreshOverlay.spin{
+  animation: spin 1s infinite;
+  background:unset;
+  color:black;
+}
+@keyframes spin {
+  0%   { transform: rotate(0deg);; }
+  100% { transform: rotate(720deg);; }
+}
+.list-group-item {
+  background:#3a586d;
+  border:0px;
+  border-radius:5px;
+  color:#fff;
+  display:inline-block;
+  padding:6px;
+}
+canvas {
+  margin: 20px 0px;
+}
+.jobRow{
+  text-align: left;
+}
+.jobRow .list-group-item {
+    height: 30px;
+    width: 50px;
+    line-height: 1em;
+    padding: 7px;
+    background: #495f6fed;
+}
+.h5, h5 {
+    display: inline;
+    padding-top:10px
+}
+.kpi {
+  display: inline;
+  font-size: 7em;
+  opacity: 0.5;
+  padding: 20px;
+  width: 170px;
+  color:red;
+}
+.kpiDropdown{
+  position: relative;
+  margin:0px auto;
+  height: 0px;
+  padding-top: 0px;
+  transition: all 1s ease-out;
+  overflow: scroll;
+  box-shadow: inset 0px 0px 12px 7px #00000030;
+  border: 0px solid gainsboro;
+}
+.kpiDropdown.open{
+  border: 1px solid gainsboro;
+}
+#agentKPI,#mapKPI{
+  color:gray;
+}
+.kpi .info {
+  font-size: 26px;
+}
+#qualityTable{
+  width: 80%;
+  margin: 30px auto;
+}
+#performanceTable, #dailyTable, #agentTable, #spendTable, #costsTable{
+  margin: 10px auto;
+  width: 95%
+}
+.tableInners{
+  display:none;
+}
+#modal-body .dayTables{
+  width:100%;
+}
+.modal-dialog{
+  max-width:950px;
+}
+.modal-content{
+  height: 80vh;
+}
+.dayTables, .agentTables {
+  width: 98%;
+}
+.tabulator-col,.tabulator-cell{
+  text-align:center;
+}
+.remBtn, .addBtn{
+  padding: 3px;
+  height: 100%;
+  border: none;
+  width: 100%;
+}
+.noRightBorder{
+  border-right:none!important;
+}
+.addRemCol{
+  padding:0px!important
+}
+.tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+  padding: 2px;
+  font-size: small;
+  text-align:center;
+}
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+#budgetPiesCont{
+  display:flex;
+  flex-wrap: wrap;
+}
+#jobsTable td {
+  padding: 5px;
+  line-height: 2em;
+  white-space:nowrap;
+}
+#jobsTable tr:not(.hiddenTr) {
+  border-bottom: 1px solid #c9c9c9;
+  border-top: 1px solid #c9c9c9;
+}
+.viewJob {
+  transform: scale(1.5);
+}
+label {
+  margin-bottom: 0em;
+}
+.hiddenTr{
+  background-color:white;
+}
+.closingInfo{
+  display: block;
+  width: 120px;
+  margin: auto;
+  border: none;
+}
+#auditDropdown td{
+  padding: 4px;
+  vertical-align: middle;
+}
+#auditDropdown input[type=checkbox]{
+  transform:scale(1.5);
+  width: 15px;
+  margin: auto;
+}
+.pastDue{
+  background: #dc354561;
+  position:relative;
+}
+.pastDue::after{
+  font-family: 'Material Icons Outlined';
+  content: "error_outline";
+  position: absolute;
+  right: 33px;
+  color: var(--danger);
+}
+#datasheetModal .modal-dialog.modal-dialog-centered {
+  max-width: fit-content;
+}
+#datasheetModal .tabulator-tableHolder {
+  overflow: hidden!important;
+}
+div#modal-body {
+  overflow-y: scroll;
+}
+audio {
+  height: 30px;
+}
+.popover{
+  max-width: fit-content;
+}
+.audioTag{
+  font-size: large;
+}
+.audioRow{
+  border-bottom: 1px solid gainsboro;
+  margin-bottom: 5px;
+}
+tr.drJobRow {
+  background-color: #f4e7dd;
+}
+tr.drJobRow.first{
+  box-shadow: inset 0px 25px 25px -30px #00000052;
+}
+i.fas.fa-level-up-alt {
+  transform: rotate(90deg);
+  padding: 5px;
+  font-size: x-large;
+  color: #c39775;
+  margin-right: 4px;
+}
+.fa-pencil-alt{
+  color: #f4e7dd;
+}
+ul.toc {
+  padding: 34px;
+  background-color: #f1f1f2;
+  border: 1px solid gainsboro;
+}
+caption{
+  display:none;
+}
+
+.avatar{
+  border-radius: 60px;
+  border: 2px solid #ffffff70;
+}
+.pmcm {
+  padding: 4px 10px;
+}
+.resultsTab {
+  font-size: 12px;
+}
+td.notNeededCell {
+  font-style: italic;
+}
+.actionTD>a {
+  display: inline;
+}
+.actionTD{
+  vertical-align: baseline;
+  text-align: right;
+  white-space: nowrap;
+}
+#vistaBox {
+  display: table;
+  background:#ffffffc2;
+}
+.vistaRow {
+  display: table-row;
+}
+.head>div{
+  font-weight: 500;
+  font-size: small;
+  padding: 2px!important;
+  border:none!important;
+}
+.vistaRow>div {
+  padding: 0px 4px;
+  font-size: 13px;
+  border: 1px solid gainsboro;
+  min-width: 23%;
+  display: table-cell;
+}
+.vistaRow .vistaName{
+  max-width: 163px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow-x: hidden;
+}
+.spinner {
+  display:    block;
+  position:   absolute;
+  z-index:    9999;
+  top:        0;
+  left:       0;
+  height:     100%;
+  width:      100%;
+  background: rgba( 0, 0, 0, .5 )
+              url('/spinner.gif')
+              50% 50%
+              no-repeat;
+  background-size: contain;
+}
+.vistaLoad{
+  background-position: 50% 50%!important;
+  background-size: contain!important;
+  background-repeat: no-repeat!important;
+}
+.tooltipTable td{
+  text-align:left;
+  padding:2px;
+  font-size:small;
+}
+div[id^='askiareport']{
+  display:none;
+}
+.auto {
+  color: var(--primary);
+}
+.loi {
+  width: 45px;
+}
+.surveyLink svg,.surveyLink img {
+  width: 24px;
+  height: 24px;
+}
+.surveyLink.inactive svg,.surveyLink.inactive img{
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+</style>
+
+<%
+
+const dateIf = (inDate, seperator, order) => {
+  let day =''
+  if (new Date(inDate).getDate() < 10) {
+    day = '0' + new Date(inDate).getDate()
+  } else {
+    day = new Date(inDate).getDate()
+  }
+  let month =''
+  if (new Date(inDate).getMonth()+1 < 10) {
+    month = '0' + (new Date(inDate).getMonth()+1)
+  } else {
+    month = (new Date(inDate).getMonth()+1)
+  }
+  let year = new Date(inDate).getFullYear()
+  if(order=="f"){
+  return(day+seperator+month+seperator+year)
+  }
+  if(order=="r"){
+  return(year+seperator+month+seperator+day)
+  }
+}
+%>
+
+<div class="container" style="padding-top:70px;max-width:90%;">
+    <%  project.forEach((project , index) => { %>
+      <div class="card viewerHeight text-dark bg-light mb-2 text-center">
+        <div class="card-body">
+          <div id="topHalf" class="card">
+            <h2><%= project.quoteNo %> <%= project.quoteName %></h2>
+            <p class="card-text"><%= project.clientName %></p>
+            <div class="card-text" style="display: flex;justify-content: center;position: absolute;">
+              <div class="pmcm">
+                <span class="badge badge-cm">CM
+                </span>
+                <br>
+                <img class="avatar" src="<%= cmBreathe?cmBreathe.photo_url:'/blank-user.jpg' %>" height="70px"></img><br>
+                <%= project.cmName %>
+              </div>
+              <div class="pmcm">
+                <span class="badge badge-pm">PM
+                </span>
+                <br>
+                <img class="avatar" src="<%= pmBreathe?pmBreathe.photo_url:'/blank-user.jpg' %>" height="70px"></img><br>
+                <%= project.pmName %>
+              </div>
+            </div>
+            <div class="card-text" id="vistaInfo" style="display: none;justify-content: center;position: absolute;right: 0px;padding: 4px 10px;flex-direction: column;width: 20%;background: white;">
+              <span class="badge badge-secondary">Vista stats</span>
+              <div id="vistaBox">
+                <div class="vistaRow head">
+                  <div class="">Survey</div>
+                  <div class="">IR</div>
+                  <div class="">LOI (m)</div>
+                </div>
+              </div>
+              <span class="badge badge-secondary" style="display:none;">Hourly AHR</span>
+              <table id="vistaAhrBox" style="display:none;">
+                <tr class="vistaRow head">
+                  <th class="" colspan="2"></th>
+                  <%-_.range(9,21).map(h=>`<th class="">`+h+`</th>`).join("") %>
+                </tr>
+              </table>
+              <style media="screen">
+                #vistaAhrBox{
+                  font-size:11px;
+                }
+                #vistaAhrBox td,#vistaAhrBox th{
+                  border:1px solid gainsboro;
+                }
+              </style>
+              <script type="text/javascript">
+                const quoteID=<%=project.quoteID%>
+              </script>
+              <%- include('partials/project-notes.ejs') %>
+            </div>
+            <h5>
+              <%if (project.isProjectLive == 1) {%> <a style ="color:#28a745;">Live </a>
+              <%} else if (project.isProjectClosed == 1) {%> <a style ="color:grey;">Closed </a>
+              <%} else if (project.isProjectCancelled == 1) {%> <a style ="color:grey;">Cancelled </a>
+              <%} else {%> <a style ="color:grey;">Quoted </a> <%}%>
+            </h5>
+            <%if (project.isProjectLive == 1) {%>
+              <a href="/close-project/<%=project.projectID%>" style="margin:auto;" class="btn btn-sm btn-light">Close project</a>
+            <%} else if (project.isProjectClosed == 1) {%>
+              <a href="/close-project/<%=project.projectID%>" class="btn btn-sm btn-flat closingInfo btn-outline-secondary">View closing info</a><%}%>
+            <form style="display:none;" action="/compare-projects/" method="post">
+              Compare to:
+              <span class="infoHover">Select one or more other projects to compare this project's performance against.</span>
+              <select class="selectpicker" id="compareTo" multiple name="compareTo" data-live-search="true">
+                <option value="" disabled></option>
+                <%allProjects.forEach((project, i) => {%>
+                <option value="<%=project.quoteID%>"><%=project.quoteNo%> <%=project.quoteName%></option>
+                <%});%>
+              </select>
+              <input type="text" name="quoteIDs" id="quoteIDs" style="display:none" value="">
+              <button type="submit" id="compareToBtn" style="display:none;" class="btn btn-primary btn-sm" name="button">Compare</button>
+            </form>
+            <p>
+              <table id="jobsTable">
+                <%  if(allJobs.length>0){ %>
+                <tr class="hiddenTr">
+                <td style="text-align:left;"><input type="checkbox" class="viewJob hidden" name="viewJob-all" id="viewJob-all" <%=jobs.length==allJobs.length?'checked':''%>></td>
+                <td colspan="7"></td>
+                </tr>
+                <%  allJobs.filter(el=>!el.isJobDeskResearch).forEach((job , index) => { %>
+                <tr>
+                  <td style="text-align:left;"><input type="checkbox" class="viewJob" name="viewJob-<%=job.jobID%>" id="viewJob-<%=job.jobID%>" <%=jobs.map(el=>el.jobID).includes(job.jobID)?'checked':''%>></td>
+                  <td><label for="viewJob-<%=job.jobID%>"><%=job.jobName%></label></td>
+                  <td width="150px">
+                    <% if (job.isJobHourly == 1) {%><i class="far fa-clock list-group-item"></i><%}%>
+                    <% if (job.isJobDay == 1) {%><div class="far fa-sun list-group-item" style="color:#ede165;" title="Day"></div><%}%>
+                    <% if (job.isJobEve == 1) {%><div class="far fa-moon list-group-item" style="color:#aea7c9;" title="Evening"></div><%}%>
+                    <% if (job.isJobCATI == 1) {%><i class="fas fa-phone list-group-item" title="CATI"></i><%}%>
+                    <% if (job.isJobOnline == 1) {%><i class="fas fa-wifi list-group-item" title="Online"></i><%}%>
+                    <% if (job.isJobFace == 1) {%><i class="fas fa-home list-group-item" title="Face to Face"></i><%}%>
+                    <% if (job.isJobRecruitment == 1) {%><i class="fas fa-clipboard-list list-group-item" title="Recruitment"></i><%}%>
+                    <% if (job.isJobInternational == 1) {%><i class="fas fa-globe-europe list-group-item" title="International"></i><%}%>
+                    <% if (job.isJobValidation == 1) {%><i class="fas fa-check-double list-group-item" title="Validation"></i><%}%>
+                    <% if (job.isJobRecontacts == 1) {%><i class="fas fa-phone-square list-group-item" title="Recontact"></i><%}%>
+                    <% if (job.isJobDP == 1) {%><i class="fas fa-keyboard list-group-item" title="DP"></i><%}%>
+                  </td>
+                  <td><%=job.ints%>/<%=job.interviewsTarget%></td>
+                  <td><%=moment(job.startDate).format("DD/MM/YYYY")%> - <%=moment(job.endDate).format("DD/MM/YYYY")%></td>
+                  <td width="120px">
+                    <select class="selectpicker surveyLink forsta inactive" data-width="60px" data-val="<%=job.vistaName%>" data-liveSearch="true" data-jobID="<%=job.jobID%>">
+                      <option hidden style="display:none;" data-content='<svg><use xlink:href="#forsta-logo-simple"></use></svg>' selected></option>
+                    </select>
+                  </td>
+                  <td class="actionTD" <%- job.resourceParent?'title="This is a resource target group and can only be edited using the resource planner"':'' %>>
+                    <a href="/f2f-tracker/<%= job.jobID %>" rel="noopener" class="btn btn-sm btn-info" style="width:100%;<%= job.isJobFace?'':'display:none;' %>">F2F tracker</a>
+                    <a href="/online-tracker/<%= job.jobID %>" rel="noopener" class="btn btn-sm btn-info" style="width:100%;<%= job.isJobOnline?'':'display:none;' %>">Online tracker</a>
+                    <a href="/edit-group-page/<%= job.jobID %>" <%- job.resourceParent?'disabled':'' %> rel="noopener" class="btn btn-sm btn-warning" style="width:100%;">Edit</a>
+                    <a href="#" onclick="checkDupe(<%= job.jobID %>)" rel="noopener" class="btn btn-sm btn-success" style="width:100%;">Duplicate</a>
+                    <a href="#" onclick="checkDelete(<%= job.jobID %>)" rel="noopener" class="btn btn-sm btn-danger" style="width:100%;">Delete</a>
+                  </td>
+                </tr>
+                <%allJobs.filter(el=>el.sponsorJobID==job.jobID).forEach((drJob, i,self) => {%>
+                  <tr class="drJobRow <%=(i==0?'first':'')%>">
+                    <td style="text-align:left;white-space: nowrap;"><i class="fas fa-level-up-alt"></i> <input type="checkbox" class="viewJob" name="viewJob-<%=job.jobID%>" id="viewJob-<%=drJob.jobID%>" <%=jobs.map(el=>el.jobID).includes(drJob.jobID)?'checked':''%>></td>
+                    <td><label for="viewJob-<%=drJob.jobID%>"><%=drJob.jobName%></label></td>
+                    <td width="150px">
+                      <% if (drJob.isJobDay == 1) {%><div class="far fa-sun list-group-item" style="color:#ede165;" title="Day"></div><%}%>
+                      <% if (drJob.isJobEve == 1) {%><div class="far fa-moon list-group-item" style="color:#aea7c9;" title="Evening"></div><%}%>
+                      <i class="fas fa-phone list-group-item" title="CATI"></i>
+                      <i class="fas fa-pencil-alt list-group-item" title="Desk Research"></i>
+                    </td>
+                    <td><%=drJob.ints%>/<%=drJob.interviewsTarget%></td>
+                    <td><%=dateIf(drJob.startDate,"/","f")%> - <%=dateIf(drJob.endDate,"/","f")%></td>
+                    <td width="120px">
+                      <select class="vistaName selectpicker" data-width="<%=drJob.vistaName?'50':'100'%>%" data-val="<%=drJob.vistaName%>" data-live-search="true" data-jobID="<%=drJob.jobID%>" title="Vista survey..." onchange="updateJob('update','Jobs',['vistaName'],[$(this).val()],'jobID',<%=drJob.jobID%>).then(e=>window.location.reload());" data-width="100%">
+                      </select>
+                      <%if(drJob.vistaName){%>
+                        <select class="selectpicker downloadVista" data-width="50%" data-jobID="<%=drJob.jobID%>" data-vistaName="<%=drJob.vistaName%>" title="Vista links..." onchange="getVistaResults('<%=drJob.vistaName%>',$(this).val(),$(this).find('option:selected'))" data-width="100%">
+
+                        </select>
+                      <%}else{%>
+                      <%}%>
+                    </td>
+                    <td class="actionTD">
+                      <a href="/edit-group-page/<%= drJob.jobID %>" rel="noopener" class="btn btn-sm btn-warning" style="width:100%;">Edit</a>
+                      <a href="#" onclick="checkDupe(<%= drJob.jobID %>)" rel="noopener" class="btn btn-sm btn-success" style="width:100%;">Duplicate</a>
+                      <a href="#" onclick="checkDelete(<%= drJob.jobID %>)" rel="noopener" class="btn btn-sm btn-danger" style="width:100%;">Delete</a>
+                    </td>
+                  </tr>
+                <%});%>
+
+                <%})%>
+                <%}%>
+                <%if (project.isProjectLive == 1) {%>
+                <tr class="hiddenTr">
+                  <td colspan="7">
+                    <a href="/addgroup/<%= project.projectID %>" rel="noopener" class="btn btn-sm btn-primary submit" style="width:100%;">Add a target group</a>
+                  </td>
+                </tr>
+                <%}%>
+              </table>
+              <button class="btn btn-outline-primary" style="display:none;" type="button" name="update" id="update">Update view</button>
+            </p>
+            <div id="kpiContainer">
+              <%
+              let sales=jobs.reduce((a,b)=>a+Number(b.catiSales),0)
+              let spend=jobs.reduce((a,b)=>a+Number(b.catiSpend),0)
+              %>
+              <button class="kpi btn btn-white" style="<%=(sales?(spend/sales>0.35?'':'color:green!important'):'')%>" href="#kpiContainer" <%if (allJobs.length>0) {%>onclick="loadContStats()"<%}%> data-href="contDropdown" id="contKPI">
+                <i class="fas fa-pound-sign"></i>
+                <div class="info"><%=(sales?((spend/sales*100).toFixed(0)+"%"):'n/a')%></div>
+              </button>
+              <%
+              let dailyTargetArr=jobs.map(el=>{
+                let dailyTarget=el.interviewsTarget/(moment(el.endDate).add(1,'d').diff(moment(el.startDate),'days'))
+                return dailyTarget*moment.min(moment(),moment(el.endDate).add(1,'d')).diff(moment(el.startDate),'days')
+              })
+              let diff=Math.round(jobs.reduce((a,b)=>a+Number(b.ints),0)-dailyTargetArr.reduce((a,b)=>a+Number(b),0))
+              %>
+              <button class="kpi btn btn-white" style="<%=(diff<0?'':'color:green!important')%>" data-href="scheduleDropdown" <%if (allJobs.length>0) {%>onclick="loadScheduleStats()"<%}%> id="scheduleKPI">
+                <i class="far fa-calendar-alt"></i>
+                <div class="info"><%=(diff<0?diff:("+"+diff))%></div>
+              </button>
+              <button class="kpi btn btn-white" data-href="qualityDropdown" id="qualityKPI" <%if (allJobs.length>0) {%>onclick='loadQualityStats()'<%}%>>
+                <i class="fas far fa-check-square"></i>
+                <div class="info"><%=(jobs.filter(j=>j.qcScore).length?(jobs.reduce((a,b)=>a+Number(b.qcScore),0)/jobs.filter(j=>j.qcScore).length).toFixed(1):'-')%></div>
+              </button>
+              <button class="kpi btn btn-white" data-href="agentDropdown" id="agentKPI" <%if (allJobs.length>0) {%>onclick="loadAgentStats()"<%}%>>
+                <i class="fas fa-user-alt"></i>
+                <div class="info"><%=(jobs.reduce((a,b)=>a+Number(b.catiInts),0)?(jobs.reduce((a,b)=>a+Number(b.catiInts),0)/jobs.reduce((a,b)=>a+Number(b.catiHours),0)).toFixed(2)+"ph":'-')%></div>
+              </button>
+              <button class="kpi btn btn-white" style="<%=jobs[0]?(jobs[0].auditsDone<jobs[0].auditsToDo?'':'color:green!important'):''%>" data-href="auditDropdown" id="auditKPI" <%if (allJobs.length>0) {%>onclick="loadAuditStats()"<%}%>>
+                <i class="fas fa-clipboard-list"></i>
+                <div class="info"><%=jobs[0]?(jobs[0].auditsToDo?jobs[0].auditsDone+"/"+jobs[0].auditsToDo:'-'):'-'%></div>
+              </button>
+              <button class="kpi btn btn-white" data-href="mapDropdown" id="mapKPI" <%if (allJobs.length>0) {%>onclick="loadMap()"<%}%>>
+                <i class="fas fa-map-marker"></i>
+                <div class="info">-</div>
+              </button>
+            </div>
+          </div>
+          <div class="kpiDropdown" id="contDropdown">
+            <br>
+            <h5>Contribution</h5><br>
+            <button type="button" class="btn btn-secondary btn-sm" id="dataSheetBtn" onclick="downloadDataSheet()">Download data sheet</button>
+            <canvas id="contChart" height="100"></canvas>
+            <div id="budgetPiesCont" class="col-sm-12">
+
+            </div>
+            <div class="form-group">
+              <label class="col-sm-12 col-form-label">Budget (client costs)</label>
+              <!-- <button type="button" class="btn btn-sm btn-outline-secondary downloadBtn" onclick="downloadTable('costsTable')">Download to XLSX</button> -->
+                <div id="costsTable"></div>
+            </div>
+            <div class="form-group">
+              <label class="col-sm-12 col-form-label">Spend</label>
+              <!-- <button type="button" class="btn btn-sm btn-outline-secondary downloadBtn" onclick="downloadTable('spendTable')">Download to XLSX</button> -->
+                <div id="spendTable"></div>
+            </div>
+          </div>
+          <div class="kpiDropdown" id="scheduleDropdown">
+            <br>
+            <h5>Completes Schedule<span class="infoHover">The target completes here is based on the interview targets of all visible target groups added together. In order to make sure this is accurate, please ensure all completes required for the project are accounted for in the project's target groups.</span></h5>
+            <canvas id="completesChart" height="100"></canvas>
+          </div>
+          <div class="kpiDropdown" id="qualityDropdown">
+            <br>
+            <h5>Quality</h5>
+            <div id="qualityTable" width="70%"></div>
+          </div>
+          <div class="kpiDropdown" id="agentDropdown">
+            <br>
+            <input type="text" style="display:none;" id="callLogs">
+            <h5>Time of day vs AHR</h5>
+            <div class="canvasCont" style="height:250px;">
+              <canvas id="agentHourly" height="250"></canvas>
+            </div>
+            <h5>Agent hours vs AHR</h5>
+            <canvas id="agentScatter" height="100"></canvas>
+            <h5>Daily performance</h5>
+            <br><button type="button" class="btn btn-sm btn-xlsx downloadToExcel" data-target="dailyTable">Download XLSX</button>
+            <table id="dailyTableHtml" style="display:none;">
+              <thead><tr>
+              <th width="35%">Date</th>
+              <th tabulator-visible="false">dte</th>
+              <th>AHR</th>
+              <th>Dials</th>
+              <th>Hours</th>
+              <th>Completes</th>
+              <th tabulator-cssClass="vistaLoad">Incidence</th>
+              <th tabulator-cssClass="vistaLoad">LOI</th>
+              <th>Contribution</th>
+              </tr></thead><tbody>
+
+              </tbody>
+            </table>
+
+            <div style="" id="dailyTableInners">
+
+            </div>
+            <h5>Interviewer performance</h5>
+            <br><button type="button" class="btn btn-sm btn-xlsx downloadToExcel" data-target="performanceTable">Download XLSX</button>
+            <table id="performanceTableHtml" style="display:none;">
+              <thead><tr>
+              <th width="35%">Agent</th>
+              <th tabulator-visible="false">extID</th>
+              <th tabulator-visible="false">agentVista</th>
+              <th>AHR</th>
+              <th>Dials</th>
+              <th>Hours</th>
+              <th>Completes</th>
+              <th tabulator-cssClass="vistaLoad">Incidence</th>
+              <th tabulator-cssClass="vistaLoad">LOI</th>
+              <th>Contribution</th>
+              </tr></thead><tbody>
+
+              </tbody>
+            </table>
+            <table id="performanceTable">
+
+            </table>
+            <div style="" id="agentTableInners">
+
+            </div>
+          </div>
+          <div class="kpiDropdown" id="auditDropdown">
+            <br>
+            <h5>Audit</h5>
+            <table class="table table striped" style="margin-top: 20px;">
+            </table>
+          </div>
+          <div class="kpiDropdown" id="mapDropdown">
+            <br>
+            <h5>Postcode map</h5><br>
+            <select class="selectpicker" id="mapJobSelect" data-live-search="true" title="Select a target group">
+              <option value=""></option>
+              <% allJobs.filter(el=>!el.isJobDeskResearch && el.vistaName).forEach(job=>{%>
+                <option value="<%=job.jobID%>" data-isCATI="<%=job.isJobCATI%>" data-vistaName="<%=job.vistaName%>"><%=job.jobName%></option>
+              <%})%>
+            </select>
+            <select class="selectpicker mapQselect" data-live-search="true" name="surveyQs" id="surveyQs" title="Select the postcode question">
+            </select>
+            <select class="selectpicker mapQselect" data-live-search="true" name="surveyQsGeo" id="surveyQsGeo" title="Select the geolocation question">
+            </select>
+            <select class="selectpicker mapQselect" data-live-search="true" name="surveyQsLong" id="surveyQsLong" title="Select the longitude question">
+            </select>
+            <select class="selectpicker mapQselect" data-live-search="true" name="surveyQsLat" id="surveyQsLat" title="Select the latitude question">
+            </select>
+            <%include postcode-map.ejs%>
+            <script type="text/javascript">
+              $('#mapJobSelect').on('change',function(e){
+                function shorten(str,len){
+                  return str.length>len+3?str.substring(0,len)+"...":str
+                }
+                if ($('#mapJobSelect').val()) {
+                  $.ajax("/get-forsta-survey-questions?pid="+$('#mapJobSelect').find('option:selected').attr("data-vistaName")).then(forstaQs=>{
+                    $('.dropdown-toggle[data-id="surveyQsLong"]').parent().hide()
+                    $('.dropdown-toggle[data-id="surveyQsLat"]').parent().hide()
+                    $("#surveyQs").html('')
+                    $("#surveyQsGeo").html('')
+                    $("#surveyQsLat").html('')
+                    $("#surveyQs").append(new Option('-Switch to longitude/latitude-', 'switchSelect'));
+                    $("#surveyQsGeo").append(new Option('-Switch to postcode-', 'switchSelect'));
+                    $('.dropdown-toggle[data-id="surveyQsLat"]').parent().hide()
+                    forstaQs.filter(q=>['text','numeric'].includes(q.variableType)).forEach((item, i) => {
+                      $("#surveyQs").append(new Option(shorten(item.name+": "+item.titles[0].text,75), item.name));
+                    });
+                    forstaQs.filter(q=>['geolocation'].includes(q.variableType)).forEach((item, i) => {
+                      $("#surveyQsGeo").append(new Option(shorten(item.name+": "+item.titles[0].text,75), item.name));
+                    })
+                    $("#surveyQs").selectpicker('refresh')
+                    $("#surveyQsGeo").selectpicker('refresh')
+                    if ($('#mapJobSelect').find('option:selected').attr("data-isCATI")=='true') {
+                      $('.dropdown-toggle[data-id="surveyQs"]').parent().show()
+                      $('.dropdown-toggle[data-id="surveyQsGeo"]').parent().hide()
+                    }else {
+                      $('.dropdown-toggle[data-id="surveyQs"]').parent().hide()
+                      $('.dropdown-toggle[data-id="surveyQsGeo"]').parent().show()
+                    }
+                  })
+                }
+              })
+              $("select.mapQselect").on('change',function(e){
+                let isPostcode=this.id=='surveyQs'
+                if ($(this).val()=='switchSelect') {
+                  if (isPostcode) {
+                    $('.dropdown-toggle[data-id="surveyQsGeo"]').parent().show()
+                    $('.dropdown-toggle[data-id="surveyQsLong"]').parent().show()
+                    $('.dropdown-toggle[data-id="surveyQsLat"]').parent().show()
+                    $('#surveyQs').val('').selectpicker('refresh')
+                    $('.dropdown-toggle[data-id="surveyQs"]').parent().hide()
+                  }else {
+                    $('.dropdown-toggle[data-id="surveyQsGeo"]').parent().hide()
+                    $('.dropdown-toggle[data-id="surveyQsLong"]').parent().hide()
+                    $('.dropdown-toggle[data-id="surveyQsLat"]').parent().hide()
+                    $('.dropdown-toggle[data-id="surveyQs"]').parent().show()
+                    $('#surveyQsLong').val('').selectpicker('refresh')
+                    $('#surveyQsLat').val('').selectpicker('refresh')
+                  }
+                }else if($('#mapJobSelect').val() && (isPostcode || (($('#surveyQsLong').val() && $('#surveyQsLat').val()) || $('#surveyQsGeo').val()))){
+                  $.ajax("/get-forsta-completes?pid="+$('#mapJobSelect').find('option:selected').attr("data-vistaName")).then(data=>{
+                    let pcodeMap=row=>({
+                      serial:row.TSID,
+                      agent:row.LastAgentID,
+                      intDate:row.interview_end,
+                      postcode:row[$('#surveyQs').val()],
+                    })
+                    let longlatMap=row=>({
+                      serial:row.TSID,
+                      agent:row.LastAgentID,
+                      intDate:row.interview_end,
+                      longitude:row[$('#surveyQsGeo').val()]?row[$('#surveyQsGeo').val()].split("(")[1].split(" ")[1].split(")")[0]:'',
+                      latitude:row[$('#surveyQsGeo').val()]?row[$('#surveyQsGeo').val()].split("(")[1].split(" ")[0]:'',
+                    })
+                    let pData=data.map(pcodeMap)
+                    if (!isPostcode) {
+                      pData=data.map(longlatMap)
+                    }
+                    mapPostcodes(pData)
+                  })
+                }
+              })
+            </script>
+          </div>
+        <div id="bottomHalf" class="card" style="margin-top: 30px;">
+          <% if (project.projectID) { %>
+          <a href="/project-queries/<%= project.projectID %>" rel="noopener" class="btn btn-sm btn-info" style="width:100%;position:relative;">Project queries<span id="qm-replyCount" class="replyCount new" style="visibility: visible;left: calc(50% + 6em);transform: translateX(-50%);"></span></a>
+          <br>
+          <a href="/dedicated-teams/<%= project.projectID %>" rel="noopener" class="btn btn-sm btn-info" style="width:100%;position:relative;">Dedicated teams<span id="dedicatedTeamCount" class="replyCount new" style="visibility: visible;left: calc(50% + 5em);transform: translateX(-50%);"></span></a>
+          <script type="text/javascript">
+            $(document).ready(function(){
+              let jobIDs = [];
+              $('.viewJob:checked:not(.hidden)').each(function() {
+                  jobIDs.push(this.id.split("-")[1])
+              });
+              $.ajax({url:'/get-dedicated-team/0',global:false,success:resp=>{
+                let teams=resp.team.filter(el=>jobIDs.includes(el.jobID.toString()))
+                if (teams.length>0) {
+                  $('#dedicatedTeamCount').text(teams.length)
+                  $('#dedicatedTeamCount').css('visibility','visible')
+                }else {
+                  $('#dedicatedTeamCount').css('visibility','hidden')
+                }
+              }})
+            })
+          </script>
+          <br>
+          <%}%>
+          <a href="/edit/<%= project.quoteID %>" rel="noopener" class="btn btn-sm btn-warning" style="width:100%;">Edit project</a>
+          <br/>
+          <a href="/edit-quote/<%= project.quoteID %>" rel="noopener" class="btn btn-sm btn-secondary" style="width:100%;">Edit quote</a>
+          <% if (jobs.length === 0 && !project.projectID) { %>
+          <br/>
+          <a href="/delete/<%= project.quoteID %>" rel="noopener" class="btn btn-sm btn-danger" style="width:100%;">Delete quote</a>
+          <%}%>
+        </div>
+      </div>
+      <% }) %>
+    </div>
+    <div class='modal fade' role='dialog' id='vistaModal'>
+      <div class='modal-dialog modal-dialog-centered' role='document'>
+        <div class='modal-content'>
+          <div class='modal-header'>
+            <h5 class='modal-title' id='vistaModal-title'></h5>
+            <button type='button' class='close modalClose' data-dismiss='modal' aria-label='Close'>
+              <span aria-hidden='true'>&times;</span>
+            </button>
+          </div>
+          <div class='modal-body' id='vistaModal-body'>
+
+          </div>
+          <div class='modal-footer'>
+            <input type="text" style="display:none;" name="vistaID" id="vistaID" value="">
+            <button type='button' class='btn btn-primary' onclick="copyVistaLink($('#vistaID').val())">Copy link</button>
+            <button type='button' class='btn btn-secondary modalClose' data-dismiss='modal'>Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class='modal fade' role='dialog' id='reportModal'>
+      <div class='modal-dialog modal-dialog-centered' role='document'>
+        <div class='modal-content'>
+          <div class='modal-header'>
+            <h5 class='modal-title' id='report-title'></h5>
+            <button type='button' class='close modalClose' data-dismiss='modal' aria-label='Close'>
+              <span aria-hidden='true'>&times;</span>
+            </button>
+          </div>
+          <div class='modal-body' id='modal-body'>
+
+          </div>
+          <div class='modal-footer'>
+            <button type='button' class='btn btn-secondary modalClose' data-dismiss='modal'>Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class='modal fade' role='dialog' id='datasheetModal'>
+      <div class='modal-dialog modal-dialog-centered' role='document'>
+        <div class='modal-content'>
+          <div class='modal-header'>
+            <h5 class='modal-title' id='report-title'><%=project[0].quoteNo+" "+project[0].quoteName%> - Budget Datasheet</h5>
+            <button type='button' class='close modalClose' data-dismiss='modal' aria-label='Close'>
+              <span aria-hidden='true'>&times;</span>
+            </button>
+          </div>
+          <div class='modal-body' id='modal-body'>
+            <div id="datasheetSales"></div>
+            <div id="datasheetSpend"></div>
+            <div id="datasheetAnalysis"></div>
+          </div>
+          <div class='modal-footer'>
+            <button type='button' class='btn btn-sm btn-xlsx modalDownload' data-dismiss='modal'>Download</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <link rel='stylesheet' href='/css/JA2tables.css'>
+    <script src="/js/JA2tableFuncs.js" type="text/javascript"></script>
+    <script>
+
+      <%if (allJobs.length>0) {%>
+        updateQMcount(<%=project[0].projectID%>)
+      <%}%>
+    </script>
+    <%  if(allJobs.length>0){
+      let note0=notes.find(el=>el.tableName=='costsTable' && el.otherID==0)
+      let note1=notes.find(el=>el.tableName=='costsTable' && el.otherID==1)
+      let note2=notes.find(el=>el.tableName=='costsTable' && el.otherID==2)
+      let note3=notes.find(el=>el.tableName=='costsTable' && el.otherID==3)
+      %>
+      <script type="text/javascript">
+        var projectID=<%=project[0].projectID%>
+        var costsData = [
+          {projectID:<%=project[0].projectID%>, costID:0, sqlCol: 'setupCost', costName:'Setup', costType:1, costTypeCat:'', costValue:<%=project[0].setupCost%>, costUnits:1, costUnitValue:<%=project[0].setupCost%>,note:'<%=note0?note0.note:''%>'},
+          {projectID:<%=project[0].projectID%>, costID:1, sqlCol: 'dataCost', costName:'Tables', costType:1, costTypeCat:'', costValue:<%=project[0].dataCost%>, costUnits:1, costUnitValue:<%=project[0].dataCost%>,note:'<%=note1?note1.note:''%>'},
+          {projectID:<%=project[0].projectID%>, costID:2, sqlCol: 'sampleCost', costName:'Sample', costType:4, costTypeCat:'', costValue:<%=project[0].sampleCost%>, costUnits:1, costUnitValue:<%=project[0].sampleCost%>,note:'<%=note2?note2.note:''%>'},
+          {projectID:<%=project[0].projectID%>, costID:3, sqlCol: 'codingCost', costName:'Coding', costType:1, costTypeCat:'', costValue:<%=project[0].codingCost%>, costUnits:1, costUnitValue:<%=project[0].codingCost%>,note:'<%=note3?note3.note:''%>'},
+          <%costs.forEach((cost, i) => {
+            let note=notes.find(el=>el.tableName=='costsTable' && el.otherID==0)
+            %>
+            {projectID:<%=project[0].projectID%>, costID:<%=cost.costID%>, sqlCol: '', costName:'<%=cost.costName%>', costType:<%=cost.costTypeID%>, costTypeCat:'<%=cost.costTypeCategory%>', costValue:<%=cost.units*cost.unitValue%>, costUnits:<%=cost.units%>, costUnitValue:<%=cost.unitValue%>,note:'<%=note?note.note:''%>'},
+          <%});%>
+        ];
+        var isAccountsAdmin=<%=user.isAccountsAdmin%>
+      </script>
+
+      <script src="/js/JA2costsTable.js" type="text/javascript"></script>
+      <script src="/js/JA2spendTable.js" type="text/javascript"></script>
+
+      <link rel="stylesheet" href="/css/virtual-select.min.css">
+      <script src="/js/virtual-select.min.js"></script>
+      <script>
+        function downloadTable(id){
+          Tabulator.prototype.findTable('#'+id)[0].download("xlsx", "<%=project[0].quoteNo+" "+project[0].quoteName%> - "+id+" "+moment().format()+".xlsx", {
+            documentProcessing:function(workbook){
+              workbook.Props = {
+                Title: id,
+                CreatedDate: new Date()
+              };
+              return workbook;
+            }
+          })
+        }
+        function downloadDataSheet(){
+          $('#datasheetModal').modal('show')
+          $('#datasheetModal').on('shown.bs.modal', function (e) {
+            function getSalesRow(title,typeids){
+              return {'SALES':title,'Costs':salesTable.filter(el=>typeids.includes(Number(el.costType))).reduce((a,b)=>a+Number(b.costValue),0),'Spend':'','Notes':'',costTypeID:typeids}
+            }
+            let salesTable=Tabulator.prototype.findTable('#costsTable')[0].getData().filter(el=>el.costID>-1)
+            let salesData=[]
+            salesData.push(getSalesRow('Setup & PM & data',[1]))
+            salesData.push(getSalesRow('CATI sample',[4]))
+            salesData.push(getSalesRow('CATI fieldwork',[8,5]))
+            salesData.push(getSalesRow('F2F fieldwork',[9]))
+            salesData.push(getSalesRow('Online sample',[3]))
+            salesData.push(getSalesRow('Incentives',[2]))
+            salesData.push(getSalesRow('Other',[6,7]))
+            let spendData=Tabulator.prototype.findTable('#spendTable')[0].getData().filter(el=>el.spendID>-1).map(el=>{
+              return {'SPEND':supplierVals[el.supplierID]+" - "+el.PO,'Costs':'','Spend':el.spendUnitValue*el.spendUnits,'Notes':el.note,costTypeID:el.typeID}
+            })
+            spendData.push({'SPEND':'Wages - CATI','Costs':'','Spend':'<%=jobs.reduce((a,b)=>a+Number(b.catiSpend),0)%>','Notes':'',costTypeID:8})
+            spendData.push({'SPEND':'Wages - F2F','Costs':'','Spend':'<%=jobs.reduce((a,b)=>a+Number(b.faceSpend),0)%>','Notes':'',costTypeID:9})
+            function getAnalysisRow(title,typeid){
+              return {'ANALYSIS':title,'Costs':salesData.filter(el=>el.costTypeID==typeid).reduce((a,b)=>a+Number(b.Costs),0),'Spend':spendData.filter(el=>el.costTypeID==typeid).reduce((a,b)=>a+Number(b.Spend),0),'Cont':Math.round((spendData.filter(el=>el.costTypeID==typeid).reduce((a,b)=>a+Number(b.Spend),0)/salesData.filter(el=>el.costTypeID==typeid).reduce((a,b)=>a+Number(b.Costs),0))*100)+"%"}
+            }
+            let analysisData=[
+              {'ANALYSIS':'Overall contribution','Costs':salesData.reduce((a,b)=>a+Number(b.Costs),0),'Spend':spendData.reduce((a,b)=>a+Number(b.Spend),0),'Cont':Math.round((spendData.reduce((a,b)=>a+Number(b.Spend),0)/salesData.reduce((a,b)=>a+Number(b.Costs),0))*100)+"%",costTypeID:''},
+              {'ANALYSIS':'Overall excl. incentives','Costs':salesData.filter(el=>el.costTypeID!=2).reduce((a,b)=>a+Number(b.Costs),0),'Spend':spendData.filter(el=>el.costTypeID!=2).reduce((a,b)=>a+Number(b.Spend),0),'Cont':Math.round((spendData.filter(el=>el.costTypeID!=2).reduce((a,b)=>a+Number(b.Spend),0)/salesData.filter(el=>el.costTypeID!=2).reduce((a,b)=>a+Number(b.Costs),0))*100)+"%",costTypeID:''},
+            ]
+            analysisData.push(getAnalysisRow('Sample',4))
+            analysisData.push(getAnalysisRow('Online',3))
+            analysisData.push(getAnalysisRow('Incentives',2))
+            var defs=function(definitions){
+              definitions.forEach((def, i) => {
+                def.headerSort=false
+              });
+              definitions[0].width=350
+              definitions[1].formatter='money'
+              definitions[1].formatterParams={symbol:'£'}
+              definitions[1].width=100
+              definitions[2].formatter='money'
+              definitions[2].formatterParams={symbol:'£'}
+              definitions[2].width=100
+              definitions[3].width=400
+              definitions[4].visible=false
+              return definitions;
+            }
+            var datasheetSales = new Tabulator("#datasheetSales", {
+              data:salesData,
+              autoColumns:true,
+              autoColumnsDefinitions:defs,
+              initialFilter:function(data, filterParams){
+                return Number(data.Costs)>0
+              }
+            });
+            var datasheetSpend = new Tabulator("#datasheetSpend", {
+              data:spendData,
+              autoColumns:true,
+              groupBy:'costTypeID',
+              groupHeader:function(value, count, data, group){
+                return costTypeVals[value].split(" [")[0]
+              },
+              groupHeaderDownload:function(value, count, data, group){
+                return costTypeVals[value].split(" [")[0]
+              },
+              autoColumnsDefinitions:defs,
+              initialFilter:function(data, filterParams){
+                return Number(data.Spend)>0
+              }
+            });
+            var datasheetAnalysis = new Tabulator("#datasheetAnalysis", {
+              data:analysisData,
+              autoColumns:true,
+              autoColumnsDefinitions:defs,
+            });
+            $('.modalDownload').on('click',function(e){
+              var sheets = {
+                "Sales": "#datasheetSales", //first tab with table set using a query selector
+                "Spend": '#datasheetSpend', //second tab, generated from this table
+                "Analysis" : true, //third tab with table set to DOM Node
+              };
+              datasheetAnalysis.download("xlsx", "<%=project[0].quoteNo+" "+project[0].quoteName%> - Budget Datasheet.xlsx", {sheets:sheets});
+            })
+          })
+        }
+        function flattenChildren(d){
+          var ret=[]
+          function loop(d){
+            var childCount=0
+            var newData=[]
+            d.forEach((item, i2) => {
+              if (item.children) {
+                item.children.forEach((child, i) => {
+                  childCount++
+                  newData.push(child)
+                });
+                delete item.children
+                newData.push(item)
+              }else {
+                newData.push(item)
+              }
+            })
+            if (childCount>0) {
+              loop(newData)
+            }else {
+              ret=newData.filter(el=>el.type>0)
+            }
+          }
+          loop(d)
+          return ret
+        }
+        function htmlDecode(input) {
+          var doc = new DOMParser().parseFromString(input, "text/html");
+          return doc.documentElement.textContent;
+        }
+        function getVistaResults(survey,portfolio,optSelected){
+          let isForsta=$('select.vistaName[data-val="'+survey+'"] option:selected').attr("data-source")=="Forsta"
+          $('select.downloadVista[data-vistaName="'+survey+'"]').val('')
+          $('select.downloadVista[data-vistaName="'+survey+'"]').selectpicker('refresh')
+          if (portfolio) {
+            if ($(optSelected).attr("data-link")) {
+              $.ajax("/get-forsta-report-link?pid="+survey).then(link=>{
+                window.open(link, '_blank').focus()
+              })
+            }
+          }
+        }
+        $('.surveyLink').on('loaded.bs.select', function(e) {
+          let sel=this
+          if ($(sel).attr("data-val")) {
+            $.ajax("/get-forsta-surveys").done(surveys=>{
+              if (surveys.find(s=>s.id==$(sel).attr("data-val"))) {
+                $(sel).removeClass("inactive")
+                $(sel).closest(".bootstrap-select").removeClass("inactive")
+              }
+            })
+          }
+          $(sel).on('show.bs.select', function(e) {
+            surveyLinkDropdown(sel)
+          })
+        });
+        function surveyLinkDropdown(sel){
+          window.blockAjaxLoader=true
+          $(sel).closest(".bootstrap-select").loader()
+          let badge=$(sel).find("option").eq(0).clone()
+          $(sel).empty()
+          $(sel).append(badge)
+          let vistaName=$(sel).attr("data-val")
+          function optSelected(opt,func){
+            $(sel).one("change",function(e){
+              if ($(opt).is(":selected")) {
+                func()
+              }
+            })
+          }
+          function addSelect(withSearch){
+            window.blockAjaxLoader=false
+            $(sel).on('refreshed.bs.select', function(e) {
+              $(sel).closest(".bootstrap-select").loader('done')
+            });
+            $(sel).attr("data-liveSearch",!!withSearch)
+            $(sel).selectpicker("refresh")
+            $(sel).on('hidden.bs.select', function (e, clickedIndex, isSelected, previousValue) {
+              $(sel).empty()
+              $(sel).append(badge)
+              $(sel).selectpicker("refresh")
+            });
+          }
+          if (vistaName && !$(sel).hasClass("inactive")) {
+            let o=new Option("Fieldwork reports","reportLink")
+            optSelected(o,()=>{
+              window.open("https://teamsear.ch/fieldwork-reports", '_blank').focus()
+            })
+            // sel.append(o);
+            let toplines=new Option("Toplines","toplines")
+            toplines.classList.add("auto")
+            optSelected(toplines,()=>{
+              let varSelector=$().forstaVariableSelector({goFunction:'toplines',goText:"Download toplines",pid:vistaName})
+            })
+            $(sel).append(toplines);
+            let datafile=new Option("Data export","datafile")
+            datafile.classList.add("auto")
+            optSelected(datafile,()=>{
+              let varSelector=$().forstaVariableSelector({goFunction:'data',goText:"Download data",pid:vistaName})
+            })
+            $(sel).append(datafile);
+            let agentByDate=new Option("Agent completes by date","agentByDate")
+            agentByDate.classList.add("auto")
+            optSelected(agentByDate,()=>{
+              $.ajax({
+                url:"/forsta-agent-by-date",
+                // global:false,
+                data:{pid:vistaName},
+              }).done(file=>{
+                // console.log(path)
+                var link=document.createElement('a');
+                link.href=file.path
+                link.download=file.filename
+                link.click();
+              })
+            })
+            $(sel).append(agentByDate);
+            let incentives=new Option("Incentive templates","incentiveTemplates")
+            incentives.classList.add("auto")
+            optSelected(incentives,()=>{
+              $.ajax({
+                url:"/get-forsta-incentives",
+                data:{pid:vistaName,quoteNo:'<%= project[0].quoteNo %>',quoteName:'<%= project[0].quoteName %>'},
+              }).done(file=>{
+                // console.log(path)
+                var link=document.createElement('a');
+                link.href=file.path
+                link.download=file.filename
+                link.click();
+              }).fail(err=>{
+                alert("Error getting incentives. Please check the Forsta survey has all standard incentive variables present")
+              })
+            })
+            $(sel).append(incentives);
+            let links=new Option("Create panel links","createPanelLinks")
+            links.classList.add("auto")
+            optSelected(links,()=>{
+              $().forstaUniqueLinks({pid:vistaName})
+            })
+            $(sel).append(incentives);
+            //add more options
+            let opt=new Option("-Change Forsta survey-", "surveyChange")
+            $(sel).append(opt);
+            optSelected(opt,()=>{
+              $(sel).attr("data-val","")
+              $(sel).addClass("inactive")
+              $(sel).closest(".bootstrap-select").addClass("inactive")
+              surveyLinkDropdown(sel)
+            })
+            addSelect()
+          }else {
+            $.ajax("/get-forsta-surveys").done(surveys=>{
+              // console.log(surveys)
+              surveys.forEach((item, i) => {
+                let opt=new Option(item.name, item.id)
+                $(sel).append(opt);
+                optSelected(opt,()=>{
+                  $('.surveyLink').addClass("inactive")
+                  updateJob('update','Jobs',['vistaName'],[item.id],'jobID',$(sel).attr("data-jobID"))
+                  $(sel).attr("data-val",item.id)
+                  $('.surveyLink.forsta').removeClass("inactive")
+                  surveyLinkDropdown(sel)
+                })
+              });
+              addSelect(true)
+            })
+          }
+        }
+        function vistaSurveys(){
+          $.ajax("/get-forsta-surveys").then(data=>{
+            let optGrp=document.createElement("optgroup")
+            optGrp.label="Forsta"
+            $("select.vistaName").each(function(){
+              let el=$(this)
+              el.html('')
+              el.append(new Option('', ''));
+              data.forEach((item, i) => {
+                let opt=new Option(item.name, item.id)
+                $(opt).attr("data-source","Forsta")
+                $(optGrp).append(opt);
+              });
+              el.append(optGrp);
+              el.val(el.attr("data-val"))
+            })
+            $("select.jobSelect.completes").append(optGrp);
+          })
+        }
+        function updateLOI(grp,jobIDs){
+          jobIDs.forEach((id, i) => {
+            updateJob("update","jobs",['timedLOI'],[$('.loi[data-group="'+grp+'"]').val()],'jobID',id,true)
+          });
+        }
+        $(document).ready(function () {
+          $('.pastDue').tooltip({
+            offset:'90%'
+          })
+          // $('#vistaInfo').loader()
+        })
+        function toggleKPI(el){
+          $('.active').removeClass('active')
+          var tid="#"+$(el).attr('data-href')
+          $('.kpiDropdown').css('height','0px')
+          $('.kpiDropdown').removeClass("open")
+          if ($(tid).height()<10) {
+            $(tid).css('height',"600px")
+            $(el).addClass('active')
+            $(tid).addClass("open")
+            updatePies()
+          }else {
+            $(tid).css('height','0px')
+          }
+        }
+        $('#update').hide()
+        $(document).on('change', '.viewJob:not(.hidden)', function(evt) {
+          $('#update').show()
+          if ($('.viewJob:not(.hidden):not(:checked)').length>0) {
+            $('#viewJob-all').prop('checked',false)
+          }else {
+            $('#viewJob-all').prop('checked',true)
+          }
+        })
+        $(document).on('change', '#viewJob-all', function(evt) {
+          if ($(this).prop('checked')) {
+            $('.viewJob:not(.hidden)').prop('checked',true)
+          }else {
+            $('.viewJob:not(.hidden)').prop('checked',false)
+          }
+          $('#update').show()
+        })
+        $(document).on('click', '#update', function(evt) {
+          jobIDs = [];
+          $('.viewJob:checked:not(.hidden)').each(function() {
+              jobIDs.push(this.id.split("-")[1])
+          });
+          window.location.href="/overview/<%=project[0].quoteID%>/"+jobIDs.join("j")
+        })
+
+        $(document).on('change', '#compareTo', function(evt) {
+          var quoteIDs=[]
+          if (typeof $('#compareTo').val() ==="string") {
+            quoteIDs.push($('#compareTo').val())
+          }else {
+            quoteIDs=$('#compareTo').val()
+          }
+          quoteIDs.push(<%=project[0].quoteID%>)
+          $('#quoteIDs').attr('value',quoteIDs)
+          $('#compareToBtn').show()
+        })
+        function loadContStats(){
+          if ($('#contDropdown').height()<10) {
+            let origHtml=$('#contKPI').html()
+            let col=$('#contKPI').css('color')=="rgb(0, 128, 0)"?'imgGreen':"imgRed"
+            try{
+              $('#contKPI').loader()
+            }catch(err){
+              $('#contKPI').html('<img src="/spinner.gif" class="kpiSpinner '+col+'">')
+            }
+            var jobIDs=[]
+            $('.viewJob:checked:not(.hidden)').each(function() {
+              jobIDs.push(this.id.split("-")[1])
+            });
+            let queries=['dates','stats']
+            Tabulator.prototype.findTable('#spendTable')[0].setData()
+            $.ajax({
+              url: '/get-project-stats/',
+              type: 'POST',
+              contentType: 'application/json',
+              global:false,
+              data: JSON.stringify({id:<%=project[0].quoteID%>,jobIDs:jobIDs,queries:queries}),
+              success:function(response){
+                let dates=response.dates
+                let stats=response.stats
+                function getDateArr(stdate,endate,format){
+                  var format=format=='f'?"DD/MM/YYYY":"YYYY-MM-DD"
+                  var checkDate=moment(stdate)
+                  var arr=[]
+                  for (var i = 0; i <= endate.diff(stdate,'days'); i++) {
+                    var insDate=moment(checkDate)
+                    arr.push(insDate.format(format))
+                    checkDate.add(1,'d')
+                  }
+                  return arr
+                }
+                var datesArr=dates.map(el=>new Date(el.dateValue)).concat(stats.map(el=>new Date(el.inputDate)))
+                var fwEndArr=dates.filter(el=>el.dateName=='endDate').map(el=>new Date(el.dateValue))
+                var fwStartArr=dates.filter(el=>el.dateName=='startDate').map(el=>new Date(el.dateValue))
+                var st=moment.utc(Math.min.apply(null,datesArr)).startOf("day").format("YYYY-MM-DD")
+                var en=moment.utc(Math.max.apply(null,datesArr)).startOf("day").format("YYYY-MM-DD")
+                var fwEnd=moment.utc(Math.max.apply(null,fwEndArr)).startOf("day")
+                var fwStart=moment.utc(Math.min.apply(null,fwStartArr)).startOf("day")
+                if (<%=project[0].quoteID%><3) {
+                  fwStart=moment.utc('2020-07-01').startOf("day")
+                  fwEnd=moment.utc().startOf("day")
+                }
+                var completesDates=getDateArr(fwStart,fwEnd,'f')
+                var completesDatesRef=getDateArr(fwStart,fwEnd,'r')
+                var dateSpan=fwEnd.diff(fwStart,"days")+1
+                var dailySales=[]
+                var dailyWages=[]
+                var dailyCont=[]
+                var contTarget=[]
+                completesDates.forEach((dte, i) => {
+                  var tdy=moment.utc().startOf("day")
+                  var thisDate=moment.utc(completesDatesRef[i]).startOf("day")
+                  var statsRow=stats.filter(el=>dateIf(el.inputDate,"/","f")==dte)
+                  if (statsRow && thisDate.valueOf()<tdy.valueOf()) {
+                    var sales=statsRow.map(el=>el.sales).reduce((a, b) => a + b, 0)
+                    var pay=statsRow.map(el=>el.pay).reduce((a, b) => a + b, 0)
+                    dailySales.push(sales)
+                    dailyWages.push(pay)
+                    dailyCont.push((pay/sales)*100)
+                  }else {
+                    dailySales.push(0)
+                    dailyWages.push(0)
+                    dailyCont.push(NaN)
+                  }
+                  contTarget.push(35)
+                });;
+                if (dailyWages.reduce((a, b) => a + b, 0)/dailySales.reduce((a, b) => a + b, 0)<0.35) {
+                  $('#contKPI').css('color','green!important')
+                }
+                $('#contKPI').find('.info').text((dailyWages.reduce((a, b) => a + b, 0)/dailySales.reduce((a, b) => a + b, 0)*100).toFixed(0)+"%")
+                var completesCol='rgba(24, 104, 214,0.4)'
+                var resourceCol='rgba(24, 24, 24,0.1)'
+                var ctxL = document.getElementById("contChart").getContext('2d');
+                var contChart = new Chart(ctxL, {
+                  type: 'line',
+                  data: {
+                    labels: completesDates,
+                    datasets: [
+                    {
+                      label: "Target",
+                      data: contTarget,
+                      pointRadius:0,
+                      borderWidth: 2,
+                      spanGaps:true,
+                      backgroundColor:'rgba(24, 214, 81,0.1)',
+                      borderColor:'rgba(24, 214, 81,1)',
+                      borderDash:[10, 5],
+                      yAxisID: 'cont'
+                    },
+                    {
+                      label: "Contribution",
+                      data: dailyCont,
+                      backgroundColor: 'rgba(0,0,0,0)',
+                      borderColor:completesCol,
+                      borderWidth: 2,
+                      spanGaps:true,
+                      yAxisID: 'cont',
+                      pointHitRadius: 5,
+                      pointBorderColor: completesCol,
+                      pointBackgroundColor: completesCol,
+                    },
+                    ]
+                  },
+                  options: {
+                    tooltips: {
+                      callbacks: {
+                        label: function(tooltipItem, data) {
+                          var label = data.datasets[tooltipItem.datasetIndex].label || '';
+                          if (label) {
+                            label += ': ';
+                          }
+                          label += Math.floor(tooltipItem.yLabel)+"%";
+                          return label;
+                        }
+                      }
+                    },
+                    plugins: {
+                      datalabels: {
+                        display:false
+                      }
+                    },
+                    responsive: true,
+                    legend: {
+                      display: false,
+                      labels: {
+                        usePointStyle: true,
+                        boxWidth: 10,
+                        fontColor: 'white'
+                      }
+                    },
+                    title: {
+                      display: false,
+                      text: 'Contribution',
+                      fontColor: 'black',
+                      fontSize: 14,
+                      fontStyle: 'normal'
+                    },
+                    scales: {
+                      yAxes: [
+                      {
+                        id: 'cont',
+                        type: 'linear',
+                        offset:true,
+                        position: 'left',
+                        stacked:false,
+                      }
+                      ],
+                      xAxes: [{
+                      }]
+                    }
+                  }
+                });
+              },
+              error: function (jqXHR, exception) {
+                alert(jqXHR)
+              },
+              complete:function(){
+                try{
+                  $('#contKPI').loader('done')
+                }catch(e){
+                  $('#contKPI').html(origHtml)
+                }
+                toggleKPI($('#contKPI'))
+              },
+            });
+          }else {
+            toggleKPI($('#contKPI'))
+          }
+        }
+        function loadScheduleStats(){
+          if ($('#scheduleDropdown').height()<10) {
+            let origHtml=$('#scheduleKPI').html()
+            let col=$('#scheduleKPI').css('color')=="rgb(0, 128, 0)"?'imgGreen':"imgRed"
+            try{
+              $('#scheduleKPI').loader()
+            }catch(err){
+              $('#scheduleKPI').html('<img src="/spinner.gif" class="kpiSpinner '+col+'">')
+            }
+            var jobIDs=[]
+            $('.viewJob:checked:not(.hidden)').each(function() {
+              jobIDs.push(this.id.split("-")[1])
+            });
+            let queries=['dates','stats','project','jobs','planner']
+            $.ajax({
+              url: '/get-project-stats/',
+              type: 'POST',
+              global:false,
+              contentType: 'application/json',
+              data: JSON.stringify({id:<%=project[0].quoteID%>,jobIDs:jobIDs,queries:queries}),
+              success:function(response){
+                let dates=response.dates
+                let stats=response.stats
+                let project=response.project
+                let jobs=response.jobs
+                let planner=response.planner
+                function getDateArr(stdate,endate,format){
+                  var format=format=='f'?"DD/MM/YYYY":"YYYY-MM-DD"
+                  var checkDate=moment(stdate)
+                  var arr=[]
+                  for (var i = 0; i <= endate.diff(stdate,'days'); i++) {
+                    var insDate=moment(checkDate)
+                    arr.push(insDate.format(format))
+                    checkDate.add(1,'d')
+                  }
+                  return arr
+                }
+                var datesArr=dates.map(el=>new Date(el.dateValue)).concat(stats.map(el=>new Date(el.inputDate)))
+                var fwEndArr=dates.filter(el=>el.dateName=='endDate').map(el=>new Date(el.dateValue))
+                var fwStartArr=dates.filter(el=>el.dateName=='startDate').map(el=>new Date(el.dateValue))
+                var st=moment.utc(Math.min.apply(null,datesArr)).startOf("day").format("YYYY-MM-DD")
+                var en=moment.utc(Math.max.apply(null,datesArr)).startOf("day").format("YYYY-MM-DD")
+                var fwEnd=moment.utc(Math.max.apply(null,fwEndArr)).startOf("day")
+                var fwStart=moment.utc(Math.min.apply(null,fwStartArr)).startOf("day")
+                if (project[0].projectID<3) {
+                  fwStart=moment.utc('2020-07-01').startOf("day")
+                  fwEnd=moment.utc().startOf("day")
+                }
+                var completesDates=getDateArr(fwStart,fwEnd,'f')
+                var completesDatesRef=getDateArr(fwStart,fwEnd,'r')
+                var dateSpan=fwEnd.diff(fwStart,"days")+1
+                var jobDailys={}
+                var jobResource={}
+                var targetGuide=[]
+                var runningInts=0
+                var catiJobs=jobs.filter(el=>el.isJobCATI==1 || el.isJobOnline==1 || el.isJobFace==1)
+                var todayInts=0
+                var todayIntsTarget=0
+                project[0].targetInterviews=0
+                project[0].targetInterviews=project[0].targetInterviews+catiJobs.reduce((a,b)=>a+Number(b.interviewsTarget),0)
+                completesDates.forEach((dte, i) => {
+                  var tdy=moment.utc().startOf("day")
+                  var thisDate=moment.utc(completesDatesRef[i]).startOf("day")
+                  if (thisDate.valueOf()<=fwEnd.valueOf() && thisDate.valueOf()>=fwStart.valueOf()) {
+                    runningInts=runningInts+(project[0].targetInterviews/dateSpan)
+                    targetGuide.push(runningInts)
+                  }else {
+                    targetGuide.push(NaN)
+                  }
+                  if (thisDate.valueOf()==tdy.valueOf()) {
+                    todayIntsTarget=runningInts
+                  }
+                });
+                catiJobs.forEach((job, i2) => {
+                  jobDailys[job.jobID]=[]
+                  jobResource[job.jobID]=[]
+                  var runningInts=0
+                  var runningRes=0
+                  var jobEnd=moment.utc(job.endDate).startOf('day')
+                  var jobStart=moment.utc(job.startDate).startOf('day')
+                  completesDates.forEach((dte, i) => {
+                    var thisDate=moment.utc(completesDatesRef[i]).startOf('day')
+                    var tdy=moment.utc().startOf('day')
+                    var plannerHrs=planner.find(el=>el.jobID==job.jobID && dateIf(el.plannerDate,"/","f")==dte)
+                    var resHours=plannerHrs?plannerHrs.plannerHours:(job.calcDays?job.calcHours/job.calcDays:0)
+                    if (thisDate.valueOf()<=fwEnd.valueOf() && thisDate.valueOf()>=fwStart.valueOf()) {
+                      if (thisDate.valueOf()<=jobEnd.valueOf()) {
+                        if (thisDate.valueOf()==tdy.valueOf()) {
+                          var statRow=stats.find(el=>el.jobID==job.jobID && dateIf(el.inputDate,"/","f")==dte)
+                          if (statRow) {
+                            runningInts=runningInts+(statRow.hrs*job.ahr)
+                          }else {
+                            runningInts=runningInts+(0)
+                          }
+                          jobDailys[job.jobID].push(runningInts)
+                          runningRes=runningInts
+                          jobResource[job.jobID].push(runningInts)
+                          todayInts=todayInts+runningInts
+                        }else if (thisDate.valueOf()>tdy.valueOf()) {
+                          if (thisDate.format('e')!=0 && thisDate.format('e')!=6) {
+                            runningRes=runningRes+(resHours*job.ahr)
+                          }
+                          jobResource[job.jobID].push(runningRes)
+                        }else {
+                          var statRow=stats.find(el=>el.jobID==job.jobID && dateIf(el.inputDate,"/","f")==dte)
+                          if (statRow) {
+                            runningInts=runningInts+statRow.ints
+                          }
+                          jobDailys[job.jobID].push(runningInts)
+                          jobResource[job.jobID].push(NaN)
+                        }
+                      }else{
+                        if (thisDate.valueOf()==tdy.valueOf()) {
+                          var statRow=stats.find(el=>el.jobID==job.jobID && dateIf(el.inputDate,"/","f")==dte)
+                          if (statRow) {
+                            runningInts=runningInts+(statRow.hrs*job.ahr)
+                          }else {
+                            runningInts=runningInts+(0)
+                          }
+                          jobDailys[job.jobID].push(runningInts)
+                          runningRes=runningInts
+                          jobResource[job.jobID].push(runningInts)
+                          todayInts=todayInts+runningInts
+                        }else if (thisDate.valueOf()>tdy.valueOf()) {
+                          jobDailys[job.jobID].push(NaN)
+                          runningRes=runningRes+(0)
+                          jobResource[job.jobID].push(runningRes)
+                        }else {
+                          jobDailys[job.jobID].push(jobDailys[job.jobID][i-1])
+                          jobResource[job.jobID].push(NaN)
+                        }
+                      }
+                    }else {
+                      jobDailys[job.jobID].push(NaN)
+                      jobResource[job.jobID].push(NaN)
+                    }
+                    // console.log(thisDate)
+                    // console.log("jobDailys["+job.jobID+"]",jobDailys[job.jobID])
+                    // console.log("jobResource["+job.jobID+"]",jobResource[job.jobID])
+                  });
+                });
+                var completesCol='rgba(24, 104, 214,0.4)'
+                var resourceCol='rgba(24, 24, 24,0.1)'
+                var ctxL = document.getElementById("completesChart").getContext('2d');
+                let completesDataSets=[{
+                  label: "Target",
+                  data: targetGuide,
+                  pointRadius:0,
+                  borderWidth: 2,
+                  spanGaps:true,
+                  backgroundColor:'rgba(0,0,0,0)',
+                  borderColor:'rgba(24, 214, 81,1)',
+                  borderDash:[10, 5],
+                  yAxisID: 'target'
+                }]
+                catiJobs.forEach((job, i) => {
+                  completesDataSets.push(
+                  {
+                    label: job.jobName,
+                    data: jobDailys[job.jobID],
+                    pointHitRadius: 5,
+                    backgroundColor: i==catiJobs.length-1?completesCol:'rgba(0,0,0,0)',
+                    borderColor:completesCol,
+                    pointBorderColor: completesCol,
+                    pointBackgroundColor: completesCol,
+                    borderWidth: 2,
+                    spanGaps:true,
+                    yAxisID: 'dailys'
+                  })
+                })
+                catiJobs.forEach((job, i) => {
+                  completesDataSets.push(
+                  {
+                    label: job.jobName,
+                    data: jobResource[job.jobID],
+                    pointRadius: 0,
+                    backgroundColor: i==catiJobs.length-1?resourceCol:'rgba(0,0,0,0)',
+                    borderColor:resourceCol,
+                    borderDash:[5, 5],
+                    borderWidth: 2,
+                    spanGaps:true,
+                    yAxisID: 'resource'
+                  })
+                })
+                var completesChart = new Chart(ctxL, {
+                  type: 'line',
+                  data: {
+                    labels: completesDates,
+                    datasets: completesDataSets
+                  },
+                  options: {
+                    tooltips: {
+                      callbacks: {
+                        label: function(tooltipItem, data) {
+                          var label = data.datasets[tooltipItem.datasetIndex].label || '';
+                          if (label) {
+                            label += ': ';
+                          }
+                          label += Math.floor(tooltipItem.yLabel);
+                          return label;
+                        }
+                      }
+                    },
+                    plugins: {
+                      datalabels: {
+                        display:false
+                      }
+                    },
+                    responsive: true,
+                    legend: {
+                      display: false,
+                      labels: {
+                        usePointStyle: true,
+                        boxWidth: 10,
+                        fontColor: 'white'
+                      }
+                    },
+                    title: {
+                      display: false,
+                      text: 'Completes',
+                      fontColor: 'black',
+                      fontSize: 14,
+                      fontStyle: 'normal'
+                    },
+                    scales: {
+                      yAxes: [
+                      {
+                        id: 'dailys',
+                        type: 'linear',
+                        offset:true,
+                        position: 'left',
+                        stacked:true,
+                        ticks:{
+                          min:0,
+                          max:project[0].targetInterviews,
+                        }
+                      },
+                      {
+                        id: 'resource',
+                        type: 'linear',
+                        offset:true,
+                        position: 'left',
+                        stacked:true,
+                        display:false,
+                        ticks:{
+                          min:0,
+                          max:project[0].targetInterviews,
+                        }
+                      },
+                      {
+                        id: 'target',
+                        type: 'linear',
+                        offset:true,
+                        position: 'left',
+                        display:false,
+                        stacked:false,
+                        ticks:{
+                          min:0,
+                          max:project[0].targetInterviews,
+
+                        }
+                      }
+                      ],
+                      xAxes: [{
+                      }]
+                    }
+                  }
+                });
+              },
+              error: function (jqXHR, exception) {
+                alert(jqXHR)
+              },
+              complete:function(){
+                try{
+                  $('#scheduleKPI').loader('done')
+                }catch(e){
+                  $('#scheduleKPI').html(origHtml)
+                }
+                toggleKPI($('#scheduleKPI'))
+              },
+            });
+          }else {
+            toggleKPI($('#scheduleKPI'))
+          }
+        }
+        let vData=[]
+        function updateVSSprogress(total,p){
+          $('.tabulator-cell.vistaLoad').css("background","url(/spinner.gif), linear-gradient(90deg, #ffffff00 "+((p/total)*100)+"%, #c2bfbfb5 "+((p/total)*100)+"%)")
+        }
+        function addVistaShiftData(data,innerTable){
+          return new Promise((resolve,reject) => {
+            let dailyTable=Tabulator.prototype.findTable('#dailyTable')[0]
+            let tableData=dailyTable.getData()
+            let newData=tableData.map((row,i)=>{
+              let rowVdata=data.filter(el=>el.IntStart.split("T")[0]==row.dte)
+              let dateCompletes=rowVdata.filter(el=>Number(el.OnlineOutcome.entryCode)==16)
+              let dateScreenouts=rowVdata.filter(el=>Number(el.OnlineOutcome.entryCode)<11)
+              let obj={
+                id:row.id,
+                incidence:dateCompletes.length>0?((dateCompletes.length/(dateScreenouts.length+dateCompletes.length))*100).toFixed(1)+"%":'',
+                loi:dateCompletes.length>0?(dateCompletes.reduce((a,b)=>a+Number(b.IntLength_NoExclusion),0)/dateCompletes.length).toFixed(1):''
+              }
+              return obj
+            })
+            dailyTable.updateData(newData).then(function(e){
+              dailyTable.getRows().forEach((row, i) => {
+                $(row.getCell("incidence").getElement()).removeClass("vistaLoad")
+                $(row.getCell("loi").getElement()).removeClass("vistaLoad")
+              })
+            })
+            let perfTable=Tabulator.prototype.findTable('#performanceTable')[0]
+            let tableData2=perfTable.getData()
+            let newData2=tableData2.map((row,i)=>{
+              let rowVdata=data.filter(el=>el.Agent==row.agentvista)
+              let agentCompletes=rowVdata.filter(el=>Number(el.OnlineOutcome.entryCode)==16)
+              let agentScreenouts=rowVdata.filter(el=>Number(el.OnlineOutcome.entryCode)<11)
+              let obj={
+                id:row.id,
+                incidence:agentCompletes.length>0?((agentCompletes.length/(agentScreenouts.length+agentCompletes.length))*100).toFixed(1)+"%":'',
+                loi:agentCompletes.length>0?(agentCompletes.reduce((a,b)=>a+Number(b.IntLength_NoExclusion),0)/agentCompletes.length).toFixed(1):''
+              }
+              return obj
+            })
+            perfTable.updateData(newData2).then(function(e){
+              perfTable.getRows().forEach((row, i) => {
+                $(row.getCell("incidence").getElement()).removeClass("vistaLoad")
+                $(row.getCell("loi").getElement()).removeClass("vistaLoad")
+              })
+              resolve()
+            })
+            if (innerTable) {
+              let tableData3=innerTable.getData()
+              let newData3=tableData3.map((row,i)=>{
+                let rowVdata=data.filter(el=>el.Agent==row.agentvista && el.IntStart.split("T")[0]==row.dte)
+                let agentCompletes=rowVdata.filter(el=>Number(el.OnlineOutcome.entryCode)==16)
+                let agentScreenouts=rowVdata.filter(el=>Number(el.OnlineOutcome.entryCode)<11)
+                let obj={
+                  id:row.id,
+                  incidence:agentCompletes.length>0?((agentCompletes.length/(agentScreenouts.length+agentCompletes.length))*100).toFixed(1)+"%":'',
+                  loi:agentCompletes.length>0?(agentCompletes.reduce((a,b)=>a+Number(b.IntLength_NoExclusion),0)/agentCompletes.length).toFixed(1):''
+                }
+                return obj
+              })
+              innerTable.updateData(newData3).then(function(e){
+                innerTable.getRows().forEach((row, i) => {
+                  $(row.getCell("incidence").getElement()).removeClass("vistaLoad")
+                  $(row.getCell("loi").getElement()).removeClass("vistaLoad")
+                })
+                resolve()
+              })
+            }
+          })
+        }
+        function loadAgentStats(alreadyOpen){
+          if (alreadyOpen) {
+            toggleKPI($('#agentKPI'))
+          }
+          if ($('#agentDropdown').height()<10 || alreadyOpen) {
+            let origHtml=$('#agentKPI').html()
+            let col=$('#agentKPI').css('color')=="rgb(0, 128, 0)"?'imgGreen':"imgRed"
+            try{
+              $('#agentKPI').loader()
+            }catch(err){
+              $('#agentKPI').html('<img src="/spinner.gif" class="kpiSpinner '+col+'">')
+            }
+            var jobIDs=[]
+            $('.viewJob:checked:not(.hidden)').each(function() {
+              jobIDs.push(this.id.split("-")[1])
+            });
+            let queries=['shifts','agentStats','projectStats','ahr']
+            let shift=$('#agentShift').val()
+            let vistaNames=<%-JSON.stringify(jobs.map(el=>el.vistaName).filter((el,i,self)=>self.indexOf(el)==i).filter(el=>el))%>
+            $.ajax({
+              url: '/get-project-stats/',
+              type: 'POST',
+              global:false,
+              contentType: 'application/json',
+              data: JSON.stringify({id:<%=project[0].quoteID%>,jobIDs:jobIDs,queries:queries,shift:shift}),
+              success:function(response){
+                let shifts=response.shifts
+                let agentStats=response.agentStats
+                let projectStats=response.projectStats
+                let ahrStats=response.ahr
+                let performanceTableData=""
+                agentStats.forEach((agent, i) => {
+                  performanceTableData=performanceTableData+`
+                  <tr>
+                    <td width="35%">`+agent.agentName+`</td>
+                    <td>`+agent.ringCentralID+`</td>
+                    <td>`+agent.vistaName+`</td>
+                    <td>`+(agent.ints/agent.hrs).toFixed(2)+`</td>
+                    <td>`+(agent.dials?Math.round(agent.dials):'')+`</td>
+                    <td>`+agent.hrs+`</td>
+                    <td>`+agent.ints+`</td>
+                    <td></td>
+                    <td></td>
+                    <td>`+((agent.pay/agent.sales)*100).toFixed(0)+`%</td>
+                  </tr>`
+                });
+                $('#performanceTableHtml > tbody').html(performanceTableData)
+                $('#performanceTable').remove()
+                $(jQuery.parseHTML(`<table id="performanceTable"></table>`)).insertAfter('#performanceTableHtml')
+                $('#performanceTable').html($('#performanceTableHtml').html())
+                const performanceTable = new Tabulator("#performanceTable", {
+                  autoResize:true,
+                  layout:"fitColumns",
+                  initialSort:[{column:'ahr', dir:"desc"}],
+                  rowClick:function(e, row){
+                    $("#modal-body").html($('#agent'+row.getIndex()).html())
+                    $("#report-title").text(row.getData().agent)
+                    $.ajax({
+                      url: '/recording-search/0',
+                      type: 'POST',
+                      data:JSON.stringify({extID:row.getData().extid,dateFrom:moment.min(_.uniqBy(shifts,'inputDate').map(s=>moment(s.inputDate))).format("YYYY-MM-DD"),dateTo:moment.max(_.uniqBy(shifts,'inputDate').map(s=>moment(s.inputDate))).format("YYYY-MM-DD").add(1,'d')}),
+                      contentType: 'application/json',
+                      success: function (response) {
+                        $('#callLogs').attr('value',JSON.stringify(response.filter(el=>el.extension && el.recording)))
+                        $("#reportModal").modal("show")
+                      },
+                      error:function(){
+                        alert("RingCentral limit reached - try again in a few minutes")
+                      }
+                    })
+                  },
+                })
+                $('.downloadToExcel[data-target="performanceTable"]').click(function(e){
+                  performanceTable.download("xlsx")
+                })
+                let agentTableInnersData=""
+                agentStats.forEach((agent, i) => {
+                  agentTableInnersData=agentTableInnersData+`
+                  <div class="tableInners" id="agent`+i+`">
+                    <table id="agent`+i+`table" class="table-dark agentTables">
+                      <thead>
+                        <tr>
+                          <th tabulator-cssClass="recordingPopper" tabulator-formatter="html">Date</th>
+                          <th tabulator-visible="false">dte</th>
+                          <th tabulator-visible="false">agentVista</th>
+                          <th>AHR</th>
+                          <th>Dials</th>
+                          <th>Hours</th>
+                          <th>Completes</th>
+                          <th>Incidence</th>
+                          <th>LOI</th>
+                          <th>Contribution</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        `
+                        var filtered=shifts.filter(el=>el.agentID==agent.agentID)
+                        filtered.forEach((shift, i2) => {
+                          agentTableInnersData=agentTableInnersData+`
+                          <tr>
+                            <td width="35%" tabulator-sorter="date"><span data-extID="`+agent.ringCentralID+`" data-date="`+dateIf(shift.inputDate,"-","r")+`">`+dateIf(shift.inputDate,"/","f")+`</td>
+                              <td>`+dateIf(shift.inputDate,"-","r")+`</td>
+                              <td>`+shift.vistaName+`</td>
+                              <td>`+(shift.ints/shift.hrs).toFixed(2)+`</td>
+                              <td>`+(shift.dials?Math.round(shift.dials):'')+`</td>
+                              <td>`+shift.hrs+`</td>
+                              <td>`+shift.ints+`</td>
+                              <td></td>
+                              <td></td>
+                              <td>`+((shift.pay/shift.sales)*100).toFixed(0)+`%</td>
+                            </tr>`
+                          });
+                          agentTableInnersData=agentTableInnersData+`
+                        </tbody>
+                      </table>
+                    </div>`
+                  });
+                  $('#agentTableInners').html(agentTableInnersData)
+
+                  let dailyTableData=""
+                  projectStats.forEach((day, i) => {
+                    dailyTableData=dailyTableData+`
+                    <tr>
+                      <td width="35%" tabulator-sorter="date">`+dateIf(day.inputDate,"/","f")+`</td>
+                      <td>`+dateIf(day.inputDate,"-","r")+`</td>
+                      <td>`+(day.ints/day.hrs).toFixed(2)+`</td>
+                      <td>`+(day.dials?Math.round(day.dials):'')+`</td>
+                      <td>`+day.hrs+`</td>
+                      <td>`+day.ints+`</td>
+                      <td></td>
+                      <td></td>
+                      <td>`+((day.pay/day.sales)*100).toFixed(0)+`%</td>
+                    </tr>`
+                  });
+                  $('#dailyTableHtml > tbody').html(dailyTableData)
+                  $('#dailyTable').remove()
+                  $(jQuery.parseHTML(`<table id="dailyTable"></table>`)).insertAfter('#dailyTableHtml')
+                  $('#dailyTable').html($('#dailyTableHtml').html())
+                  const dailyTable = new Tabulator("#dailyTable", {
+                    autoResize:true,
+                    layout:"fitColumns",
+                    initialSort:[{column:'date', dir:"asc"}],
+                    rowClick:function(e, row){
+                      $("#modal-body").html($('#day'+row.getIndex()).html())
+                      $("#report-title").text(row.getData().date)
+                      $.ajax({
+                        url: '/recording-search/0',
+                        type: 'POST',
+                        data:JSON.stringify({dateFrom:row.getData().dte,dateTo:moment(row.getData().dte).add(1,'d')}),
+                        contentType: 'application/json',
+                        success: function (response) {
+                          $('#callLogs').attr('value',JSON.stringify(response.filter(el=>el.extension && el.recording)))
+                          $("#reportModal").modal("show")
+                        },
+                        error:function(){
+                          alert("RingCentral limit reached - try again in a few minutes")
+                        }
+                      })
+                    },
+                    columns:[ //set column definitions for imported table data
+                    {title:"Date", sorter:"date"},
+                    ],
+                  })
+                  let dailyTableInnersData=""
+                  projectStats.forEach((day, i) => {
+                    dailyTableInnersData=dailyTableInnersData+`
+                    <div class="tableInners" id="day`+i+`">
+                      <table id="day`+i+`table" class="table-dark dayTables" width="80%">
+                        <thead>
+                          <tr>
+                            <th width="35%" tabulator-cssClass="recordingPopper" tabulator-formatter="html">Agent</th>
+                            <th tabulator-visible="false">dte</th>
+                            <th tabulator-visible="false">agentVista</th>
+                            <th>AHR</th>
+                            <th>Dials</th>
+                            <th>Hours</th>
+                            <th>Completes</th>
+                            <th>Incidence</th>
+                            <th>LOI</th>
+                            <th>Contribution</th>
+                          </tr>
+                        </thead>
+                        <tbody>`
+                          var filtered=shifts.filter(el=>dateIf(el.inputDate,"-","r")==dateIf(day.inputDate,"-","r"))
+                          filtered.forEach((shift, i2) => {
+                            dailyTableInnersData=dailyTableInnersData+`
+                            <tr>
+                              <td width="35%"><span data-extID="`+shift.ringCentralID+`" data-date="`+dateIf(day.inputDate,"-","r")+`">`+shift.agentName+`</span></td>
+                              <td>`+dateIf(shift.inputDate,"-","r")+`</td>
+                              <td>`+shift.vistaName+`</td>
+                              <td>`+(shift.ints/shift.hrs).toFixed(2)+`</td>
+                              <td>`+(shift.dials?Math.round(shift.dials):'')+`</td>
+                              <td>`+shift.hrs+`</td>
+                              <td>`+shift.ints+`</td>
+                              <td></td>
+                              <td></td>
+                              <td>`+((shift.pay/shift.sales)*100).toFixed(0)+`%</td>
+                            </tr>`
+                          });
+                          dailyTableInnersData=dailyTableInnersData+`
+                        </tbody>
+                      </table>
+                    </div>`
+                  });
+                  $('#dailyTableInners').html(dailyTableInnersData)
+                  $('.downloadToExcel[data-target="dailyTable"]').click(function(e){
+                    dailyTable.download("xlsx")
+                  })
+                  var agentHourly = new Chart($('#agentHourly')[0], {
+                    type: 'bubble',
+                    data: {
+                      labels: _.range(9,22),
+                      datasets: _.uniq(ahrStats.map(j=>j.jobID)).map(jobID=>({
+                        id:jobID,
+                        data: _.range(9,22).map(h=>{
+                          let obj={}
+                          let hr=checkFind(ahrStats.find(j=>j.jobID==jobID && j.reportHour==h))
+                          obj.x=h
+                          obj.y=hr.ahr
+                          let maxRadius=30
+                          obj.r=(hr.hours/Math.max.apply(null,ahrStats.map(j=>j.hours)))*maxRadius
+                          return obj
+                        }),
+                      })),
+                    },
+                    options: {
+                      maintainAspectRatio: false,
+                      // responsive:false,
+                      tooltips: {
+                        callbacks: {
+                          label:(e,data)=>{
+                            let hr=checkFind(ahrStats.find(j=>j.jobID==data.datasets[e.datasetIndex].id && j.reportHour==e.xLabel))
+                            return hr.jobName+": "+moment.utc().set('hour',e.xLabel).format("HH")+":00 | Hours worked: "+(hr?hr.hours:0)+" | AHR: "+Math.round(e.yLabel*100)/100+"ph"
+                          }
+                        }
+                      },
+                      scales: {
+                        xAxes: [{
+                          ticks:{
+                            callback: function(val, index) {
+                              return moment.utc().set('hour',val).format("HH")+":00"
+                            },
+                          }
+                        }],
+                        yAxes: [{
+                          // display: false,
+                        }],
+                      },
+                      plugins: {
+                        datalabels: {
+                          display:false
+                        }
+                      },
+                      legend: {
+                        display: false,
+                      },
+                    }
+                  })
+                  var agentScatterData=[]
+                  var agentNames=[]
+                  agentStats.forEach((agent, i) => {
+                    var agentData={}
+                    agentData.x=agent.hrs
+                    agentData.y=agent.ints/agent.hrs
+                    agentScatterData.push(agentData)
+                    agentNames.push("'"+agent.agentName+"'")
+                  })
+                  var yAxesticks=[]
+                  var xAxesticks=[]
+                  var ctxS = document.getElementById("agentScatter").getContext('2d');
+                  var agentScatter = new Chart(ctxS, {
+                    type: 'scatter',
+                    data: {
+                      datasets: [{
+                        label: 'Interviewer AHR vs hours',
+                        data: agentScatterData,
+                        pointHitRadius: 5,
+                        pointBorderWidth:10,
+                        pointBorderColor: "#007bffbd",
+                        pointBackgroundColor: "#007bffbd",
+                      }]
+                    },
+                    options: {
+                      tooltips: {
+                        callbacks: {
+                          label: function(tooltipItem, data) {
+                            var label = agentNames[tooltipItem.index] + " (" + tooltipItem.xLabel + "hrs / " + tooltipItem.yLabel.toFixed(2) + "ph)"
+                            return label;
+                          }
+                        }
+                      },
+                      legend: {
+                        display: false,
+                      },
+                      scales: {
+                        yAxes : [{
+                          ticks : {
+                            beginAtZero : true,
+                            callback : function(value,index,values){
+                              yAxesticks = values;
+                              return value;
+                            }
+                          }
+                        }],
+                        xAxes : [{
+                          ticks : {
+                            beginAtZero : true,
+                            callback : function(value,index,values){
+                              xAxesticks = values;
+                              return value;
+                            }
+                          }
+                        }]
+                      },
+                      plugins: {
+                        datalabels: {
+                          display:false
+                        },
+                      },
+                      annotation: {
+                        drawTime: "afterDatasetsDraw",
+                        annotations: [
+                        {
+                          id: 'bottom-left-box',
+                          display: true,
+                          type: 'box',
+                          xScaleID: 'x-axis-1',
+                          yScaleID: 'y-axis-1',
+                          backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                          borderColor: 'rgba(255, 0, 0, 0.1)',
+                          borderWidth: 1,
+                        },
+                        {
+                          id: 'bottom-right-box',
+                          display: true,
+                          type: 'box',
+                          xScaleID: 'x-axis-1',
+                          yScaleID: 'y-axis-1',
+                          backgroundColor: 'rgba(255, 0, 0, 0.3)',
+                          borderColor: 'rgba(255, 0, 0, 0.3)',
+                          borderWidth: 1,
+                        },
+                        {
+                          id: 'top-left-box',
+                          display: true,
+                          type: 'box',
+                          xScaleID: 'x-axis-1',
+                          yScaleID: 'y-axis-1',
+                          backgroundColor: 'rgba(0, 255, 0, 0.1)',
+                          borderColor: 'rgba(0, 255, 0, 0.1)',
+                          borderWidth: 1,
+                        },
+                        {
+                          id: 'top-right-box',
+                          display: true,
+                          type: 'box',
+                          xScaleID: 'x-axis-1',
+                          yScaleID: 'y-axis-1',
+                          backgroundColor: 'rgba(0, 255, 0, 0.3)',
+                          borderColor: 'rgba(0, 255, 0, 0.3)',
+                          borderWidth: 1,
+                        },
+                        ]
+                      }
+
+                    }
+                  });
+                  var xMid=xAxesticks[xAxesticks.length-1]/2;
+                  var yMid=yAxesticks[0]/2;
+                  var xTop=xAxesticks[xAxesticks.length-1]
+                  var yTop=yAxesticks[0]
+                  agentScatter.annotation.elements['bottom-left-box'].options.xMin = 0
+                  agentScatter.annotation.elements['bottom-left-box'].options.yMin = 0
+                  agentScatter.annotation.elements['bottom-left-box'].options.xMax = xMid
+                  agentScatter.annotation.elements['bottom-left-box'].options.yMax = yMid
+                  agentScatter.annotation.elements['bottom-right-box'].options.xMin = xMid
+                  agentScatter.annotation.elements['bottom-right-box'].options.yMin = 0
+                  agentScatter.annotation.elements['bottom-right-box'].options.xMax = xTop
+                  agentScatter.annotation.elements['bottom-right-box'].options.yMax = yMid
+                  agentScatter.annotation.elements['top-right-box'].options.xMin = xMid
+                  agentScatter.annotation.elements['top-right-box'].options.yMin = yMid
+                  agentScatter.annotation.elements['top-right-box'].options.xMax = xTop
+                  agentScatter.annotation.elements['top-right-box'].options.yMax = yTop
+                  agentScatter.annotation.elements['top-left-box'].options.xMin = 0
+                  agentScatter.annotation.elements['top-left-box'].options.yMin = yMid
+                  agentScatter.annotation.elements['top-left-box'].options.xMax = xMid
+                  agentScatter.annotation.elements['top-left-box'].options.yMax = yTop
+                  agentScatter.update()
+
+              },
+              error: function (jqXHR, exception) {
+                alert(jqXHR)
+              },
+              complete:function(){
+                try{
+                  $('#agentKPI').loader('done')
+                }catch(e){
+                  $('#agentKPI').html(origHtml)
+                }
+                toggleKPI($('#agentKPI'))
+                getVistaShiftStats(vistaNames[0])
+              },
+            });
+          }else {
+            toggleKPI($('#agentKPI'))
+          }
+        }
+        function toggleTaskInclude(btn,taskID,group){
+          let el=$('.auditTaskInclude[data-taskID="'+taskID+'"][data-group="'+group+'"]')
+          el.attr('checked',!el.attr('checked'))
+          $(btn).removeClass('btn-primary').removeClass('btn-danger').addClass((el.attr('checked')?'btn-danger':'btn-primary'))
+          $(btn).html((el.attr('checked')?'<i class="fas fa-minus"></i>':'<i class="fas fa-plus"></i>'))
+          el.trigger('change')
+        }
+        function loadMap() {
+          if ($('#mapDropdown').height()<10) {
+            $('#mapKPI').loader()
+            let origHtml=$('#mapKPI').html()
+            let vistaNames=<%-JSON.stringify(jobs.map(el=>el.vistaName).filter((el,i,self)=>self.indexOf(el)==i).filter(el=>el))%>
+            $('#mapJobSelect').val('').selectpicker('refresh')
+            $('.dropdown-toggle[data-id="surveyQsGeo"]').parent().hide()
+            $('.dropdown-toggle[data-id="surveyQsLong"]').parent().hide()
+            $('.dropdown-toggle[data-id="surveyQsLat"]').parent().hide()
+            $('.dropdown-toggle[data-id="surveyQs"]').parent().hide()
+            toggleKPI($('#mapKPI'))
+            $('#mapKPI').loader('done')
+          }else {
+            toggleKPI($('#mapKPI'))
+          }
+        }
+        function loadAuditStats(){
+          if ($('#auditDropdown').height()<10) {
+            let origHtml=$('#auditKPI').html()
+            let col=$('#auditKPI').css('color')=="rgb(0, 128, 0)"?'imgGreen':"imgRed"
+            try{
+              $('#auditKPI').loader()
+            }catch(err){
+              $('#auditKPI').html('<img src="/spinner.gif" class="kpiSpinner '+col+'">')
+            }
+            var jobIDs=[]
+            $('.viewJob:checked:not(.hidden)').each(function() {
+              jobIDs.push(this.id.split("-")[1])
+            });
+            let queries=['jobs','plannerTasks','audits','staffs','project']
+            $.ajax({
+              url: '/get-project-stats/',
+              type: 'POST',
+              global:false,
+              contentType: 'application/json',
+              data: JSON.stringify({id:<%=project[0].quoteID%>,jobIDs:jobIDs,queries:queries}),
+              success:function(response){
+                let jobs=response.jobs
+                let staffs=response.staffs
+                let project=response.project[0]
+                let plannerTasks=response.plannerTasks
+                let audits=response.audits
+                let auditTableData=`<tr><th>Task</th>`
+                var groups=audits.map(el=>el.plannerGroup).filter((el,i,self)=>self.indexOf(el)==i)
+                groups.forEach((group, i) => {
+                  auditTableData=auditTableData+`<th colspan="4" style="text-align:center;border:1px solid #dee2e6;">`+group+`</th>`
+                });
+                auditTableData=auditTableData+`</tr>`
+                plannerTasks.forEach((task, i) => {
+                  auditTableData=auditTableData+`<tr>
+                  <td>`+task.taskName+`</td>`
+                  groups.forEach((group, i) => {
+                    let infoCell=""
+                    if (task.taskID==1) {
+                      infoCell=`<input type="number" class="loi" data-group="`+group+`" onchange="updateLOI('`+group+`',[`+jobs.filter(el=>el.plannerGroup==group).map(el=>el.jobID).join(",")+`])" name="" value="`+jobs.filter(el=>el.plannerGroup==group).reduce((a,b)=>a+Number(b.timedLOI),0)/jobs.filter(el=>el.plannerGroup==group).length+`"> mins`
+                    }
+                    let audit=audits.find(el=>el.taskID==task.taskID && el.plannerGroup==group)
+                    auditTableData=auditTableData+`<td style="display:none;" width="55px">
+                      <input type="checkbox" data-taskID="`+task.taskID+`" data-group="`+group+`" data-field="include" `+(audit?'checked':'')+` class="form-control auditTaskInclude"/>
+                    </td>
+                    <td>
+                      <button type="button" onclick="toggleTaskInclude($(this),'`+task.taskID+`','`+group+`')" class="btn btn-sm btn-`+(!audit?'primary':'danger')+`">`+(!audit?'<i class="fas fa-plus"></i>':'<i class="fas fa-minus"></i>')+`</button>
+                    </td>
+                    <td colspan="3" class="notNeededCell" style="`+(audit?'display:none':'')+`"></td>
+                    <td class="neededCell" style="`+(audit?'':'display:none;')+`">
+                      <input type="date" style="width: 157px;padding:2px;" title="`+(audit?'Due on '+moment.utc(audit.dueDate).format("DD/MM/YYYY"):'Not needed')+`" data-taskID="`+task.taskID+`" data-group="`+group+`" data-field="doneDate" `+(audit?'':'disabled')+` value="`+(audit?moment.utc(audit.doneDate).format("YYYY-MM-DD"):'')+`" class="form-control auditTask `+(audit?(moment.utc(audit.dueDate).valueOf()<moment.utc().valueOf() && !audit.doneDate?'pastDue':''):'')+`"/>
+                    </td>
+                    <td class="neededCell" style="`+(audit?'':'display:none;')+`width:200px">
+                      <select class="selectpicker auditTask" `+(audit?'':'disabled')+` data-live-search="true" data-width="100%" data-field="doneBy" data-taskID="`+task.taskID+`" data-group="`+group+`">
+                        <option value=""></option>`
+                        staffs.forEach((staff , i) => {
+                          let shouldBe=(task.isTaskCM && project.projectCM==staff.staffID) || (task.isTaskPM && project.projectDP==staff.staffID)
+                          let badge=(staff.staffID==project.projectCM?' <span class="badge badge-cm">CM</span>':(staff.staffID==project.projectDP?' <span class="badge badge-pm">PM</span>':''))
+                          auditTableData=auditTableData+`<option value='`+ staff.staffID +`' `+(audit?(staff.staffID==audit.doneByStaffID?'selected':''):'')+` `+(staff.staffLeft?'disabled':'')+` data-content='`+staff.staffName+badge+`'></option>`
+                        })
+                      auditTableData=auditTableData+`</select>
+                    </td>
+                    <td class="infoCell" width="92px" style="`+(audit?'':'display:none;')+`">
+                      `+infoCell+`
+                    </td>
+                    `
+                  });
+                  auditTableData=auditTableData+`</tr>`
+                });
+                $('#auditDropdown table').html(auditTableData)
+                $('#auditDropdown .selectpicker').selectpicker()
+              },
+              error: function (jqXHR, exception) {
+                alert(jqXHR)
+              },
+              complete:function(){
+                try{
+                  $('#auditKPI').loader('done')
+                }catch(e){
+                  $('#auditKPI').html(origHtml)
+                }
+                toggleKPI($('#auditKPI'))
+                $('.auditTask').on('change',function(e){
+                  let taskID=$(this).attr("data-taskID")
+                  let grp=$(this).attr("data-group")
+                  let dte=$('[data-taskID="'+taskID+'"][data-group="'+grp+'"][data-field="doneDate"]').val()
+                  let doneBy=$('[data-taskID="'+taskID+'"][data-group="'+grp+'"][data-field="doneBy"]').val()
+                  if (!dte) {
+                    $('[data-taskID="'+taskID+'"][data-group="'+grp+'"][data-field="doneDate"]').addClass("is-invalid")
+                  }else {
+                    $('[data-taskID="'+taskID+'"][data-group="'+grp+'"][data-field="doneDate"]').removeClass("is-invalid")
+                  }
+                  if (!doneBy) {
+                    $('[data-taskID="'+taskID+'"][data-group="'+grp+'"][data-field="doneBy"]').addClass("is-invalid").selectpicker("refresh")
+                  }else {
+                    $('[data-taskID="'+taskID+'"][data-group="'+grp+'"][data-field="doneBy"]').removeClass("is-invalid")
+                    $('[data-taskID="'+taskID+'"][data-group="'+grp+'"][data-field="doneBy"]').selectpicker("refresh")
+                  }
+                  if (dte && doneBy) {
+                    $.ajax({
+                      url: '/update-audit-task',
+                      type: 'POST',
+                      data: JSON.stringify({projectID:<%=project[0].projectID%>,doneDate:dte,group:grp,taskID:taskID,doneByStaffID:doneBy}),
+                      contentType: 'application/json',
+                      success: function (response) {
+                        $('[data-taskID="'+taskID+'"][data-group="'+grp+'"][data-field="doneDate"]').removeClass("pastDue")
+                      },
+                      error: function (jqXHR, exception) {
+                        console.log(jqXHR)
+                      }
+                    })
+                  }
+                })
+                $('.auditTaskInclude').on('change',function(e){
+                  let taskID=$(this).attr("data-taskID")
+                  let grp=$(this).attr("data-group")
+                  if ($(this).prop("checked")) {
+                    $(this).parent().parent().find('.neededCell').show()
+                    $(this).parent().parent().find('.notNeededCell').hide()
+                    $.ajax({
+                      url: '/add-audit-task',
+                      type: 'POST',
+                      data: JSON.stringify({projectID:<%=project[0].projectID%>,group:grp,taskID:taskID}),
+                      contentType: 'application/json',
+                      success: function (response) {
+                        $('[data-taskID="'+taskID+'"][data-group="'+grp+'"][data-field="doneDate"]').prop("disabled",false)
+                        $('[data-taskID="'+taskID+'"][data-group="'+grp+'"][data-field="doneBy"]').prop("disabled",false).selectpicker("refresh")
+                      },
+                      error: function (jqXHR, exception) {
+                        console.log(jqXHR)
+                      }
+                    })
+                  }else if (confirm("Are you sure you want to remove this from the task list?")) {
+                    $(this).parent().parent().find('.neededCell').hide()
+                    $(this).parent().parent().find('.notNeededCell').show()
+                    $.ajax({
+                      url: '/delete-audit-task',
+                      type: 'POST',
+                      data: JSON.stringify({projectID:<%=project[0].projectID%>,group:grp,taskID:taskID}),
+                      contentType: 'application/json',
+                      success: function (response) {
+                        $('[data-taskID="'+taskID+'"][data-group="'+grp+'"][data-field="doneDate"]').prop("disabled",true)
+                        $('[data-taskID="'+taskID+'"][data-group="'+grp+'"][data-field="doneBy"]').prop("disabled",true).selectpicker("refresh")
+                        $('[data-taskID="'+taskID+'"][data-group="'+grp+'"][data-field="doneDate"]').removeClass("pastDue")
+                      },
+                      error: function (jqXHR, exception) {
+                        console.log(jqXHR)
+                      }
+                    })
+                  }
+                })
+              },
+            });
+          }else {
+            toggleKPI($('#auditKPI'))
+          }
+        }
+        function loadQualityStats(){
+          if ($('#qualityDropdown').height()<10) {
+            let origHtml=$('#qualityKPI').html()
+            let col=$('#qualityKPI').css('color')=="rgb(0, 128, 0)"?'imgGreen':"imgRed"
+            try{
+              $('#qualityKPI').loader()
+            }catch(err){
+              $('#qualityKPI').html('<img src="/spinner.gif" class="kpiSpinner '+col+'">')
+            }
+            const qualityTable = new Tabulator("#qualityTable", {
+              autoResize:true,
+              layout:"fitColumns",
+              index:"qcID",
+              pagination:"local", //enable local pagination.
+              paginationSize:5,
+              ajaxURL:"/project-qc-checks/",
+              ajaxConfig:"POST",
+              ajaxContentType:{
+                headers:{
+                  'Content-Type': 'application/json',
+                },
+                body:function(url, config, params){
+                  jobIDs = [];
+                  $('.viewJob:checked:not(.hidden)').each(function() {
+                      jobIDs.push(this.id.split("-")[1])
+                  });
+                  return JSON.stringify({jobIDs:jobIDs});
+                },
+              },
+              rowFormatter:function(row){
+                row.getCells().forEach((cell, i) => {
+                  // cell.getElement().style.height= "29px";
+                  cell.getElement().style.padding= "4px";
+                  cell.getElement().style.height= "29px";
+                })
+              },
+              columns:[
+                {title:"qcID", visible:false, field:"MasterQCID"},
+                {title:"Job", field:"jobName"},
+                {title:"Agent", field:"agentName"},
+                {title:"Interview", field:"interviewDate", formatter:"datetime", formatterParams:{
+                    inputFormat:"YYYY-MM-DD",
+                    outputFormat:"DD/MM/YYYY"
+                }},
+                {title:"Client-suitable?", field:"clientFriendly",formatter:"tickCross", formatterParams:{
+                  allowTruthy:true
+                },topCalc:"count"},
+                {field:"score", title:'Score', topCalc:"avg",width:100},
+                {field:"score", formatter:"traffic", formatterParams:{
+                  min:0,
+                  max:100,
+                  color:["red", "orange", "green"],
+                },width:50,topCalc:"avg"},
+                {title:"", field:"MasterQCID",formatter:viewIcon,width:50},
+                {title:"", field:"recordingID",formatter:downloadIcon,width:50},
+              ],
+              dataLoaded:function(data){
+                try{
+                  $('#qualityKPI').loader('done')
+                }catch(e){
+                  $('#qualityKPI').html(origHtml)
+                }
+                toggleKPI($('#qualityKPI'))
+              }
+            })
+          }else {
+            toggleKPI($('#qualityKPI'))
+          }
+        }
+        function updatePies(){
+          var spends=Tabulator.prototype.findTable('#spendTable')[0].getData().filter(el=>el.spendID>-1)
+          var budgets=Tabulator.prototype.findTable('#costsTable')[0].getData().filter(el=>el.costID>-1)
+          var spendTypes=spends.filter((spend,i,self)=>{
+            return self.map(el=>el.typeID).indexOf(spend.typeID) == i;
+          }).map(el=>Number(el.typeID))
+          var pieData={}
+          var costTypeVals=getCostTypes()
+          $('#budgetPiesCont').html('')
+          spendTypes.forEach((typeID, i) => {
+            pieData[typeID]={}
+            $('#budgetPiesCont').append(`
+            <div class="budgetPiesCont col-sm-6">
+              <canvas id="pie_`+typeID+`" height="150"></canvas>
+            </div>
+            `)
+            var spendsArr=spends.filter(el=>Number(el.typeID)==typeID)
+            pieData[typeID].data=spendsArr.map(el=>Number(el.spendUnits)*Number(el.spendUnitValue))
+            pieData[typeID].labels=spendsArr.map(el=>el.spendName)
+            pieData[typeID].labels.push("Remaining")
+            var budgetArr=budgets.filter(el=>Number(el.costType)==typeID).map(el=>Number(el.costUnits)*Number(el.costUnitValue))
+            var budget=budgetArr.reduce((a,b)=>a+Number(b),0)
+            var budgetRem=budget-pieData[typeID].data.reduce((a,b)=>a+Number(b),0)
+            pieData[typeID].data.push(Math.max(0,budgetRem))
+            pieData[typeID].overSpend=budgetRem<0?0-budgetRem:null
+            pieData[typeID].colors=[]
+            for (var i = 0; i < pieData[typeID].data.length; i++) {
+              if (i==pieData[typeID].data.length-1) {
+                pieData[typeID].colors.push("rgba(0,255,0,0.5)")
+              }else {
+                pieData[typeID].colors.push("rgba(255,0,0,0.5)")
+              }
+            }
+            var pieCanv = document.getElementById("pie_"+typeID).getContext('2d');
+            var pie = new Chart(pieCanv, {
+              type: 'pie',
+              data:{
+                datasets: [{
+                  data: pieData[typeID].data,
+                  backgroundColor: pieData[typeID].colors,
+                  borderColor:pieData[typeID].overSpend?'red':'white',
+                }],
+                labels: pieData[typeID].labels
+              },
+              options: {
+                tooltips: {
+                  callbacks: {
+                    label: function(tooltipItem, data) {
+                      var label = data.datasets[0].data[tooltipItem.index];
+                      return data.labels[tooltipItem.index]+": £"+label.toFixed(2)
+                    }
+                  },
+                  // bodyFontColor:pieData[typeID].overSpend?'red':'white'
+                },
+                plugins: {
+                  datalabels: {
+                    display:false
+                  }
+                },
+                responsive: true,
+                legend: {
+                  display: false,
+                },
+                title: {
+                  display:true,
+                  text: costTypeVals[typeID]+' budget'+(pieData[typeID].overSpend?' (£'+pieData[typeID].overSpend.toFixed(2)+' overspend)':''),
+                  fontColor: pieData[typeID].overSpend?'red':'black',
+                  fontSize: 14,
+                  fontStyle: pieData[typeID].overSpend?'bold':'normal',
+                },
+              }
+            });
+          });
+        }
+        window.addEventListener("budgetSpendChanged", function(e) {
+          updatePies()
+        })
+        function callForRefresh(){
+          $('#refreshOverlay').css('left','0px')
+        }
+        $(document).on('click', '#refreshOverlay', function(evt) {
+          $('#refreshOverlay').addClass('spin')
+          window.location.reload();
+        })
+        $('body').on('click', function (e) {
+          $('.recordingPopper').each(function () {
+            if (!$(this).is(e.target) && $(this).has(e.target).length === 0 && $('.popover').has(e.target).length === 0) {
+              $(this).popover('dispose');
+            }
+          })
+        });
+        $(document).on('click','.recordingPopper',function(e){
+          let dte=$(this).find("span").attr("data-date")
+          let extID=$(this).find("span").attr("data-extID")
+          let el=this
+          let response=JSON.parse($('#callLogs').attr('value'))
+          response=response.filter(el=>moment.utc(el.startTime).format("YYYY-MM-DD")==dte && el.extension.id==extID)
+          function rand(obj) {
+            let num=Math.floor(Math.random() * (obj.length-1))
+            if (num>=0) {
+              return obj[num]
+            }else {
+              return rand(obj)
+            }
+          }
+          function quartile(rec,i){
+            let arr=rec.slice()
+            let q=[]
+            let nums=arr.map(el=>Number(el.duration)).sort()
+            nums.sort(function(a, b) {
+              return a - b;
+            });
+            q.push(Math.floor(nums.length*.5) - 1)
+            q.push(Math.floor(nums.length*.7) - 1)
+            q.push(Math.floor(nums.length*.9) - 1)
+            q.push(Math.floor(nums.length) - 1)
+            return arr.filter(el=>el.duration>nums[q[i]] && el.duration<nums[q[i+1]])
+          }
+          function loadRecordings(){
+            let recs=response
+            let short=quartile(recs,0)
+            let medium=quartile(recs,1)
+            let long=quartile(recs,2)
+            $(el).popover({
+              sanitize:false,
+              html:true,
+              content:`
+              <div class="form-row col-sm-12 audioRow">
+                <div class="col-sm-3 audioTag">
+                  Short
+                </div>
+                <div class="col-sm-9">
+                  <audio id="short" controls preload="none">
+                    <source id="shortSrc" src="" type="audio/mpeg"/>
+                  </audio>
+                </div>
+              </div>
+              <div class="form-row col-sm-12 audioRow">
+                <div class="col-sm-3 audioTag">
+                  Medium
+                </div>
+                <div class="col-sm-9">
+                  <audio id="medium" controls preload="none">
+                    <source id="mediumSrc" src="" type="audio/mpeg"/>
+                  </audio>
+                </div>
+              </div>
+              <div class="form-row col-sm-12 audioRow">
+                <div class="col-sm-3 audioTag">
+                  Long
+                </div>
+                <div class="col-sm-9">
+                  <audio id="long" controls preload="none">
+                    <source id="longSrc" src="" type="audio/mpeg"/>
+                  </audio>
+                </div>
+              </div>
+              `,
+              trigger:'manual'
+            }).popover("show")
+            $(el).one('shown.bs.popover', function () {
+              if (recs.length>0) {
+                getRecording(rand(short).recording.id,'short')
+                getRecording(rand(medium).recording.id,'medium')
+                getRecording(rand(long).recording.id,'long')
+              }
+            })
+          }
+          loadRecordings()
+        })
+        var downloadIcon = function(cell, formatterParams, onRendered){ //plain text value
+            return '<a class="btn btn-sm qcbtn" target="_blank" href="'+(cell.getValue().indexOf('http://')>-1?cell.getValue():'/download-rc-recording/'+cell.getValue())+'"><i class="fas fa-download"></i></a>'
+        };
+        var viewIcon = function(cell, formatterParams, onRendered){ //plain text value
+            return '<a class="btn btn-sm qcbtn" target="_blank" href="/edit-qc-check/'+cell.getValue()+'"><i class="fas fa-search"></i></a>'
+        };
+        $('#reportModal').on('shown.bs.modal', function (e) {
+          var repTable=new Tabulator("#modal-body table",{
+            autoResize:true,
+            layout:"fitData",
+            height:'50vh',
+            initialSort:[
+              {column:1, dir:"desc"}
+            ],
+            dataLoaded:function(){
+              let vistaNames=<%-JSON.stringify(jobs.map(el=>el.vistaName).filter((el,i,self)=>self.indexOf(el)==i).filter(el=>el))%>
+              getVistaShiftStats(vistaNames[0],this)
+            }
+          })
+        })
+        function checkDelete(jid) {
+          if (confirm("Are you sure you want to delete this target group?")) {
+            $.ajax({
+                url: '/delete-group/'+jid,
+                type: 'GET',
+                contentType: 'application/json',
+                success: function (response) {
+                  location.reload();
+                },
+                error: function (jqXHR, exception) {
+                  alert(getErrorMessage(jqXHR, exception))
+                  // location.reload();
+                },
+            });
+          }
+          return false;
+        }
+        function checkDupe(jid) {
+          if (confirm("Are you sure you want to duplicate this target group?")) {
+            window.location.href='/duplicate-group/'+jid
+          }
+          return false;
+        }
+        function getErrorMessage(jqXHR, exception) {
+           var msg = '';
+           if (jqXHR.status === 0) {
+               msg = 'Not connect.\n Verify Network.';
+           } else if (jqXHR.status == 404) {
+               msg = 'Requested page not found. [404]';
+           } else if (jqXHR.status == 500) {
+               msg = 'Internal Server Error [500]. '+JSON.parse(jqXHR.responseText).error;
+           } else if (exception === 'parsererror') {
+               msg = 'Requested JSON parse failed.';
+           } else if (exception === 'timeout') {
+               msg = 'Time out error.';
+           } else if (exception === 'abort') {
+               msg = 'Ajax request aborted.';
+           } else {
+               msg = JSON.parse(jqXHR.responseText).error;
+           }
+           return msg;
+         }
+         function getRecording(recID,tag){
+           var xhr = new XMLHttpRequest();
+            xhr.open('GET', '/get-recording-stream/'+recID, true);
+            xhr.responseType = 'blob';
+            xhr.onload = function(e) {
+              if (this.status == 200) {
+                var blob = new Blob([this.response], { type: 'audio/mpeg' })
+                var url = window.URL.createObjectURL(blob)
+                $('#'+tag+'Src').prop("src",url)
+                $('#'+tag).trigger("load")
+              }
+            };
+            xhr.send();
+         }
+      </script>
+      <%}%>
+</body>
+</html>

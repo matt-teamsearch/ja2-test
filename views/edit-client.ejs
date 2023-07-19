@@ -1,0 +1,31 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px;">
+  <% if (message) { %>
+    <p class="text-center text-danger"><%= message %></p>
+    <% } %>
+
+    <% if (client) { %>
+      <% client.forEach ((client, index) => {%>
+        <form class="edit-client-form" action="" method="post" enctype="multipart/form-data" style="border:1px solid #ced4da; border-radius:5px; padding:50px;">
+          <input type="text" name="user" id="user" style="display:none;">
+          <div class="form-row">
+            <div class="form-group col-md-4">
+              <label for="clientName">Client Name</label>
+              <input type="text" class="form-control" name="clientName" id="clientName" value="<%= client.clientName %>" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-md-4">
+              <button type="submit" class="btn btn-success">Update Client</button>
+            </div>
+          </div>
+        </div>
+      </form>
+      <% }) %>
+      <% } else { %>
+        <p class="text-center">Client Not Found. Go <a href="/add">here</a> to add Clients.</p>
+        <% } %>
+      </div>
+    </div>
+  </body>
+  </html>

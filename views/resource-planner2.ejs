@@ -1,0 +1,2944 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="table-wrapper">
+<script>
+  $("body").addClass("loading");
+  var buttonCommon = {
+    exportOptions: {
+      columns: ':not(.pastDays),:not(.viewOnly)',
+      format: {
+        header: function ( text, index, node ) {
+          if (text.includes('Needed')) {
+            return $(node).attr('data-date')
+          }else {
+            return text.trim()
+          }
+        },
+        body: function ( data, row, column, node ) {
+          return $(node).text().trim()
+        }
+      }
+    }
+  };
+  function headersToCSV(){
+    var dte=moment.utc().startOf('day')
+    var dateHeads=[]
+    var rows=['total','booked','shortfall']
+    var shifts=['e','d']
+    var headers={}
+    var csvHeaders=[]
+    var topLeft="Shift,Job num,Job name,CM,Starts,Ends,Todo,AHR,Notes"
+    var topLeftBlank=",,,,,,,"
+    for (var s = 0; s < shifts.length; s++) {
+      headers[shifts[s]]={}
+      for (var r = 0; r < rows.length; r++) {
+        dte=moment.utc().startOf('day')
+        headers[shifts[s]][rows[r]]=[]
+        for (var i = 0; i < <%=viewDays%>; i++) {
+          headers[shifts[s]][rows[r]].push('"'+$('#'+rows[r]+'_'+shifts[s]+'_'+dte.format('YYYYMMDD')).text().trim()+'"')
+          if (s==0 && r==0) {
+            dateHeads.push(dte.format('DD/MM/YY'))
+          }
+          dte.add(1,"d")
+        }
+      }
+    }
+    csvHeaders.push(topLeft+","+dateHeads.join(","))
+    csvHeaders.push("e,"+topLeftBlank+"Needed eve,"+headers.e.total.join(","))
+    csvHeaders.push("e,"+topLeftBlank+"Booked eve,"+headers.e.booked.join(","))
+    csvHeaders.push("e,"+topLeftBlank+"Difference eve,"+headers.e.shortfall.join(","))
+    csvHeaders.push("d,"+topLeftBlank+"Needed day,"+headers.d.total.join(","))
+    csvHeaders.push("d,"+topLeftBlank+"Booked day,"+headers.d.booked.join(","))
+    csvHeaders.push("d,"+topLeftBlank+"Difference day,"+headers.d.shortfall.join(","))
+    return csvHeaders.join("\n")+"\n"
+  }
+  function formatCSVdata(data){
+    var rows=data.split("\n")
+    var headRow=rows[0].split(",")
+    var rowsOut=[]
+    for (var i = 0; i < rows.length; i++) {
+      var thisRow=rows[i].split(",")
+      var rowOut=[]
+      var dateCount=0
+      for (var c = 0; c < thisRow.length; c++) {
+        if ([1,2,3,4,5,6,7,8,9].includes(c) || (c>15 && c%2==1)) {
+          if ((c>15 && c%2==1)) {
+            if (i==0) {
+              rowOut.push("Needed")
+            }else {
+              let val=$('#datacell-'+dateCount+"-"+thisRow[0].replace(/['"]+/g, '')).text().trim()
+              rowOut.push(val)
+            }
+            dateCount++
+          }else {
+            rowOut.push(thisRow[c].replace("__________________________",""))
+          }
+        }
+      }
+      rowsOut.push(rowOut)
+    }
+    return rowsOut.join("\n")
+  }
+  let triggerReCalc=true
+  $(document).ready(function () {
+    var table = $('#Project-table').DataTable( {
+      ordering: false,
+      scrollY: '50.5vh',
+      scrollX: true,
+      dom: 'Bfrtip',
+      buttons: [
+        {
+          extend: 'csvHtml5',
+          customize: function (csv) {
+            return headersToCSV()+formatCSVdata(csv);
+          },
+          titleAttr: 'Download to Excel',
+          text: 'Download to Excel'
+        }
+      ],
+      scrollCollapse: true,
+      paging: false,
+      info: false,
+      fixedColumns:   {
+          leftColumns: 10,
+      },
+      columnDefs: [
+        { "visible": false, "targets": [0,1] }
+      ],
+      "initComplete": function( settings, json ) {
+        $('#Project-table').css("visibility","visible");
+        // calculateProjections()
+      },
+      "drawCallback": function( settings ) {
+        $('.bodypop').popover('destroy')
+        $('[data-toggle="tooltip"]').tooltip('dispose')
+        if (triggerReCalc) {
+          calculateProjections().then(function(e){
+            if (window.myLineChart) {
+              window.myLineChart.update()
+            }
+            $('.bodypop').popover()
+            $('[data-toggle="tooltip"]').tooltip({html:true,sanitize:false,title:function(){$(this).prop('title')},boundary:'window'})
+            $('.DTFC_LeftBodyWrapper,.DTFC_LeftBodyLiner').height(($('.DTFC_ScrollWrapper').height()-$('.DTFC_LeftHeadWrapper').height())-13)
+          })
+        }else {
+          $('.DTFC_LeftBodyWrapper,.DTFC_LeftBodyLiner').height(($('.DTFC_ScrollWrapper').height()-$('.DTFC_LeftHeadWrapper').height())-13)
+          triggerReCalc=true
+        }
+      }
+    });
+
+    $(window).resize(function() {
+      $('.DTFC_LeftBodyWrapper,.DTFC_LeftBodyLiner').height(($('.DTFC_ScrollWrapper').height()-$('.DTFC_LeftHeadWrapper').height())-13)
+    });
+    new $.fn.dataTable.Buttons( table, {
+      name: 'Download to Excel',
+      buttons: [
+        {
+          extend: 'csvHtml5',
+          customize: function (csv) {
+            return headersToCSV()+formatCSVdata(csv);
+          },
+          titleAttr: 'Download to Excel',
+          text: 'Download to Excel'
+        }
+      ]
+    });
+    $('.focus').on('change',function(e){
+      triggerReCalc=false
+      setTimeout(()=>{table.draw()},500)
+    })
+    table.buttons( 0, null ).containers().appendTo( '#btnExport' );
+    $('.dt-buttons').find('button').removeClass().addClass('btn btn-sm btn-light')
+    $('.dataTables_length').addClass('bs-select');
+    $(document).on("click", "#record-filters", function() {
+      table.draw();
+    });
+    $(document).on("click", "#gridDisplayEveLabel", function() {
+      $(".eve-headers").css("visibility","visible")
+      $(".day-headers").css("visibility","collapse")
+      $(".total-headers").css("visibility","collapse")
+    });
+    $(document).on("click", "#gridDisplayDayLabel", function() {
+      $(".eve-headers").css("visibility","collapse")
+      $(".day-headers").css("visibility","visible")
+      $(".total-headers").css("visibility","collapse")
+    });
+    $(document).on("click", "#gridDisplayAllLabel", function() {
+      $(".eve-headers").css("visibility","visible")
+      $(".day-headers").css("visibility","visible")
+      $(".total-headers").css("visibility","visible")
+    });
+
+    var toggleActive = function(activate)
+    {
+      //return; // uncomment this line to see the de-coupled (broken) Bootstrap state
+      // de-activate any existing selection
+      $('#record-filters').find('.btn-primary').each(function(index, element) {
+        $(element).removeClass('active');
+      });
+      activate.addClass('active');
+    }
+
+    $.fn.dataTable.ext.search.push(
+        function(settings, data, dataIndex) {
+          var dead = $('#gridDisplayDay')[0].checked;
+          var alive = $('#gridDisplayEve')[0].checked;
+          var all = $('#gridDisplayAll')[0].checked;
+          var condition = String(data[1]); // check condition
+          let neededData=settings.aoData[dataIndex].anCells.map(el=>$(el).find('.data').text().trim())
+          var focussedData=neededData.filter((el,i)=>$(settings.aoHeader[0][i].cell).find('.focus:checked').length>0)
+          var focusPass=true
+          if (focussedData.length>0) {
+            focusPass=focussedData.filter(el=>Number(el[0])>0).length>0
+          }
+          if (all) {
+             toggleActive($('#gridDisplayAllLabel'));
+             return focusPass;
+          } else if (dead) {
+             toggleActive($('#gridDisplayDayLabel'));
+             return ("d" == condition && focusPass);
+          } else if (alive) {
+             toggleActive($('#gridDisplayEveLabel'));
+             return ("d" != condition && focusPass);
+          }
+          return focusPass;
+        }
+      );
+      $('.autoCheck').on('change',function(e){
+        let el=$(this)
+        if (el.is(':checked')) {
+          prioritiseDay(el.attr("data-shift"),el.attr("data-date")).then(e=>calculateProjections()).catch(e=>el.prop('checked',false))
+        }else {
+          unPrioritise(el.attr("data-shift"),el.attr("data-date")).then(e=>calculateProjections())
+        }
+      })
+  });
+
+<%
+
+      const dateIf = (inDate, seperator, order) => {
+        var dte=moment.utc(inDate).startOf('day')
+        if(order=="f"){
+          return dte.format("DD"+seperator+"MM"+seperator+"YYYY")
+        }
+        if(order=="r"){
+          return dte.format("YYYY"+seperator+"MM"+seperator+"DD")
+        }
+      }
+      %>
+
+   </script>
+   <style>
+     .forceFill{
+        width: 100%;
+        height: 100%;
+        display: inline-block;
+     }
+     .prioritised {
+       width: 100%;
+       background: #0000004d;
+       color: #fbff00;
+       font-weight: bold;
+       padding: 0 5px 0 5px;
+     }
+     #Project-table{
+       visibility:hidden;
+     }
+     .noteCell:hover {
+       color: var(--primary);
+      }
+     .popover{
+       box-shadow: 5px 5px 5px rgba(0,0,0,0.3);
+       max-width: 500px;
+     }
+      a {
+      color: #050049;
+      }
+
+      .pastDays{
+        background:#bfe8f5!important;
+      }
+
+      .today_cell{
+        background:#ecf5ba;
+      }
+
+      .hover-content{
+        cursor: pointer;
+      }
+      .hover-content:hover{
+        background-color: inherit;
+        background-image: url('/black.png')!important;
+        background-blend-mode: soft-light;
+      }
+      .weekends{
+        background-color:black;
+        color:gray;
+      }
+      .bankHolidays{
+        color: #ffec08;
+      }
+      .left-border{
+        border-left:2px black solid!important;
+      }
+      table.dataTable thead th, table.dataTable tbody td{
+        white-space: nowrap;
+      }
+      table.dataTable thead tr:not(.body-headers)>th, table.dataTable thead tr:not(.body-headers)>td {
+        border-bottom: 1px solid #e5e5e5;
+      }
+      table.dataTable thead th{
+        padding:2px;
+      }
+      table.dataTable tbody td{
+        padding:5px;
+      }
+      .table-sm thead th, .table-sm tbody td{
+        padding:1px;
+        white-space: nowrap;
+      }
+      #Project-table_wrapper{
+        background: #2d2d2d;
+      }
+      input[type=radio] {
+        display:none;
+      }
+      .dataTables_filter {
+        display: none;
+      }
+      .DTFC_LeftBodyLiner{
+        overflow-x:hidden;
+      }
+      /* .DTFC_LeftBodyWrapper,.DTFC_LeftBodyLiner{
+        height: 42.5vh!important;
+      } */
+      .planned{
+        color:#007bff;
+        font-weight:bold;
+      }
+      .amend_res_btn{
+        padding: 0px;
+        border: none;
+      }
+      .amend_ahr_btn{
+        padding: 0px;
+        border: none;
+      }
+      .cellAlloc_btn{
+        padding: 0px;
+        border: none;
+      }
+      .cellAlloc_hrs{
+        width:40px;
+      }
+      .cellAlloc_agent{
+        height:27px;
+      }
+      .allocateCell:hover{
+        cursor: pointer;
+        background-image: url(/plus.png);
+        background-repeat: no-repeat;
+        background-size: contain;
+        background-position: center;
+      }
+      .needed:hover{
+        cursor: pointer;
+        background-image: url(/plus.png);
+        background-repeat: no-repeat;
+        background-size: contain;
+        background-position: center;
+      }
+      td.needed {
+        border-right-color: gainsboro!important;
+      }
+      .pop-close{
+        line-height:16px;
+      }
+      .hourly>tr, .hourly>td{
+        backdrop-filter: brightness(0.8);
+      }
+      .thHeaders{
+        text-align: right;
+        border: none;
+      }
+      .needed_<%=dateIf(tdy,"","r")%>_false>div, .needed_<%=dateIf(tdy,"","r")%>_true>div {
+        font-style: italic;
+        color: #007bff;
+        font-weight: normal;
+      }
+      .needed_<%=dateIf(tdy,"","r")%>_false:hover, .needed_<%=dateIf(tdy,"","r")%>_true:hover {
+        cursor: initial;
+        background-image: none;
+      }
+      div.dt-buttons {
+        position: relative;
+        float: unset;
+        display: inline-block;
+        /* margin-left: 10px; */
+      }
+      @keyframes shake-horizontal {
+        0%,
+        25% {
+          transform: translateX(0);
+        }
+        2.5%,
+        7.5%,
+        12.5%,
+        17.5% {
+          transform: translateX(-5px);
+        }
+        5%,
+        10%,
+        15% {
+          transform: translateX(5px);
+        }
+        20% {
+          transform: translateX(3px);
+        }
+        22.5% {
+          transform: translateX(-3px);
+        }
+      }
+      @keyframes danger-flash {
+        0%,50%{
+          color:initial
+        }
+        7.5%,17.5%{
+          color:red
+        }
+      }
+      @keyframes danger-flash-st {
+        0%,50%{
+          color:initial
+        }
+        7.5%,17.5%{
+          color:white
+        }
+      }
+      .attentionBadge {
+        animation: shake-horizontal 3.2s cubic-bezier(0.455, 0.030, 0.515, 0.955) infinite both;
+        color: white;
+        background-color: red;
+        justify-content: center;
+        align-items: center;
+        border-radius: 6px;
+        text-align: center;
+        font-size: 0.7em;
+        position: absolute;
+        padding: 0px 3px;
+        right: -12px;
+        top: -5px;
+        box-shadow: 0px 3px 4px 0px rgb(0 0 0 / 32%);
+        z-index:9;
+      }
+      .attentionBadge.st {
+        right: 33px;
+        top: -6px;
+        background-color: white;
+        color:red;
+      }
+      .attentionBadge.dc {
+        animation:none;
+        right: -28px;
+        top: -6px;
+        background-color: var(--primary);
+        color:white;
+      }
+      .dangerFlash>.jobHeads{
+        animation: danger-flash 3.2s ease-in infinite both;
+      }
+      .dangerFlashSt>.jobHeads{
+        animation: danger-flash-st 3.2s ease-in infinite both;
+      }
+      .forecast {
+        font-style: italic;
+        color: #959595;
+      }
+      .super{
+        font-variant: all-petite-caps;
+        font-size: small;
+        vertical-align: text-top;
+      }
+      .dateChanges td:nth-of-type(3) {
+        padding: 0px;
+      }
+      .dateChanges td:nth-of-type(2) {
+        padding-right: 1px;
+        text-align:right;
+      }
+      .dateChanges td:nth-of-type(4) {
+        padding-left: 1px;
+        text-align:left;
+      }
+      table.dateChanges td {
+        padding: 0px 3px;
+      }
+      table.dateChanges {
+        white-space: nowrap;
+        margin-bottom:10px;
+      }
+      .infoCell {
+        color: gainsboro;
+        font-size: 11px;
+        vertical-align: middle;
+        font-variant: all-petite-caps;
+      }
+      .newDate{
+        color:var(--primary)
+      }
+      .dayDiff {
+        padding: 1px;
+        font-size: 11px;
+        font-weight: bold;
+        vertical-align: top;
+      }
+      .tooltip-inner {
+        max-width: 380px;
+      }
+      .dataTables_scrollBody > table > tbody > tr > td > .attentionBadge {
+        display: none;
+      }
+      tr.total-headers > th {
+        border-top: 3px double #7a7a7a;
+      }
+      .academy {
+        color: gray;
+      }
+      .headerBtn{
+        width:100%;
+      }
+      .btnCell{
+        padding:0px!important;
+      }
+      .dayName {
+        display: flex;
+        justify-content: space-between;
+      }
+      #autoSettingsBtn {
+          background: #d9db49;
+          color: black;
+          border-color: yellow;
+      }
+      #autoSettingsBtn:hover {
+          background: yellow;
+      }
+      #autoSettingsBtn:focus{
+        box-shadow:0 0 0 0.2rem rgb(182 184 23 / 50%);
+      }
+      .pastDays{
+        display:none;
+      }
+      .modal-dialog.modal-dialog-centered {
+        max-width: 95%;
+      }
+      .scenarioFields[type="number"] {
+        width: 55px;
+      }
+      #modalTableParams td,#modalTableParams th {
+        text-align: center;
+      }
+      #modalTableParams td>*,#modalTableParams th {
+        vertical-align:middle;
+      }
+      .modalParams {
+        display: flex;
+        justify-content: space-evenly;
+        align-items: center;
+      }
+      .modalParams [type="checkbox"] {
+        transform: scale(1.5);
+        margin-right: 4px;
+      }
+      .modalParams [type="number"] {
+        width: 44px;
+      }
+      .tabulator-cell,.tabulator-col-content {
+        padding: 3px!important;
+      }
+      .danger{
+        color:var(--danger);
+      }
+      .success{
+        color:var(--success);
+      }
+      .warning{
+        color:var(--warning);
+      }
+      .swapped {
+        border: 3px solid;
+        border-top: none;
+        border-bottom: none;
+        color: var(--danger);
+        border-radius: 50%;
+      }
+      .swapped.success {
+        border-color:var(--success);
+      }
+      .swapped.warning {
+        border-color:var(--warning);
+      }
+      .plannedScenario {
+        font-weight: bold;
+        text-align: center;
+      }
+      .flashBlue{
+        text-shadow:0 0px 2px var(--success);
+        color:var(--success)!important;
+      }
+      .cellScenario {
+        text-align: center;
+      }
+      .scenarioViewer .tabulator-row .tabulator-cell{
+        overflow:visible!important;
+      }
+      @keyframes arrowUp {
+          0% {
+              bottom: -15px;
+              opacity:1;
+          }
+          100% {
+              bottom: -2px;
+              opacity:0;
+          }
+      }
+      .scenarioMoveBtn {
+        position: absolute;
+        padding: 0px 3px;
+        border: none;
+        font-size: 16px;
+        opacity:0;
+        transition:0.4s opacity;
+        z-index:9;
+      }
+      .scenarioMoveBtn.up {
+        bottom: -7px;
+        right: -1px;
+      }
+      .scenarioMoveBtn.down {
+        top: -7px;
+        left: 1px;
+      }
+      .scenarioMoveBtn:hover{
+        background-color: #007bff85;
+      }
+      .tabulator-cell:hover > .scenarioMoveBtn{
+        opacity:1;
+      }
+      .tabulator-cell input::-webkit-outer-spin-button,
+      .tabulator-cell input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+      }
+      .scenarioMoveToken {
+        position: absolute;
+        z-index:9998;
+        font-size: 17px;
+        color: var(--primary);
+        opacity:1;
+        pointer-events:none;
+        top:3px;
+        left: 50%;
+        transform: translateX(-50%);
+        transition: 0.7s top,1.2s opacity;
+        transition-timing-function: cubic-bezier(0.25, 0.1, 0, 1.02);
+      }
+      .paramIcons{
+        font-weight: bold;
+        margin-left: 3px;
+        text-outline: 1px solid black;
+        stroke: 1px solid black;
+        text-shadow: 0 0 2px black;
+      }
+      .bootstrap-filestyle.input-group {
+        width: auto;
+      }
+    </style>
+   <%
+      if(viewType == 2){
+        var horseDay = 8;
+        var horseEve = 4;
+        var shiftType = "shifts";
+        var notShift = "hours"
+      }else{
+        var horseDay = 1;
+        var horseEve = 1;
+        var shiftType = "hours";
+        var notShift = "shifts"
+      }
+      if(viewDays == 14){
+        var dayView = "month"
+      }
+      else{
+        var dayView = "fortnight"
+      }
+
+
+      let datesAsText = ["Sun","Mon","Tues","Wed","Thurs","Fri","Sat"]
+
+      const getBusinessDatesCount = (sDate, eDate) => {
+        var sDate=moment.utc(sDate).startOf('day')
+        var eDate=moment.utc(eDate).startOf('day')
+        var count = 0;
+        var curDate = sDate
+        while (curDate < eDate) {
+          var dayOfWeek = curDate.format('e');
+          if(!((dayOfWeek == 6) || (dayOfWeek == 0))){
+            count++;
+          }
+          curDate.add(1,'days')
+        }
+        return count+1;
+      };
+
+      function ProjectStats(id, interviewsLeft, strikeRate, daysLeft) {
+        this.id = id;
+        this.interviewsLeft = interviewsLeft;
+        this.strikeRate = strikeRate;
+        this.daysLeft = daysLeft;
+      };
+
+      let projectsArray = [];
+      function shorten(str,len){
+        return str.length>len+3?str.substring(0,len)+"...":str
+      }
+  projects.forEach((project, index) => {
+    jobs.forEach((job , index) => {
+      if(job.jobID == project.jobID){
+
+      var today = moment.utc().startOf('day')
+      var pStart = moment.utc(job.startDate).startOf('day')
+      var endDate = moment.utc(job.endDate).startOf('day')
+
+      var intTarget = 0
+      if (job.isJobHourly==1) {
+        intTarget=job.interviewsTarget-job.Hours
+      }else {
+        intTarget=(job.interviewsTarget - job.PanelInterviews - job.CATIInterviews)
+      }
+      var strikeRate = 1
+      if (job.isJobHourly==0) {
+        strikeRate=(job.CATIInterviews > 0 ? job.CATIInterviews / job.Hours : job.hourlyTarget)
+      }
+      if (job.resourceTarget!=null) {
+        strikeRate=job.resourceTarget
+      }
+      var daysLeft = (pStart.valueOf() > today.valueOf() ? getBusinessDatesCount(pStart, endDate) : getBusinessDatesCount(today, endDate))
+
+      let projectToAdd = new ProjectStats(job.jobID, intTarget, strikeRate, daysLeft);
+      projectsArray.push(projectToAdd)
+    }
+   });
+  });
+  let today=moment.utc().startOf('day')
+  let thisWeek=today.format('W')
+%>
+<div id="record-filters" style="padding-top:8px" class="btn-group" data-toggle="buttons">
+  <label id="gridDisplayDayLabel" class="btn btn-sm btn-light" style="">
+    <input type="radio" name="GridDisplay" id="gridDisplayDay" autocomplete="off" value="Day" /> Day
+  </label>
+  <label id="gridDisplayEveLabel" class="btn btn-sm btn-light">
+    <input type="radio" name="GridDisplay" id="gridDisplayEve" autocomplete="off" value="EveOnly" /> Eve
+  </label>
+  <label id="gridDisplayAllLabel" class="btn btn-sm btn-light active">
+    <input type="radio" name="GridDisplay" id="gridDisplayAll" autocomplete="off" value="all" /> All
+  </label>
+</div>
+<span id="btnExport"></span>
+<button type="button" class="btn btn-sm btn-info" id="scenarioBtn" onclick="showScenarioBuilder()">Scenario builder <span class="badge badge-secondary">Test</span></button>
+<iframe id="txtArea1" style="display:none"></iframe>
+   <table class="table table-sm table-striped table-bordered dataTable no-footer" id="Project-table" style="font-size:0.75em; width:100vw;">
+      <thead class="thead">
+        <tr>
+        <th></th>
+        <th></th>
+         <th colspan="7" rowspan="11" data-id="chartCell" style="vertical-align:top;">
+
+         </th>
+         <th class="thHeaders"></th>
+         <th colspan=3 class="pastDays left-border">
+            2 days ago
+         </th>
+         <th colspan=3 class="pastDays left-border">
+            Yesterday
+         </th>
+         <!-- Days of the week -->
+         <% dates.forEach((date, index) => { %>
+         <th id="dateHead-<%=date.valueOf()%>" colspan=2 class="left-border <%if (date.valueOf() == today.valueOf()){%>today_cell"<%}%> <% if (date.day() == 0  || date.day() == 6 ){%>weekends<%}%>">
+           <span class="dayName">
+            <%= datesAsText[date.day()] %>
+            <label class="switch">
+              <input type="checkbox" class="focus" data-col="<%= index %>">
+              <span class="slider round"><span class="slider-text">Focus</span></span>
+            </label>
+          </span>
+         </th>
+         <%})%>
+      </tr>
+      <tr>
+        <th></th>
+        <th></th>
+        <th class="thHeaders"></th>
+         <th colspan=3 class="pastDays left-border">
+            <%= dateIf(dayBefore,"/","f") %>
+         </th>
+         <th colspan=3 class="pastDays left-border">
+            <%= dateIf(yesterday,"/","f") %>
+         </th>
+         <!-- Date -->
+         <% dates.forEach((date, index) => { %>
+         <th id="date_<%= dateIf(date,"","r") %>" colspan=2 class="dates left-border hover-content <%if (date.valueOf() == today.valueOf()){%>today_cell"<%}%>">
+            <%= dateIf(date,"/","f") %>
+         </th>
+         <%})%>
+       </tr>
+       <tr class="eve-headers">
+         <th></th>
+         <th>e</th>
+         <th class="thHeaders">Booked</th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <!-- THIS IS TOTAL FOR EVE CALC -->
+         <% dates.forEach((date, index) => {
+            %>
+         <th id="booked_e_<%=dateIf(date,"","r")%>" class="<%if (date.valueOf() == today.valueOf()){%> today_cell<%}%> <%=date>moment().add(10,'d')?'forecast':''%> left-border">
+           <%
+           let bookingFound=booked.find(function (booking) {
+             return dateIf(booking.bookingDate,"-","r")==dateIf(date,"-","r");
+           })
+           let bookedHours=0
+           let forecasted=forecastHrs.find(el=>el.bookingDay==date.day()+1 && el.isEve==1)?forecastHrs.find(el=>el.bookingDay==date.day()+1 && el.isEve==1).Hours:0
+           if (bookingFound != undefined) {
+             bookedHours=bookingFound.EveHours
+           }
+           let bookedDisplay=date>moment().add(10,'d')?Math.round(forecasted*2)/2:bookedHours
+           let sicknessReduction=date.valueOf() == today.valueOf()?1:0.9
+           %>
+           <span class="<%=date.valueOf() == today.valueOf()?'':'bookedHover'%>" data-forecasted="<%=date>moment().add(10,'d')%>" data-isEve="true" data-forecastedHrs="<%=Math.round((forecasted*sicknessReduction)*2)/2%>" data-booked="<%=bookedDisplay%>"><%=Math.round((bookedDisplay*sicknessReduction)*2)/2%></span>
+         </th>
+         <th class="<%if (date.valueOf() == today.valueOf()){%> today_cell<%}%> btnCell">
+          <a href="/staff-booking/e/<%= date.format('W')-thisWeek %>/ejs/1" class="btn btn-warning headerBtn" style="font-size:12px; padding:0px 2px;background-color: #f7f2e1!important;" align="center">
+          Book.eve
+         </th>
+         <%})%>
+       </tr>
+       <tr class="eve-headers academy">
+         <th></th>
+         <th>e</th>
+         <th class="thHeaders">Academy</th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <!-- THIS IS TOTAL FOR EVE CALC -->
+         <% dates.forEach((date, index) => {
+            %>
+         <th id="academy_e_<%=dateIf(date,"","r")%>" class="<%if (date.valueOf() == today.valueOf()){%> today_cell<%}%> left-border">
+           <%
+           let bookingFound=booked.find(function (booking) {
+             return dateIf(booking.bookingDate,"-","r")==dateIf(date,"-","r");
+           })
+           let bookedHours=0
+           if (bookingFound != undefined) {
+             bookedHours=bookingFound.EveAcademy
+           }
+           let bookedDisplay=bookedHours
+           let sicknessReduction=date.valueOf() == today.valueOf()?1:0.9
+           %>
+           <span class="<%=date.valueOf() == today.valueOf()?'':'bookedHover'%>" data-booked="<%=bookedHours%>" data-isEve="true"><%=Math.round((bookedDisplay*sicknessReduction)*2)/2%></span>
+         </th>
+         <th class="<%if (date.valueOf() == today.valueOf()){%> today_cell<%}%> btnCell">
+          <a href="/staff-booking/e/<%= date.format('W')-thisWeek %>/ejs/1" class="btn btn-warning headerBtn" style="font-size:12px; padding:0px 2px;background-color: #f7f2e1!important;" align="center">
+          Book.eve
+         </th>
+         <%})%>
+       </tr>
+       <tr class="eve-headers">
+         <th></th>
+         <th>e</th>
+         <th class="thHeaders">Needed</th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <!-- THIS IS TOTAL FOR EVE CALC -->
+         <% dates.forEach((date, index) => {
+            let dataDisplay = 0
+            %>
+         <th
+          id="total_e_<%=dateIf(date,"","r")%>"
+          class="t_false_<%=date.day()%>_<%=date.month()%> <%if (date.valueOf() == today.valueOf()){%> today_cell<%}%> left-border">
+         </th>
+         <th
+          class="r_false_<%=date.day()%>_<%=date.month()%> <%if (date.valueOf() == today.valueOf()){%> today_cell<%}%> btnCell">
+          <a href="/tally-sheet/<%= dateIf(date,"-","r") %>/e/0/1/1" class="btn btn-primary headerBtn" style="font-size:12px; padding:0px 2px" align="center">
+          Tally.eve
+         </th>
+         <%})%>
+       </tr>
+       <tr class="eve-headers">
+         <th></th>
+         <th>e</th>
+         <th class="thHeaders">Difference</th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <!-- THIS IS TOTAL FOR DAY CALC -->
+         <% dates.forEach((date, index) => {
+            %>
+         <th id="shortfall_e_<%=dateIf(date,"","r")%>" class="t_true_<%=date.day()%>_<%=date.month()%> <%if (date.valueOf() == today.valueOf()){%> today_cell<%}%> left-border">
+         </th>
+         <th class="r_true_<%=date.day()%>_<%=date.month()%> <%if (date.valueOf() == today.valueOf()){%> today_cell<%}%>">
+           <!-- <label class="switch">
+             <input type="checkbox" class="autoCheck" data-date="<%= dateIf(date,"-","r") %>" data-shift="Eve">
+             <span class="slider round warning"><span class="slider-text">Auto</span></span>
+           </label> -->
+         </th>
+         <%})%>
+       </tr>
+       <tr class="day-headers">
+         <th></th>
+         <th>d</th>
+         <th class="thHeaders">Booked</th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <!-- THIS IS TOTAL FOR DAY CALC -->
+         <% dates.forEach((date, index) => {
+            %>
+         <th id="booked_d_<%=dateIf(date,"","r")%>" class="<%if (date.valueOf() == today.valueOf()){%> today_cell<%}%> <%=date>moment().add(10,'d')?'forecast':''%> left-border">
+           <%
+           let bookingFound=booked.find(function (booking) {
+             return dateIf(booking.bookingDate,"-","r")==dateIf(date,"-","r");
+           })
+           let bookedHours=0
+           let forecasted=forecastHrs.find(el=>el.bookingDay==date.day()+1 && el.isEve!=1)?forecastHrs.find(el=>el.bookingDay==date.day()+1 && el.isEve!=1).Hours:0
+           if (bookingFound != undefined) {
+             bookedHours=bookingFound.DayHours
+           }
+           let bookedDisplay=date>moment().add(10,'d')?Math.round(forecasted*2)/2:bookedHours
+           let sicknessReduction=date.valueOf() == today.valueOf()?1:0.9
+           %>
+           <span class="<%=date.valueOf() == today.valueOf()?'':'bookedHover'%>" data-forecasted="<%=date>moment().add(10,'d')%>" data-isEve="false" data-forecastedHrs="<%=Math.round((forecasted*sicknessReduction)*2)/2%>" data-booked="<%=bookedDisplay%>"><%=Math.round((bookedDisplay*sicknessReduction)*2)/2%></span>
+         </th>
+         <th class="<%if (date.valueOf() == today.valueOf()){%> today_cell<%}%> btnCell">
+          <a href="/staff-booking/d/<%= date.format('W')-thisWeek %>/ejs/1" class="btn btn-warning headerBtn" style="font-size:12px; padding:0px 2px;background-color: #efc128!important;" align="center">
+          Book.day
+         </th>
+         <%})%>
+       </tr>
+       <tr class="day-headers academy">
+         <th></th>
+         <th>d</th>
+         <th class="thHeaders">Academy</th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <!-- THIS IS TOTAL FOR DAY CALC -->
+         <% dates.forEach((date, index) => {
+            %>
+         <th id="academy_d_<%=dateIf(date,"","r")%>" class="<%if (date.valueOf() == today.valueOf()){%> today_cell<%}%> left-border">
+           <%
+           let bookingFound=booked.find(function (booking) {
+             return dateIf(booking.bookingDate,"-","r")==dateIf(date,"-","r");
+           })
+           let bookedHours=0
+           if (bookingFound != undefined) {
+             bookedHours=bookingFound.DayAcademy
+           }
+           let sicknessReduction=date.valueOf() == today.valueOf()?1:0.9
+           %>
+           <span class="<%=date.valueOf() == today.valueOf()?'':'bookedHover'%>" data-booked="<%=bookedHours%>"><%=Math.round((bookedHours*sicknessReduction)*2)/2%></span>
+         </th>
+         <th class="<%if (date.valueOf() == today.valueOf()){%> today_cell<%}%> btnCell">
+          <a href="/staff-booking/d/<%= date.format('W')-thisWeek %>/ejs/1" class="btn btn-warning headerBtn" style="font-size:12px; padding:0px 2px;background-color: #efc128!important;" align="center">
+          Book.day
+         </th>
+         <%})%>
+       </tr>
+
+       <tr class="day-headers">
+         <th></th>
+         <th>d</th>
+         <th class="thHeaders">Needed</th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <!-- THIS IS TOTAL FOR DAY CALC -->
+         <% dates.forEach((date, index) => {
+            %>
+         <th id="total_d_<%=dateIf(date,"","r")%>" class="t_true_<%=date.day()%>_<%=date.month()%> <%if (date.valueOf() == today.valueOf()){%> today_cell<%}%> left-border">
+         </th>
+         <th class="r_true_<%=date.day()%>_<%=date.month()%> <%if (date.valueOf() == today.valueOf()){%> today_cell<%}%> btnCell">
+           <a href="/tally-sheet/<%= dateIf(date,"-","r") %>/d/0/1/1" class="btn btn-primary headerBtn" style="font-size:12px; padding:0px 2px" align="center">
+           Tally.day
+         </th>
+         <%})%>
+       </tr>
+       <tr class="day-headers">
+         <th></th>
+         <th>d</th>
+         <th class="thHeaders">Difference</th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <!-- THIS IS TOTAL FOR DAY CALC -->
+         <% dates.forEach((date, index) => {
+            %>
+         <th id="shortfall_d_<%=dateIf(date,"","r")%>" class="t_true_<%=date.day()%>_<%=date.month()%> <%if (date.valueOf() == today.valueOf()){%> today_cell<%}%> left-border">
+         </th>
+         <th class="r_true_<%=date.day()%>_<%=date.month()%> <%if (date.valueOf() == today.valueOf()){%> today_cell<%}%>">
+           <!-- <label class="switch">
+             <input type="checkbox" class="autoCheck" data-date="<%= dateIf(date,"-","r") %>" data-shift="Day">
+             <span class="slider round warning"><span class="slider-text">Auto</span></span>
+           </label> -->
+         </th>
+         <%})%>
+       </tr>
+       <tr class="total-headers">
+         <th></th>
+         <th>d</th>
+         <th class="thHeaders">Total Difference</th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <th colspan=3 class="pastDays left-border"></th>
+         <!-- THIS IS TOTAL FOR DAY CALC -->
+         <% dates.forEach((date, index) => {
+            %>
+         <th id="shortfall_t_<%=dateIf(date,"","r")%>" class="t_true_<%=date.day()%>_<%=date.month()%> <%if (date.valueOf() == today.valueOf()){%> today_cell<%}%> left-border">
+         </th>
+         <th class="r_true_<%=date.day()%>_<%=date.month()%> <%if (date.valueOf() == today.valueOf()){%> today_cell<%}%>">
+         </th>
+         <%})%>
+       </tr>
+       <tr class="body-headers">
+         <th>Job ID</th>
+          <th>Shift</th>
+          <th>Job num</th>
+          <th>Job name</th>
+          <th>CM</th>
+          <th>Starts</th>
+          <th>Ends</th>
+          <th>Todo</th>
+          <th>AHR</th>
+          <th>Notes</th>
+         <th class="pastDays left-border">Hrs
+         </th>
+         <th class="pastDays">Ints
+         </th>
+         <th class="pastDays">AHR
+         </th>
+         <th class="pastDays left-border">Hrs
+         </th>
+         <th class="pastDays">Ints
+         </th>
+         <th class="pastDays">AHR
+         </th>
+         <% dates.forEach((date, index) => { %>
+         <th data-date='<%=dateIf(date,"/","f")%>' class="left-border <%if (date.valueOf() == today.valueOf()){%>today_cell<%}%>">
+           Needed
+         </th>
+         <th <%if (date.valueOf() == today.valueOf()){%>class="viewOnly today_cell"<%}%>>
+           Alloc.
+         </th>
+         <%})%>
+      </thead>
+      <tbody class="tbody" id="here_to">
+         <% projects.forEach((project, index) => {
+            var style =""
+            jobs.forEach((job, jobindex) => {
+            projectsArray.forEach((pArray, index) =>{
+            if(job.jobID == project.jobID && pArray.id == job.jobID)
+            {
+            //Checking to see if project should be finished
+            if (((project.interviewsTarget - (job.PanelInterviews + job.CATIInterviews)) > 0) && (moment.utc().startOf('day').valueOf() > moment.utc(job.endDate).startOf('day').valueOf()))
+            { style="color:red; font-weight:600;" }
+            %>
+        <!-- Creates a row per project  -->
+         <tr class="<% if (project.isJobHourly == 1) {%>hourly<%}%> <% if (moment.utc(project.endDate).diff(moment.utc().startOf('d'),'days') <4) {%>dangerFlash<%}%> <% if (moment.utc(project.startDate).diff(moment.utc().startOf('d'),'days')<4 && moment.utc(project.startDate).diff(moment.utc().startOf('d'),'days')>0) {%>dangerFlashSt<%}%>" style="<%= style %>background:<% if (project.isJobDay == 1) {%>#efc128; <%} else {%>#f7f2e1;<%}%>">
+           <span >
+            <td class="jobHeads"><%=job.jobID%></td>
+            <td class="jobHeads"><% if (project.isJobDay == 1) {%>d<%} else {%>e<%}%></td>
+            <td class="jobHeads"><%= project.quoteNo %></td>
+            <td class="jobHeads hover-content jobName_<%=job.jobID%>" onclick="goToJob(<%= project.jobID %>)" id="<%= project.jobID %>">
+              <%= shorten(project.quoteName+" "+project.jobName,50) %><% if (project.isJobHourly == 1) {%> <i class="far fa-clock"></i><%}%>
+            </td>
+            <td  class="jobHeads">
+               <% ClientManagers.forEach((clientManager, index) =>{ if(clientManager.staffID == project.projectCM){
+                var matches = clientManager.staffName.match(/\b(\w)/g);
+                var acronym = matches.join('')
+                 %>
+                 <%= acronym %>
+               <%}})%>
+            </td>
+            <td class="hover-content jobHeads" style="position:relative;"
+            onclick="goToJob(<%= project.jobID %>)">
+               <%= project.FstartDate %><% if (moment.utc(project.startDate).diff(moment.utc().startOf('d'),'days')<5 && moment.utc(project.startDate).diff(moment.utc().startOf('d'),'days')>0) {%><span class="attentionBadge st">Starts soon</span><%}%>
+              <%
+              let stChanges=dateChanges.filter(el=>el.jobID==project.jobID && el.dateField=="startDate")
+              let enChanges=dateChanges.filter(el=>el.jobID==project.jobID && el.dateField=="endDate")
+              let st = stChanges[0]?stChanges[0].firstDate:project.startDate
+              let en = enChanges[0]?enChanges[0].firstDate:project.endDate
+              let prevChangeDate
+              let datesArr=[]
+              let field=[]
+              let stDays=0
+              let enDays=0
+              // console.log("commit " +moment(st).format("DD/MM/YYYY")+" - "+moment(en).format("DD/MM/YYYY"))
+              datesArr.push({
+                changed:"Original",
+                st:moment(st).format("DD/MM/YYYY"),
+                stDays:'',
+                en:moment(en).format("DD/MM/YYYY"),
+                enDays:'',
+                field:[],
+                by:""
+              })
+              dateChanges.filter(el=>el.jobID==project.jobID).forEach((change, i) => {
+                if (change.dateField=='startDate') {
+                  stDays=stDays+getBusinessDatesCount(st,change.newDate)
+                  st=change.newDate
+                  field.push("st")
+                }
+                if (change.dateField=='endDate') {
+                  enDays=enDays+getBusinessDatesCount(en,change.newDate)
+                  en=change.newDate
+                  field.push("en")
+                }
+                let next=dateChanges.filter(el=>el.jobID==project.jobID)[i+1]
+                let nextChangeDate=next?next.changedDate:null
+                // console.log(moment(st).format("DD/MM/YYYY")+" - "+moment(en).format("DD/MM/YYYY"),nextChangeDate,change.changedDate)
+                if (moment(nextChangeDate).format("DD/MM/YYYY")!=moment(change.changedDate).format("DD/MM/YYYY")) {
+                  // console.log("commit " + moment(st).format("DD/MM/YYYY")+" - "+moment(en).format("DD/MM/YYYY"))
+                  datesArr.push({
+                    changed:moment(change.changedDate).format("DD/MM/YYYY"),
+                    st:moment(st).format("DD/MM/YYYY"),
+                    stDays:stDays!==0?(stDays>0?"+"+stDays:stDays):'',
+                    en:moment(en).format("DD/MM/YYYY"),
+                    enDays:enDays!==0?(enDays>0?"+"+enDays:enDays):'',
+                    field:field.slice(),
+                    by:change.isByClient?"Client delay":"Our delay"
+                  })
+                  field=[]
+                  stDays=0
+                  enDays=0
+                }
+              });
+              let table=datesArr.length>0?("<table class='dateChanges'>"+datesArr.map(el=>"<tr><td class='infoCell'>"+el.changed+"</td><td class='"+(el.field.includes("st")?'newDate':'')+"'>"+el.st+"<span class='dayDiff'>"+el.stDays+"</span></td><td>-</td><td class='"+(el.field.includes("en")?'newDate':'')+"'>"+el.en+"<span class='dayDiff'>"+el.enDays+"</span></td><td>"+el.by+"</td></tr>").join("")+"</table>"):""
+              if (dateChanges.filter(el=>el.jobID==project.jobID).length>0) {%><span class="attentionBadge dc" data-toggle="tooltip" data-sanitize="false" data-html="true" title="<%= table %>">Altered dates</span><%}%>
+            </td>
+            <td class="hover-content jobHeads" style="position:relative;"
+            onclick="goToJob(<%= project.jobID %>)">
+              <%= project.FendDate %><% if (moment.utc(project.endDate).diff(moment.utc().startOf('d'),'days')<5) {%><span class="attentionBadge">Ends soon</span><%}%>
+            </td>
+            <td
+            class="hover-content jobHeads"
+            data-toggle="tooltip"
+            data-html="true"
+            onclick="goToJob(<%= project.jobID %>)"
+              title="Target: <%= project.interviewsTarget %><br>Achieved: <%= (job.isJobHourly==1) ? job.Hours : job.PanelInterviews + job.CATIInterviews %>">
+                <%= Math.ceil(pArray.interviewsLeft) %>
+            </td>
+            <%
+            let dataDisplay = ((pArray.interviewsLeft / pArray.strikeRate) / pArray.daysLeft) %>
+
+            <td class="<%if(job.isJobHourly!=1){%>hover-content ahr_popovers jobHeads <%}else{%>blockClick<%}%><%if(project.resourceTarget!=null){%> planned<%}%>"
+              data-id="ahr_popover_<%= project.jobID %>"
+              data-toggle="tooltip"
+              data-html="true"
+              data-title="Target: <%= job.hourlyTarget.toFixed(2) %><Br>Resource: <%= (job.resourceTarget==null) ? "n/a" : job.resourceTarget.toFixed(2) %><br>achieved: <%= (job.CATIInterviews>0) ? (job.CATIInterviews/job.Hours).toFixed(2) : "n/a" %>" >
+               <span class="data"><%= pArray.strikeRate.toFixed(2) %></span>
+            </td>
+            <td data-width="70px;" data-toggle="popover" data-id="noteCell_<%=job.jobID%>" class="hover-content noteCell jobHeads" data-title="<%= job.Note %>">
+              <%= (job.Note.length>25 && job.Note.substring(0,2)!="__") ? job.Note.substring(0,22)+"..." : job.Note %>
+            </td>
+            <!-- Last two days data -->
+            <%
+            let dayBeforeHours=""
+            let dayBeforeInts=""
+            let dayBeforeAHR=""
+            let yDayHours=""
+            let yDayInts=""
+            let yDayAHR=""
+            if(dailys.length > 0){
+              dailys.forEach((daily, index) => {
+                var inputDate=moment.utc(daily.inputDate).startOf('day')
+                if(daily.jobID == job.jobID) {
+                  if(dayBefore.day() == inputDate.day() && dayBefore.day() == inputDate.day()){
+                    dayBeforeHours=daily.Hours;
+                    dayBeforeInts=daily.Ints;
+                    dayBeforeAHR=(daily.Ints/daily.Hours).toFixed(2);
+                  }
+                  if(yesterday.day() == inputDate.day() && yesterday.day() == inputDate.day()){
+                    yDayHours=daily.Hours;
+                    yDayInts=daily.Ints;
+                    yDayAHR=(daily.Ints/daily.Hours).toFixed(2);
+                  }
+                }
+              })
+            }%>
+            <td class="pastDays left-border">
+              <%= dayBeforeHours %>
+            </td>
+            <td class="pastDays">
+                <%= dayBeforeInts %>
+            </td>
+            <td class="pastDays">
+                <%= dayBeforeAHR %>
+            </td>
+            <td class="pastDays left-border">
+                <%= yDayHours %>
+            </td>
+            <td class="pastDays">
+                <%= yDayInts %>
+            </td>
+            <td class="pastDays">
+                <%= yDayAHR %>
+            </td>
+            <!-- Creates a cell for each project for each date -->
+            <%
+            dates.forEach((date, dateindex) => { %>
+              <td
+              class="needed <%=project.isJobDay%>_<%=date.day()%>_<%=date.month()%> needed_<%=dateIf(date,"","r")%>_<%=project.isJobDay%> left-border" id="<%=project.isJobDay%>_<%=date.day()%>_<%=date.month()%>"
+              data-html="true">
+            <%
+            let isJobIn=(date.valueOf() <= moment.utc(job.endDate).startOf('day').valueOf() && date.valueOf() >= moment.utc(job.startDate).startOf('day').valueOf())
+            %>
+            <div role="button" class="forceFill isDay-<%=project.isJobDay%> resource_popover_<%=job.jobID%> resource-date-<%=dateIf(date,"","r")%> resource_popovers <% if (isJobIn){ %>resource_popovers<%}else{%>notin<%}%> <% if ([0,6].includes(date.day())){ %>weekend-resource<%}%>" id="resource_popover_<%=job.jobID%>_<%=dateIf(date,"","r")%>" data-toggle="popover">
+              <span class="data forceFill" id="datacell-<%=dateindex%>-<%=job.jobID%>">
+              </span>
+            </div>
+            <!-- Allocation data -->
+            <%
+            var alloData
+            var allo=allocations.find(el=>el.jobID == job.jobID && moment.utc(el.agentAllocationDate).startOf('d').valueOf()==date.valueOf())
+            if (allo) {
+              alloData = allo.hours
+            }%>
+            <td class="<%=project.isJobDay%>_<%=date.day()%>_<%=date.month()%>_r <%if(isJobIn){%>allocateCell<%}%>"
+              id="allocateCell_<%=job.jobID%>_<%=dateIf(date,"","r")%>"
+              data-toggle="popover"
+              <% if(alloData >= dataDisplay){%>style="color:green"<%} else { %>style="color:red"<%}%>>
+              <span class="data <% if (!isJobIn){ %>notin<%}%>"><%= alloData %></span>
+            </td>
+            <%}) %>
+         </tr>
+         <% }
+        });
+       });
+      }); %>
+      </tbody>
+   </table>
+   <div class='modal fade' role='dialog' id='Modal'>
+     <div class='modal-dialog modal-dialog-centered' role='document'>
+       <div class='modal-content'>
+         <div class='modal-header'>
+           <h5 class='modal-title' id='Modal-title' style="width: 100%;">Auto-resource scenario builder</h5>
+           <!-- <label for="paramsFile" style="margin: auto 10px;font-size: 12px;">Upload settings file: <input type="file" id="paramsFile" value=""></label> -->
+           <button type="button" class="btn btn-info btn-sm" id="dlParams" style="margin: 0px 4px;">Save settings</button>
+           <input type="file" name="paramsFile" id="paramsFile" class="filestyle" data-btnClass="btn-secondary btn-sm" data-placeholder="No file" data-size="sm" data-buttonBefore="true" data-text="Load settings" accept=".txt">
+           <button type='button' class='close modalClose' data-dismiss='modal' aria-label='Close'>
+             <span aria-hidden='true'>&times;</span>
+           </button>
+         </div>
+         <div class='modal-body' id='modal-body'>
+           <div class="modalParams">
+             <label for="scenarioShiftE"><input type="checkbox" name="shiftE" onChange="$('tr[data-shift='+'Eve'+']').toggle()" id="scenarioShiftE" checked>Eve</label>
+             <label for="scenarioShiftD"><input type="checkbox" name="shiftD" onChange="$('tr[data-shift='+'Day'+']').toggle()" id="scenarioShiftD" checked>Day</label>
+             <!-- <label for="scenarioProfit"><input type="checkbox" name="profit" id="scenarioProfit">Prioritise most profitable</label>
+             <label for="scenarioEnding"><input type="checkbox" name="ending" id="scenarioEnding">Prioritise ending soonest</label> -->
+             <label for="scenarioShortfallMode">
+               <select class="selectpicker" id="scenarioShortfallMode" title="Shortfall handling...">
+                 <option value="finishJobs">Finish jobs</option>
+                 <option value="spreadResource">Spread resource</option>
+               </select>
+             </label>
+             <label for="scenarioAcademy"><input type="checkbox" name="academy" id="scenarioAcademy">Include academy</label>
+             <label for="scenarioForecastDay">Forecast day bookings after <input type="number" name="forecastDay" id="scenarioForecastDay" value="28"> days</label>
+             <label for="scenarioForecastEve">Forecast eve bookings after <input type="number" name="forecastEve" id="scenarioForecastEve" value="7"> days</label>
+           </div>
+
+           <table id="modalTableParams" class="table table-sm table-striped">
+             <th>Job</th>
+             <th style="display:none;">AHR</th>
+             <th>Could go online/F2F</th>
+             <th>Try in day</th>
+             <th>Try in eve</th>
+             <th>Try on weekend</th>
+             <th>Sacrifice if needed</th>
+             <th>Must finish</th>
+             <th>Min daily hours</th>
+             <th>Max daily hours</th>
+           <%
+           jobs.slice().sort((a,b)=>a.isJobDay-b.isJobDay || a.projectID-b.projectID).forEach((job, i) => {
+             project=projects.find(el=>el.jobID==job.jobID)
+             if (project) {
+             %>
+             <tr class="scenarioJobRow" data-jobID="<%= job.jobID %>" data-shift="<%= job.isJobDay?'Day':'Eve' %>">
+               <td class="jobName"><%= shorten(project.quoteName+" "+project.jobName,50) %></td>
+               <td style="display:none;">
+                 <input type="number" class="scenarioFields" data-jobID="<%= job.jobID %>" data-field="AHR" value="<%=projectsArray.find(el=>el.id==job.jobID).strikeRate.toFixed(2)%>">
+               </td>
+               <td>
+                 <label class="switch">
+                   <input type="checkbox" class="scenarioFields" data-jobID="<%= job.jobID %>" data-field="canGoOnline">
+                   <span class="slider round"></span>
+                 </label>
+               </td>
+               <td>
+                 <label class="switch">
+                   <input type="checkbox" class="scenarioFields" data-jobID="<%= job.jobID %>" data-field="canGoDay" <%=job.isJobDay?'disabled':''%>>
+                   <span class="slider round"></span>
+                 </label>
+               </td>
+               <td>
+                 <label class="switch">
+                   <input type="checkbox" class="scenarioFields" data-jobID="<%= job.jobID %>" data-field="canGoEve" <%=job.isJobEve?'disabled':''%>>
+                   <span class="slider round"></span>
+                 </label>
+               </td>
+               <td>
+                 <label class="switch">
+                   <input type="checkbox" class="scenarioFields" data-jobID="<%= job.jobID %>" data-field="canGoWeekend" <%=job.isJobEve?'checked':''%>>
+                   <span class="slider round"></span>
+                 </label>
+               </td>
+               <td>
+                 <label class="switch">
+                   <input type="checkbox" class="scenarioFields" data-jobID="<%= job.jobID %>" data-field="canSacrifice">
+                   <span class="slider round"></span>
+                 </label>
+               </td>
+               <td>
+                 <label class="switch">
+                   <input type="checkbox" class="scenarioFields" data-jobID="<%= job.jobID %>" data-field="mustFinish">
+                   <span class="slider round"></span>
+                 </label>
+               </td>
+               <td>
+                 <input type="number" class="scenarioFields" data-jobID="<%= job.jobID %>" data-field="minDaily">
+               </td>
+               <td>
+                 <input type="number" class="scenarioFields" data-jobID="<%= job.jobID %>" data-field="maxDaily">
+               </td>
+             </tr>
+           <%}});%>
+          </table>
+          <div class="scenarioViewer Day"></div>
+          <div class="scenarioViewer Eve"></div>
+         </div>
+         <div class="modal-footer">
+           <button type="button" class="btn btn-primary" id="runScenarioBtn">Run scenario</button>
+           <button type="button" class="btn btn-secondary" data-dismiss='modal' aria-label='Close'>Cancel</button>
+         </div>
+       </div>
+     </div>
+   </div>
+<div style="display:none;" id="allocation_popover">
+  <table>
+  <tr class="agentRow">
+    <td><select class="agentSelect"><option value=""></option></select></td>
+    <td><input type="number" value=0/></td>
+  </tr>
+  </table>
+</div>
+</div>
+</body>
+<script>
+  $(document).ready(function () {
+    $(".notin").parent().css("background","#d8d3d3")
+    $(".notin").parent().css("cursor","inherit")
+    $(".notin").parent().css("border-color","#d8d3d3")
+    $('.bookedHover').each((i,t)=>{
+      $(t).tooltip({
+        html:true,
+        sanitize:false,
+        title:$(t).attr("data-booked")+" "+($(t).attr("data-forecasted")=="true"?'(forecasted) ':'')+"<span class='super'>-10% sickness</span>"+($(t).attr("data-forecasted")=="false" && $(t).attr("data-isEve")=="true"?'<br><i>Forecasted: '+$(t).attr("data-forecastedHrs")+"</i>":'')
+      })
+    })
+    // calculateProjections()
+  })
+  $(document).on('keypress', '.hrsUpdate', function (e) {
+   var key = e.which;
+   if(key == 13)  // the enter key code
+    {
+      if (e.target.value=="") {
+        $('#'+e.target.id.replace("hrsUpdate","revertPlanned")).click();
+      }else {
+        $('#'+e.target.id.replace("hrsUpdate","amendPlanned")).click();
+      }
+      return false;
+    }
+  });
+  $(document).on('keypress', '.ahrUpdate', function (e) {
+   var key = e.which;
+   if(key == 13)  // the enter key code
+    {
+      if (e.target.value=="") {
+        $('#'+e.target.id.replace("ahrUpdate","revertAHR")).click();
+      }else {
+        $('#'+e.target.id.replace("ahrUpdate","amendAHR")).click();
+      }
+      return false;
+    }
+  });
+  $(document).on('keypress', '.noteEdit', function (e) {
+   var key = e.which;
+   if(key == 13)  // the enter key code
+    {
+      $('#'+e.target.id.replace("noteEdit","amendNote")).click();
+      return false;
+    }
+  });
+  $(document).on('click', '.blockClick', function(evt) {
+    evt.stopPropogation
+    evt.preventDefault
+  })
+  $(document).on('click', '.noteCell', function(evt) {
+    let srcId=$(this).attr("data-id")
+    let j=srcId.split("_")[1]
+    let note=$(this).attr("title")
+    createNotesPopover(j,srcId,note)
+  })
+  $(document).on('click', '.allocateCell', function(evt) {
+    let d=this.id.replace("allocateCell_","").split("_")[1]
+    let j=this.id.replace("allocateCell_","").split("_")[0]
+    let t=this.id
+    var data =[]
+    var jsonData={};
+    jsonData.date=d
+    jsonData.jid=j
+    data.push(jsonData)
+    $.ajax({
+        url: '/get-cell-alloc',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          createAlloPopover(response,j,d,t)
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+    return false;
+  })
+  $(document).on('click', '.resource_popovers', function(evt) {
+    evt.preventDefault();
+    let d=this.id.replace("resource_popover_","").split("_")[1]
+    if (d!=dateIf(moment.utc().startOf('day'),"","r")) {
+      let j=this.id.replace("resource_popover_","").split("_")[0]
+      let sw="calculated"
+      if ($(this).hasClass("planned")) {
+        sw="planned"
+      }
+      let v=$.trim($(this).find(".data").text().replace(/\s+/g, " "))
+      let source=this.id
+      createNeededPopover(j,d,sw,v,source)
+    }
+  })
+  $(document).on('click', '.ahr_popovers', function(evt) {
+    evt.preventDefault();
+    let j=$(this).attr("data-id").replace("ahr_popover_","").split("_")[0]
+    let sw="calculated"
+    if ($(this).hasClass("planned")) {
+      sw="planned"
+    }
+    let v=$.trim($(this).find(".data").text().replace(/\s+/g, " "))
+    let source=$(this).attr("data-id")
+    if (!$(this).hasClass('blockClick')) {
+      createAHRPopover(j,sw,v,source)
+    }
+  })
+  $(document).on('click', '.amendNote', function(evt) {
+    let j=this.id.split("_")[1]
+    var data =[]
+    var jsonData={};
+    jsonData.jobID=j
+    jsonData.note=$("#noteEdit_"+j).val()
+    jsonData.tableName="Jobs"
+    jsonData.page="view-planner"
+    data.push(jsonData)
+    $.ajax({
+        url: '/update-note',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          var noteVal="__________________________"
+          if ($("#noteEdit_"+j).val()!="") {
+            noteVal=($("#noteEdit_"+j).val().length>25) ? $("#noteEdit_"+j).val().substring(0,22)+"..." : $("#noteEdit_"+j).val()
+          }
+          $('[data-id="noteCell_'+j+'"]').last().text(noteVal)
+          $('[data-id="noteCell_'+j+'"]').attr("data-title",$("#noteEdit_"+j).val())
+          $('[data-id="noteCell_'+j+'"]').popover("dispose");
+          $('[data-id="noteCell_'+j+'"]').fadeOut(100).fadeIn(200);
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+    return false;
+  })
+  $(document).on('click', '.amendPlanned', function(evt) {
+    let d=this.id.replace("amendPlanned_","").split("_")[1]
+    let j=this.id.replace("amendPlanned_","").split("_")[0]
+    if ($("#hrsUpdate_"+j+"_"+d).val()>=0) {
+      var data =[]
+      var jsonData={};
+      jsonData.reqType="update"
+      jsonData.dte=stringToDate(d)
+      jsonData.jid=j
+      jsonData.hrs=$("#hrsUpdate_"+j+"_"+d).val()
+      data.push(jsonData)
+      $.ajax({
+        url: '/update-planner',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          calculateProjections(j)
+          $("#resource_popover_"+j+"_"+d).popover("hide");
+          $("#resource_popover_"+j+"_"+d).fadeOut(100).fadeIn(200);
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+      });
+      return false;
+    }else {
+      alert("Cannot use a negative number in resourcing")
+    }
+  })
+  $(document).on('click', '.amendAHR', function(evt) {
+    let j=this.id.replace("amendAHR_","").split("_")[0]
+    if ($("#ahrUpdate_"+j).val()>0) {
+      var data =[]
+      var jsonData={};
+      jsonData.jid=j
+      jsonData.ahr=$("#ahrUpdate_"+j).val()
+      data.push(jsonData)
+      $.ajax({
+        url: '/update-resource-ahr',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          $('[data-id="ahr_popover_'+j+'"]').find('.data').text(findCalculated(response.calculated, j, "AHR").toFixed(2))
+          $(".ahrUpdate_"+j).attr("value",findCalculated(response.calculated, j, "AHR").toFixed(2))
+          $('[data-id="ahr_popover_'+j+'"]').addClass("planned")
+          $(".ahrUpdate_"+j).addClass("planned")
+          $('[data-id="ahr_popover_'+j+'"]').removeClass("calculated")
+          $(".ahrUpdate_"+j).removeClass("calculated")
+          calculateProjections(j)
+          $('[data-id="ahr_popover_'+j+'"]').popover("hide");
+          $('[data-id="ahr_popover_'+j+'"]').fadeOut(100).fadeIn(200);
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+      });
+      return false;
+    }else {
+      alert("The minimum AHR is 0.01")
+    }
+  })
+  $(document).on('click', '.revertAHR', function(evt) {
+    let j=this.id.replace("revertAHR_","").split("_")[0]
+    var data =[]
+    var jsonData={};
+    jsonData.jid=j
+    jsonData.ahr="NULL"
+    data.push(jsonData)
+    $.ajax({
+        url: '/update-resource-ahr',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          $('[data-id="ahr_popover_'+j+'"]').find('.data').text(findCalculated(response.calculated, j, "AHR").toFixed(2))
+          $(".ahrUpdate_"+j).attr("value",findCalculated(response.calculated, j, "AHR").toFixed(2))
+          $('[data-id="ahr_popover_'+j+'"]').removeClass("planned")
+          $(".ahrUpdate_"+j).removeClass("planned")
+          $('[data-id="ahr_popover_'+j+'"]').addClass("calculated")
+          $(".ahrUpdate_"+j).addClass("calculated")
+          calculateProjections(j)
+          $('[data-id="ahr_popover_'+j+'"]').popover("hide");
+          $('[data-id="ahr_popover_'+j+'"]').fadeOut(100).fadeIn(200);
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+    return false;
+  })
+  $(document).on('click', '.revertPlanned', function(evt) {
+    evt.preventDefault();
+    let d=this.id.replace("revertPlanned_","").split("_")[1]
+    let j=this.id.replace("revertPlanned_","").split("_")[0]
+    var data =[]
+    var jsonData={};
+    jsonData.reqType="revert"
+    jsonData.dte=d
+    jsonData.jid=j
+    data.push(jsonData)
+    $.ajax({
+        url: '/update-planner',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          calculateProjections(j)
+          $("#resource_popover_"+j+"_"+d).popover("hide");
+          $("#resource_popover_"+j+"_"+d).fadeOut(100).fadeIn(200);
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+    return false;
+  })
+  $(document).on('change', '.cellAlloc_agent', function(evt) {
+    let d=this.id.replace("cellAlloc_agent_","").split("_")[1]
+    let j=this.id.replace("cellAlloc_agent_","").split("_")[0]
+    $(".cellAlloc_hrs_"+j+"_"+d).attr("id","cellAlloc_hrs_"+j+"_"+d+"_"+this.value)
+    $(".cellAlloc_btn_add_"+j+"_"+d).attr("id","cellAlloc_btn_add_"+j+"_"+d+"_"+this.value)
+  })
+  $(document).on('click', '.cellAlloc_btn', function(evt) {
+    evt.preventDefault();
+    let t=this.id.replace("cellAlloc_btn_","").split("_")[0]
+    let d=this.id.replace("cellAlloc_btn_","").split("_")[2]
+    let j=this.id.replace("cellAlloc_btn_","").split("_")[1]
+    let a=this.id.replace("cellAlloc_btn_","").split("_")[3]
+    let h=$("#"+this.id.replace("cellAlloc_btn_"+t,"cellAlloc_hrs")).val()
+    var avail=0
+    if (t=="update" && h==0) {
+      t="remove"
+    }
+    if (t=="add") {
+      avail=Number($("#cellAlloc_agent_"+j+"_"+d).find('option:selected').text().split("[")[1].split(" ")[0])
+    }else {
+      avail=Number($("#cellAlloc_avail_"+j+"_"+d+"_"+a).text())
+    }
+    if (h>avail && t!="remove") {
+      alert("Agent not available for that many hours")
+    }else {
+      var data =[]
+      var jsonData={};
+      jsonData.reqType=t
+      jsonData.dte=stringToDate(d)
+      jsonData.jid=j
+      jsonData.agentID=a
+      jsonData.hrs=h
+      data.push(jsonData)
+      $.ajax({
+          url: '/update-cell-alloc',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify(data),
+          success: function (response) {
+            $("#allocateCell_"+j+"_"+d).popover("dispose");
+            $("#allocateCell_"+j+"_"+d).find(".data").html(response[0].Hours)
+            if (Number($("#allocateCell_"+j+"_"+d).find(".data").html())>=Number($("#resource_popover_"+j+"_"+d).find(".data").html())) {
+              $("#allocateCell_"+j+"_"+d).find(".data").css("color","green")
+            }else {
+              $("#allocateCell_"+j+"_"+d).find(".data").css("color","red")
+            }
+            $("#allocateCell_"+j+"_"+d).click();
+          },
+          error: function (jqXHR, exception) {
+            alert(getErrorMessage(jqXHR, exception))
+          },
+      });
+      return false;
+    }
+  })
+  $(document).on('click', '.pop-close', function(evt) {
+    $(this).parent().parent().remove()
+  })
+  function getErrorMessage(jqXHR, exception) {
+     var msg = '';
+     if (jqXHR.status === 0) {
+         msg = 'Not connect.\n Verify Network.';
+     } else if (jqXHR.status == 404) {
+         msg = 'Requested page not found. [404]';
+     } else if (jqXHR.status == 500) {
+         msg = 'Internal Server Error [500]. '+JSON.parse(jqXHR.responseText).error;
+     } else if (exception === 'parsererror') {
+         msg = 'Requested JSON parse failed.';
+     } else if (exception === 'timeout') {
+         msg = 'Time out error.';
+     } else if (exception === 'abort') {
+         msg = 'Ajax request aborted.';
+     } else {
+         msg = 'Uncaught Error.\n' + jqXHR.responseText;
+     }
+     return msg;
+   }
+  $('body').on('click', function (e) {
+    $('[data-toggle=popover]').each(function () {
+        // hide any open popovers when the anywhere else in the body is clicked
+        if (!$(this).is(e.target) && $(this).has(e.target).length === 0 && $('.popover').has(e.target).length === 0) {
+            $(this).popover('dispose');
+        }
+    });
+    $('[data-toggle=tooltip]').each(function () {
+        // hide any open popovers when the anywhere else in the body is clicked
+        if (!$(this).is(e.target) && $(this).has(e.target).length === 0 && $('.popover').has(e.target).length === 0) {
+            $(this).popover('dispose');
+        }
+    });
+  })
+  function dateIf (inDate, seperator, order) {
+    var dte=moment.utc(inDate).startOf('day')
+    if(order=="f"){
+      return dte.format("DD"+seperator+"MM"+seperator+"YYYY")
+    }
+    if(order=="r"){
+      return dte.format("YYYY"+seperator+"MM"+seperator+"DD")
+    }
+  }
+  function findCalculated(arr, j, field){
+    var filtered=arr.find(function(r) {
+      return r.jobID == j;
+    });
+    if (filtered) {
+      return filtered[field]
+    }else {
+      return ""
+    }
+  }
+  function stringToDate(str){
+    return str.substring(0,4)+"-"+str.substring(4,6)+"-"+str.substring(6,8)
+  }
+  function getBusinessDatesCount(s, e){
+    var sDate=moment.utc(s).startOf('day')
+    var eDate=moment.utc(e).startOf('day')
+    var count = 0;
+    var curDate = sDate
+    while (curDate < eDate) {
+      var dayOfWeek = curDate.format('e');
+      if(!((dayOfWeek == 6) || (dayOfWeek == 0))){
+        count++;
+      }
+      curDate.add(1,'days')
+    }
+    return count+1;
+  };
+  function createAlloPopover(arr,j,d,t){
+    var cont=""
+    let allocAgents=[]
+    cont=cont+"<table class='table table-hover table-sm'>"
+    arr.allocations.forEach((alloc, i) => {
+      allocAgents.push(alloc.agentID)
+      var short=alloc.agentName
+      var allavail=(alloc.HoursBooked-alloc.allAllocation)+alloc.jobAllocation
+      if (alloc.agentName.length>15) {
+        short=alloc.agentName.substring(0,12)+".."
+      }
+      cont=cont+"<tr><td>"+short+"</td><td><input type='number' id='cellAlloc_hrs_"+j+"_"+d+"_"+alloc.agentID+"' class='cellAlloc_hrs' placeholder='H' value='"+alloc.jobAllocation+"'/></td>"
+      cont=cont+"<td style='display:none;' id='cellAlloc_avail_"+j+"_"+d+"_"+alloc.agentID+"'>"+allavail+"</td>"
+      cont=cont+"<td><span class='btn btn-outline-primary btn-sm cellAlloc_btn' id='cellAlloc_btn_update_"+j+"_"+d+"_"+alloc.agentID+"'><i class='material-icons'>cloud_upload</i></a></td>"
+      cont=cont+"<td><span class='btn btn-outline-danger btn-sm cellAlloc_btn' id='cellAlloc_btn_remove_"+j+"_"+d+"_"+alloc.agentID+"'><i class='material-icons'>remove_circle_outline</i></a></td></tr>"
+    })
+    cont=cont+"<tr><td><select class='cellAlloc_agent' id='cellAlloc_agent_"+j+"_"+d+"'>"
+    cont=cont+"<option disabled selected value=''>Add an agent</option>"
+    arr.agents.forEach((agent, i) => {
+      var allocated=allocAgents.find(function(r) {return r == agent.agentID;})
+      if (allocated==undefined) {
+        var agavail=agent.HoursBooked-agent.HoursAlloc
+        var dis=""
+        var short=agent.AgentName
+        if (agent.AgentName.length>15) {
+          short=agent.AgentName.substring(0,12)+".."
+        }
+        var ahr=""
+        if (agent.AHR!=null) {
+          ahr=" ("+agent.AHR.toFixed(2)+"ph)"
+        }
+        if (agavail<1) {
+          dis=" disabled"
+        }
+        cont=cont+"<option"+dis+" value='"+agent.agentID+"'>"+short+ahr+" ["+agavail+" hrs]</option>"
+      }
+    });
+    cont=cont+"</select></td><td><input type='number' id='cellAlloc_hrs_"+j+"_"+d+"' class='cellAlloc_hrs cellAlloc_hrs_"+j+"_"+d+"' placeholder='H'/></td>"
+    cont=cont+"<td><span class='btn btn-outline-success btn-sm cellAlloc_btn cellAlloc_btn_add_"+j+"_"+d+"' id='cellAlloc_btn_add_"+j+"_"+d+"'><i class='material-icons'>add_circle_outline</i></a></td></tr>"
+
+    cont=cont+"</table>"
+    $('#'+t).popover({
+      html: true,
+      sanitize: false,
+      title: "Edit allocation <span class='close pop-close'>&times;</span>",
+      content: function() { return cont; }
+    });
+    $('#'+t).popover("show");
+  }
+  function createNeededPopover(j,d,sw,v,source){
+    cont=""
+    cont=cont+"<table class='table table-sm'>"
+    cont=cont+"<tr><td><input type='number' max='999' min='0' name='hrs' style='width:4em;' id='hrsUpdate_"+j+"_"+d+"' class='hrsUpdate_"+j+"_"+d+" hrsUpdate_"+j+" hrsUpdate "+sw+"' value='"+v+"'></input></td>"
+    cont=cont+"<td><span class='btn btn-outline-primary btn-flat btn-sm btn-block m-auto amend_res_btn amendPlanned' id='amendPlanned_"+j+"_"+d+"'><i class='material-icons'>cloud_upload</i></span></td>"
+    cont=cont+"<td><span class='btn btn-outline-secondary btn-flat btn-sm amend_res_btn revertPlanned' id='revertPlanned_"+j+"_"+d+"'><i class='material-icons'>remove_circle_outline</i></span></td></tr></table>"
+    $('#'+source).popover({
+      html: true,
+      sanitize: false,
+      title: "Edit resource <span class='close pop-close'>&times;</span>",
+      content: function() { return cont; }
+    });
+    $('#'+source).popover("show")
+    $("#hrsUpdate_"+j+"_"+d).focus().select()
+  }
+  function createAHRPopover(j,sw,v,source){
+    cont=""
+    cont=cont+"<table class='table table-sm'>"
+    cont=cont+"<tr><td><input type='number' name='ahr' max='999' min='0.01' style='width:4em;' id='ahrUpdate_"+j+"' class='ahrUpdate_"+j+" ahrUpdate "+sw+"' value='"+v+"'></input></td>"
+    cont=cont+"<td><span class='btn btn-outline-primary btn-sm btn-block m-auto amend_AHR_btn amendAHR' id='amendAHR_"+j+"'><i class='material-icons'>cloud_upload</i></span></td>"
+    cont=cont+"<td><span class='btn btn-outline-secondary btn-sm amend_AHR_btn revertAHR' id='revertAHR_"+j+"'><i class='material-icons'>remove_circle_outline</i></span></td></tr></table>"
+    $('[data-id="'+source+'"]').last().popover({
+      html: true,
+      sanitize: false,
+      title: "Edit resource target <span class='close pop-close'>&times;</span>",
+      content: function() { return cont; }
+    });
+    $('[data-id="'+source+'"]').last().popover("show")
+    $("#ahrUpdate_"+j).focus().select()
+  }
+  function createNotesPopover(j,source,note){
+    var cont=""
+    var noteVal=""
+    if ($('[data-id="'+source+'"]').last().attr("data-title").substring(0,4)!="____") {
+      noteVal=$('[data-id="'+source+'"]').last().attr("data-title")
+    }
+    cont=cont+"<textarea rows='4' cols='80' class='form-control noteEdit' id='noteEdit_"+j+"'>"+noteVal+"</textarea>"
+    cont=cont+"<td><span class='btn btn-outline-primary btn-sm btn-block m-auto amendNote' id='amendNote_"+j+"'><i class='material-icons'>cloud_upload</i></span></td>"
+    $('[data-id="'+source+'"]').last().popover({
+      html: true,
+      sanitize: false,
+      title: "Edit note for "+$("#"+j).text()+"<span class='close pop-close'>&times;</span>",
+      content: function() { return cont; }
+    });
+    $('[data-id="'+source+'"]').last().popover("show")
+    $("#noteEdit_"+j).focus().select()
+  }
+  function goToJob(jid){
+    window.location='/overview/-1/'+jid
+  }
+  let projecting=false
+  let bankHolsRaw=<%-JSON.stringify(bankHols)%>
+  let bankHols=bankHolsRaw['england-and-wales'].events.filter(el=>moment.utc(el.date).valueOf()>=moment.utc().startOf('day').valueOf())
+  function calculateProjections(jobID){
+    console.log("running calculateProjections")
+    if (bankHols.length>0) {
+      console.log("using cached bank hols")
+      return projections(bankHols,jobID)
+    }else {
+      return $.ajax({
+        url: '/get-bank-hols',
+        type: 'GET',
+        contentType: 'application/json',
+        success: function (response) {
+          $('body').addClass('loading')
+        },
+        error: function (jqXHR, exception) {
+          console.log(jqXHR)
+        },
+      }).then(function(e){
+        console.log("downloaded bank hols",moment.utc().format("HH:mm:ss:SSS"))
+        bankHols=e['england-and-wales'].events.filter(el=>moment.utc(el.date).valueOf()>=moment.utc().startOf('day').valueOf())
+        projections(e['england-and-wales'].events.filter(el=>moment.utc(el.date).valueOf()>=moment.utc().startOf('day').valueOf()),jobID)
+      })
+    }
+    function projections(bankHols,jobID){
+      return $.ajax({
+        url: '/get-resource-projections/0',
+        type: 'GET',
+        beforeSend:function(e){
+          if (projecting) {
+            return false
+          }else {
+            projecting=true
+            console.log("running projections")
+          }
+        },
+        contentType: 'application/json',
+        success: function (response) {
+          $('body').addClass('loading')
+          var tdy=moment.utc().startOf('day')
+          var endOfPeriod=moment.utc().startOf('day').add(<%=viewDays%>,'days')
+          var neededArr={}
+          neededArr.e=[]
+          neededArr.d=[]
+          neededArr.total=[]
+          var bookedArr={}
+          bookedArr.e=[]
+          bookedArr.d=[]
+          bookedArr.total=[]
+          var dateArr=[]
+          var shortfall={}
+          shortfall.e=[]
+          shortfall.d=[]
+          shortfall.total=[]
+          var surplus={}
+          surplus.e=[]
+          surplus.d=[]
+          surplus.total=[]
+          var bankHolDates=bankHols?bankHols.map(el=>moment.utc(el.date).valueOf()):[]
+          bankHols.filter(el=>moment.utc(el.date).valueOf()<endOfPeriod.valueOf()).forEach((bhol, i) => {
+            var title=bhol.title
+            var dte=moment.utc(bhol.date)
+            $('#dateHead-'+dte.valueOf()).attr('title',title)
+            $('#dateHead-'+dte.valueOf()).text(dte.format("ddd")+" ("+(title.length>11?title.substring(0,9)+"...":title)+")")
+            $('#dateHead-'+dte.valueOf()).addClass('weekends bankHolidays').addClass('bankHolidays')
+            var divs=$('.resource-date-'+dte.format("YYYYMMDD"))
+            divs.attr("value",'')
+            divs.find('.data').text('')
+            divs.removeClass('planned')
+            divs.addClass('calculated')
+            divs.addClass('weekend-resource')
+          });
+          var calcArr=response.jobs.filter(el=>moment.utc(el.startDate).valueOf()<=endOfPeriod.valueOf()&&moment.utc(el.endDate).valueOf()>=tdy.valueOf())
+          if (jobID) {
+            calcArr=calcArr.filter(el=>el.jobID==jobID)
+          }
+          calcArr.forEach((calc, i) => {
+            var btnDiv=$('.resource_popover_'+calc.jobID+':not(.weekend-resource):not(.notin)')
+            var notIns=$('.resource_popover_'+calc.jobID+'.weekend-resource:not(.notin)')
+            var st=moment.max(moment.utc(),moment.utc(calc.startDate)).valueOf()
+            var en=moment.utc(calc.endDate).valueOf()
+            var bankHolsForJob=bankHols?bankHols.filter(el=>moment.utc(el.date).valueOf()>=st && moment.utc(el.date).valueOf()<=en):null
+            calc.bankHolCount=bankHolsForJob?bankHolsForJob.length:0
+            var neededRound=(calc.calcHours/(calc.calcDays-calc.bankHolCount))
+            neededRound=(Math.ceil(neededRound * 2) / 2);
+            needed=Math.max(0,neededRound)
+            btnDiv.attr("value",needed)
+            btnDiv.find('.data').text(needed)
+            btnDiv.removeClass('planned')
+            btnDiv.find('.data').removeClass('prioritised')
+            btnDiv.addClass('calculated')
+            notIns.attr("value",'')
+            notIns.find('.data').text('')
+            notIns.find('.data').removeClass('prioritised')
+            notIns.removeClass('planned')
+            notIns.addClass('calculated')
+          });
+          for (var i = 0; i <= <%=viewDays%>; i++) {
+            var needed=0
+            var totals={}
+            totals.e=0
+            totals.d=0
+            var totalsG={}
+            totalsG.e=0
+            totalsG.d=0
+            var d=tdy.format('YYYYMMDD')
+            var shift=''
+            var plannedArr=response.planned.filter(el=>moment.utc(el.plannerDate).valueOf()==tdy.valueOf())
+            var autoArr=[]
+            if (jobID) {
+              plannedArr=plannedArr.filter(el=>el.jobID==jobID)
+              autoArr=autoArr.filter(el=>el.jobID==jobID)
+            }
+            if (tdy.valueOf()==moment.utc().startOf('d').valueOf()) {
+              var tdyJobs=response.jobs.filter(el=>moment.utc(el.startDate).valueOf()<=tdy.valueOf()&&moment.utc(el.endDate).valueOf()>=tdy.valueOf())
+              if (jobID) {
+                tdyJobs=tdyJobs.filter(el=>el.jobID==jobID)
+              }
+              tdyJobs.forEach((row, i) => {
+                var btnDiv=$('#resource_popover_'+row.jobID+'_'+d)[0]
+                var shift=row.isJobDay?'d':'e'
+                needed=row.todayHours
+                $(".hrsUpdate_"+row.jobID+"_"+d).attr("value",needed)
+                $(btnDiv).find('.data').text(needed)
+                $(btnDiv).removeClass('calculated')
+                $(btnDiv).addClass('planned')
+              });
+            }else {
+              plannedArr.forEach((plan, i) => {
+                var btnDiv=$('#resource_popover_'+plan.jobID+'_'+d)[0]
+                var shift=plan.isJobDay?'d':'e'
+                needed=plan.plannerHours
+                $(".hrsUpdate_"+plan.jobID+"_"+d).attr("value",needed)
+                $(btnDiv).find('.data').text(needed)
+                $(btnDiv).removeClass('calculated')
+                $(btnDiv).addClass('planned')
+              });
+              autoArr.forEach((auto, i) => {
+                var btnDiv=$('#resource_popover_'+auto.jobID+'_'+d)[0]
+                var shift=auto.isJobDay?'d':'e'
+                needed=auto.resourceHours
+                $(".hrsUpdate_"+auto.jobID+"_"+d).attr("value",needed)
+                $(btnDiv).find('.data').text(needed)
+                $(btnDiv).find('.data').addClass('prioritised')
+              });
+              if (autoArr.filter(el=>el.isJobDay).length>0) {
+                $('.autoCheck[data-shift="Day"][data-date="'+tdy.format("YYYY-MM-DD")+'"]').attr('checked',true)
+              }
+              if (autoArr.filter(el=>el.isJobEve).length>0) {
+                $('.autoCheck[data-shift="Eve"][data-date="'+tdy.format("YYYY-MM-DD")+'"]').attr('checked',true)
+              }
+            }
+            $('.resource-date-'+d+'.isDay-true').each(function(e){
+              totals.d=totals.d+Number($(this).find('.data').text())
+            })
+            $('.resource-date-'+d+'.isDay-false').each(function(e){
+              totals.e=totals.e+Number($(this).find('.data').text())
+            })
+            if (![0,6].includes(tdy.day()) && !bankHolDates.includes(tdy.valueOf())) {
+              dateArr.push(tdy.format("DD/MM"))
+              neededArr.e.push(totals.e)
+              neededArr.d.push(totals.d)
+              neededArr.total.push(totals.d+totals.e)
+              bookedArr.e.push(Number($("#booked_e_"+d).text()))
+              bookedArr.d.push(Number($("#booked_d_"+d).text()))
+              bookedArr.total.push(Number($("#booked_e_"+d).text())+Number($("#booked_d_"+d).text()))
+              surplus.e.push(Math.max(totals.e,Number($("#booked_e_"+d).text())))
+              surplus.d.push(Math.max(totals.d,Number($("#booked_d_"+d).text())))
+              surplus.total.push(Math.max(totals.d+totals.e,Number($("#booked_e_"+d).text())+Number($("#booked_d_"+d).text())))
+              shortfall.e.push(Math.min(totals.e,Number($("#booked_e_"+d).text())))
+              shortfall.d.push(Math.min(totals.d,Number($("#booked_d_"+d).text())))
+              shortfall.total.push(Math.min(totals.d+totals.e,Number($("#booked_e_"+d).text())+Number($("#booked_d_"+d).text())))
+            }
+            // console.log(tdy)
+            // console.log(totals['d'])
+            var shifts=['e','d']
+            for (var n = 0; n < shifts.length; n++) {
+              $("#total_"+shifts[n]+"_"+d).text(totals[shifts[n]])
+              var diff=Number($("#booked_"+shifts[n]+"_"+d).text())-totals[shifts[n]]
+              diff=Math.round(diff*100)/100
+              if (diff<0) {
+                $("#shortfall_"+shifts[n]+"_"+d).css("color","red")
+              }else {
+                diff="+"+diff
+                $("#shortfall_"+shifts[n]+"_"+d).css("color","green")
+              }
+              $("#shortfall_"+shifts[n]+"_"+d).text(diff)
+            }
+            var diff=Number($("#shortfall_e_"+d).text())+Number($("#shortfall_d_"+d).text())
+            if (diff<0) {
+              $("#shortfall_t_"+d).css("color","red")
+            }else {
+              diff="+"+diff
+              $("#shortfall_t_"+d).css("color","green")
+            }
+            $("#shortfall_t_"+d).text(diff)
+            // console.log(tdy)
+            // console.log(totals.all)
+            // console.log(" ")
+            tdy.add(1, 'd')
+          }
+          if (!jobID) {
+            if (window.myLineChart) {
+              window.myLineChart.destroy()
+            }
+            createGraph()
+            var graphShift
+            if ($('#gridDisplayEveLabel').hasClass('active')) {
+              graphShift='e'
+            }else if ($('#gridDisplayDayLabel').hasClass('active')) {
+              graphShift='d'
+            }else{
+              graphShift='total'
+            }
+            window.myLineChart.data.datasets[0].data=bookedArr[graphShift]
+            window.myLineChart.data.datasets[2].data=surplus[graphShift]
+            window.myLineChart.data.datasets[1].data=neededArr[graphShift]
+            window.myLineChart.data.datasets[3].data=shortfall[graphShift]
+            window.myLineChart.data.labels=dateArr
+            window.myLineChart.update()
+          }
+          projecting=false
+          console.log("finished projections")
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+      });
+    }
+    return false;
+  }
+  function showScenarioBuilder(){
+    let shifts=['Day','Eve']
+    function getParams(){
+      let params={
+        prioritiseProfit:$('#scenarioProfit:checked').length>0,
+        prioritiseEnding:$('#scenarioEnding:checked').length>0,
+        finishJobs:$('#scenarioShortfallMode').val()=='finishJobs',
+        includeAcademy:$('#scenarioAcademy:checked').length>0,
+        delayForecastDay:$('#scenarioForecastDay').val(),
+        delayForecastEve:$('#scenarioForecastEve').val(),
+        Day:$('#scenarioShiftD:checked').length>0,
+        Eve:$('#scenarioShiftE:checked').length>0,
+        jobs:[]
+      }
+      shifts.filter(el=>params[el]).forEach((shift, i) => {
+        $('.scenarioJobRow[data-shift="'+shift+'"]').each(function(e){
+          let jobID=$(this).attr('data-jobID')
+          params.jobs.push({
+            jobID:jobID,
+            jobName:$(this).find('.jobName').text(),
+            overwritePlanned:true,
+            online:$('[data-field="canGoOnline"][data-jobID="'+jobID+'"]:checked').length>0,
+            shift:shift,
+            canGoDay:$('[data-field="canGoDay"][data-jobID="'+jobID+'"]:checked').length>0,
+            canGoEve:$('[data-field="canGoEve"][data-jobID="'+jobID+'"]:checked').length>0,
+            weekends:$('[data-field="canGoWeekend"][data-jobID="'+jobID+'"]:checked').length>0,
+            sacrifice:$('[data-field="canSacrifice"][data-jobID="'+jobID+'"]:checked').length>0,
+            mustFinish:$('[data-field="mustFinish"][data-jobID="'+jobID+'"]:checked').length>0,
+            min:Number($('[data-field="minDaily"][data-jobID="'+jobID+'"]').val()),
+            max:Number($('[data-field="maxDaily"][data-jobID="'+jobID+'"]').val()),
+            isSwapped:false,
+            swappedShortfall:null,
+          })
+        })
+      });
+      return params
+    }
+    $('#dlParams').on('click',function(e){
+      var element = document.createElement('a');
+      element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(JSON.stringify(getParams())));
+      element.setAttribute('download', 'JA2 Resource Scenario settings '+moment().format());
+      element.style.display = 'none';
+      document.body.appendChild(element);
+      element.click();
+      document.body.removeChild(element);
+    })
+    $('#Modal').one('shown.bs.modal', function (e) {
+      $('#paramsFile').on('change',function(e){
+        function onReaderLoad(event){
+          var fileParams = JSON.parse(event.target.result);
+          $('.scenarioJobRow').show()
+          $('#scenarioProfit').prop('checked',fileParams.prioritiseProfit)
+          $('#scenarioEnding').prop('checked',fileParams.prioritiseEnding)
+          $('#scenarioFinishJobs').prop('checked',fileParams.finishJobs)
+          $('#scenarioAcademy').prop('checked',fileParams.includeAcademy)
+          $('#scenarioShiftD').prop('checked',fileParams.Day)
+          if (fileParams.Day) {
+            $('.scenarioJobRow[data-shift="Day"]').show()
+          }
+          $('#scenarioShiftE').prop('checked',fileParams.Eve)
+          if (fileParams.Eve) {
+            $('.scenarioJobRow[data-shift="Eve"]').show()
+          }
+          $('#scenarioForecastDay').val(fileParams.delayForecastDay)
+          $('#scenarioForecastEve').val(fileParams.delayForecastEve)
+          fileParams.jobs.forEach((job, i) => {
+            let jobID=job.jobID
+            $('[data-field="canGoOnline"][data-jobID="'+jobID+'"]').prop('checked',job.online)
+            $('[data-field="canGoDay"][data-jobID="'+jobID+'"]').prop('checked',job.canGoDay)
+            $('[data-field="canGoEve"][data-jobID="'+jobID+'"]').prop('checked',job.canGoEve)
+            $('[data-field="canGoWeekend"][data-jobID="'+jobID+'"]').prop('checked',job.weekends)
+            $('[data-field="canSacrifice"][data-jobID="'+jobID+'"]').prop('checked',job.sacrifice)
+            $('[data-field="mustFinish"][data-jobID="'+jobID+'"]').prop('checked',job.mustFinish)
+            $('[data-field="minDaily"][data-jobID="'+jobID+'"]').val(job.min?job.min:'')
+            $('[data-field="maxDaily"][data-jobID="'+jobID+'"]').val(job.max?job.max:'')
+          });
+        }
+        var reader = new FileReader();
+        reader.onload = onReaderLoad;
+        reader.readAsText(event.target.files[0]);
+      })
+      $('[data-field="canGoDay"]').on('change',function(e){
+        if ($('#scenarioShiftD:checked').length==0 && $(this).is(':checked')) {
+          if (confirm("To move resource into the day, you'll need to run the scenario on day jobs as well. Do you want to continue?")) {
+            $('#scenarioShiftD').prop('checked',true).trigger('change')
+          }else {
+            $(this).prop('checked',false)
+          }
+        }
+      })
+      $('[data-field="canGoEve"]').on('change',function(e){
+        if ($('#scenarioShiftE:checked').length==0 && $(this).is(':checked')) {
+          if (confirm("To move resource into the evening, you'll need to run the scenario on evening jobs as well. Do you want to continue?")) {
+            $('#scenarioShiftE').prop('checked',true).trigger('change')
+          }else {
+            $(this).prop('checked',false)
+          }
+          $('[data-field="canGoWeekend"][data-jobID="'+$(this).attr('data-jobID')+'"]').attr('checked',true)
+        }
+      })
+      $('#runScenarioBtn').on('click',function(e){
+        let params=getParams()
+        function runScenarioLoop(params){
+          return new Promise((resolve) => {
+            runScenario(params).then(plan=>{
+              let canGoDay=plan.jobs.Eve.filter(el=>el.canGoDay && el.plannedTotal<el.neededTotal)
+              let canGoEve=plan.jobs.Day.filter(el=>el.canGoEve && el.plannedTotal<el.neededTotal)
+              let swapShifts=canGoDay.concat(canGoEve)
+              if (swapShifts.length>0) {
+                swapShifts.forEach((job, i) => {
+                  let obj=Object.assign({},job)
+                  obj.isSwapped=true
+                  obj.jobName='[FROM '+(job.canGoDay?'EVE':'DAY')+'] '+job.jobName
+                  obj.canGoEve=false
+                  obj.canGoDay=false
+                  obj.swappedShortfall=job.neededTotal-job.plannedTotal
+                  params.jobs.push(obj)
+                });
+                runScenario(params).then(newPlan=>resolve(newPlan))
+              }else {
+                resolve(plan)
+              }
+            })
+          })
+        }
+        runScenarioLoop(params).then(plan=>{
+          // $('#modalTableParams').hide()
+          $('.scenarioViewer').html('')
+          function addButtons(cell){
+            var upBtn = document.createElement("button");
+            $(upBtn).attr("type", "button");
+            $(upBtn).html('<i class="fas fa-arrow-up"></i>');
+            $(upBtn).addClass("btn btn-sm btn-outline-primary scenarioMoveBtn up");
+            var downBtn = $(upBtn).clone()
+            $(downBtn).html('<i class="fas fa-arrow-down"></i>');
+            $(downBtn).removeClass("up");
+            $(downBtn).addClass("down");
+            if (cell.getRow().getNextRow()) {
+              $(cell.getElement()).append(upBtn)
+              $(upBtn).on('mousedown',function(){
+                $(this).attr("data-holding",true)
+                moveRowResource(cell,function(row){return row.getNextRow()},true,1)
+                setTimeout(function(){
+                  let intUp=setInterval(function(){
+                    if ($(cell.getElement()).find('.up[data-holding="false"]').length>0 || !$(cell.getElement()).is(":hover")) {
+                      clearInterval(intUp)
+                    }else {
+                      moveRowResource(cell,function(row){return row.getNextRow()},true,5)
+                    }
+                  },200)
+                },500)
+              })
+              $(upBtn).on('mouseup mouseout',function(){
+                $(this).attr("data-holding",false)
+              })
+            }
+            if (cell.getRow().getPrevRow()) {
+              $(cell.getElement()).append(downBtn)
+              $(downBtn).on('mousedown',function(){
+                $(this).attr("data-holding",true)
+                moveRowResource(cell,function(row){return row.getPrevRow()},true,1)
+                setTimeout(function(){
+                  let intDown=setInterval(function(){
+                    if ($(cell.getElement()).find('.down[data-holding="false"]').length>0 || !$(cell.getElement()).is(":hover")) {
+                      clearInterval(intDown)
+                    }else {
+                      moveRowResource(cell,function(row){return row.getPrevRow()},true,5)
+                    }
+                  },200)
+                },500)
+              })
+              $(downBtn).on('mouseup mouseout',function(){
+                $(this).attr("data-holding",false)
+              })
+            }
+          }
+          var hoursCell=function(cell,p,onRendered){
+            onRendered(function(){
+              if (cell.getValue()>=0) {
+                addButtons(cell)
+              }
+            })
+            return cell.getValue()!==null && cell.getValue()!==undefined?Math.ceil(cell.getValue()*4)/4:''
+          }
+          var neededCell=function(cell,p,onRendered){
+            return cell.getValue()!==null && cell.getValue()!==undefined?Math.ceil(cell.getValue()*4)/4:''
+          }
+          var shortfallCell=function(cell,p,onRendered){
+            return cell.getValue()!==null && cell.getValue()!==undefined && cell.getValue()<0?Math.floor(cell.getValue()):''
+          }
+          var ahrCell=function(cell,p,onRendered){
+            return cell.getValue()!==null && cell.getValue()!==undefined?Math.round(cell.getValue()*10)/10:''
+          }
+          var plannedCell=function(cell,p,onRendered){
+            let val=cell.getValue()
+            let plusSwapped=val+cell.getData().plannedTotalSwapped
+            let swappedHitNeeded=val+cell.getData().plannedTotalSwapped>=cell.getData().neededTotal
+            let hitNeeded=val>=cell.getData().neededTotal
+            let nearNeeded=val>cell.getData().neededTotal*0.95
+            let swappedNearNeeded=val+cell.getData().plannedTotalSwapped>cell.getData().neededTotal*0.95
+            let cssClass="danger"
+            if (hitNeeded) {
+              cssClass="success"
+            }else if (swappedHitNeeded) {
+              cssClass="success swapped"
+            }else if (nearNeeded) {
+              cssClass="warning"
+            }else if (swappedNearNeeded) {
+              cssClass="warning swapped"
+            }
+            let upInt
+            onRendered(function(){
+              if (cell.getValue()>=0) {
+                addButtons(cell)
+              }
+            })
+            return '<div class="'+cssClass+'">'+val+'</span>'
+          }
+          function moveRowResource(cell,rowMoveFunc,up,hoursToMove){
+            let hoursMoved=0
+            let hourIncrement=0.5
+            let thisRow=cell.getRow()
+            let currRow=thisRow
+            let jobDates=Object.keys(currRow.getData()).filter(el=>el.indexOf("-")>-1 && currRow.getData()[el]!==undefined)
+            var yT = $(cell.getElement())[0].getBoundingClientRect().top
+            while (hoursMoved<hoursToMove && rowMoveFunc(currRow)) {
+              currRow=rowMoveFunc(currRow)
+              let newRowDates=Object.keys(currRow.getData()).filter(el=>jobDates.includes(el) && currRow.getData()[el]>0)
+              let d=0
+              let movedFromRow=0
+              if (cell.getField()=='plannedTotal') {
+                while (newRowDates[d] && hoursMoved<hoursToMove) {
+                  let dte=newRowDates[d]
+                  let from={}
+                  let to={}
+                  let moved=Math.min(hourIncrement,currRow.getData()[dte])
+                  from[dte]=currRow.getData()[dte]-moved
+                  from.plannedTotal=currRow.getData().plannedTotal-moved
+                  from.intsShort=((from.plannedTotal+from.plannedTotalSwapped)-currRow.getData().neededTotal)*currRow.getData().ahr
+                  to[dte]=thisRow.getData()[dte]+moved
+                  to.plannedTotal=thisRow.getData().plannedTotal+moved
+                  to.intsShort=((to.plannedTotal+to.plannedTotalSwapped)-thisRow.getData().neededTotal)*thisRow.getData().ahr
+                  currRow.update(from)
+                  thisRow.update(to)
+                  hoursMoved=hoursMoved+moved
+                  movedFromRow=movedFromRow+moved
+                  d++
+                }
+              }else if(newRowDates.includes(cell.getField())) {
+                let from={}
+                let to={}
+                let dte=cell.getField()
+                let moved=Math.min(hourIncrement,currRow.getData()[dte])
+                from[dte]=currRow.getData()[dte]-moved
+                from.plannedTotal=currRow.getData().plannedTotal-moved
+                from.intsShort=((from.plannedTotal+from.plannedTotalSwapped)-currRow.getData().neededTotal)*currRow.getData().ahr
+                to[dte]=thisRow.getData()[dte]+moved
+                to.plannedTotal=thisRow.getData().plannedTotal+moved
+                to.intsShort=((to.plannedTotal+to.plannedTotalSwapped)-thisRow.getData().neededTotal)*thisRow.getData().ahr
+                currRow.update(from)
+                thisRow.update(to)
+                hoursMoved=hoursMoved+moved
+                movedFromRow=movedFromRow+moved
+              }
+              if (movedFromRow) {
+                var fromCell=$(currRow.getCell(cell.getField()).getElement())[0]
+                var token = document.createElement("span");
+                $(token).addClass("scenarioMoveToken");
+                $(token).text(movedFromRow)
+                // token.style.left=tokenLeft+"px"
+                $(fromCell).append(token)
+                let top=-((fromCell.getBoundingClientRect().top-yT)-1)
+                token.style.top=top+"px"
+                token.style.opacity = 0;
+                $(fromCell).addClass("flashBlue")
+                $(fromCell).removeClass("flashBlue")
+                setTimeout(function(){$(token).remove()},1000)
+              }
+            }
+          }
+          var rounder=function(value){
+            return value!==null && value!==undefined?Math.round(value*2)/2:0
+          }
+          var jobName=function(cell,p){
+            let icons=[]
+            let j=cell.getData()
+            function icon(letter,color,title){
+              return "<span class='paramIcons' title='"+title+"' style='color:"+color+";'>"+letter+"</span>"
+            }
+            if (j.online) {
+              icons.push(icon('O','#3333ff','Could go Online/F2F'))
+            }
+            if (j.canGoDay) {
+              icons.push(icon('D','#efc128','Could go into Day'))
+            }
+            if (j.canGoEve) {
+              icons.push(icon('E','#f7f2e1','Could go into Eve'))
+            }
+            if (j.weekends) {
+              icons.push(icon('W','pink','Could work on weekends'))
+            }
+            if (j.sacrifice) {
+              icons.push(icon('S','red','Sacrifice if needed'))
+            }
+            if (j.mustFinish) {
+              icons.push(icon('M','green','Must finish on time'))
+            }
+            return cell.getValue()+icons.join("")
+          }
+          shifts.filter(el=>params[el]).forEach((shift, i) => {
+            var header = function(title,params,onRendered){
+              let needed=plan.jobs[shift].reduce((a,b)=>a+Number(b[title.getValue()]?b[title.getValue()]:0),0)
+              let booked=plan.booked.find(el=>el.dte.format("YYYY-MM-DD")==title.getValue())[shift]
+              let isForecasted=plan.booked.find(el=>el.dte.format("YYYY-MM-DD")==title.getValue()).isForecasted[shift]
+              return title.getValue()+"<br>Needed:"+(needed?Math.round(needed*4)/4:0)+"<br>Booked:<span class='"+(isForecasted?'forecast':'')+"'>"+booked+"</span>"
+            }
+            let cols=[
+              {rowHandle:true, formatter:"handle", headerSort:false, frozen:true, width:30, minWidth:30},
+              {field:'jobName',frozen:true,formatter:jobName},
+              // {field:'online',frozen:true,cssClass:'paramIcons',formatter:paramIcons,formatterParams:{letter:'O',color:'blue'}},
+              // {field:'canGoDay',frozen:true,cssClass:'paramIcons',formatter:paramIcons,formatterParams:{letter:'D',color:'orange'}},
+              // {field:'canGoEve',frozen:true,cssClass:'paramIcons',formatter:paramIcons,formatterParams:{letter:'E',color:'beige'}},
+              // {field:'weekends',frozen:true,cssClass:'paramIcons',formatter:paramIcons,formatterParams:{letter:'W',color:'pink'}},
+              // {field:'sacrifice',frozen:true,cssClass:'paramIcons',formatter:paramIcons,formatterParams:{letter:'S',color:'red'}},
+              // {field:'mustFinish',frozen:true,cssClass:'paramIcons',formatter:paramIcons,formatterParams:{letter:'S',color:'green'}},
+              {field:'ahr',title:'AHR',frozen:true,formatter:ahrCell,editor:"number",cellEdited:(cell)=>{
+                params.jobs=params.jobs.map(job=>{
+                  if (cell.getData().jobID==job.jobID) {
+                    job.ahr=cell.getValue()
+                  }
+                  job.ranking=cell.getTable().getRows().find(el=>el.getData().jobID==job.jobID).getPosition()
+                  return job
+                })
+                runScenarioLoop(params).then(e=>{
+                  cell.getTable().replaceData(e.jobs[shift])
+                })
+              }},
+              {field:'neededTotal',title:'Hours<br>Needed',frozen:true,cssClass:'neededScenario',formatter:neededCell},
+              {field:'plannedTotal',title:'Hours<br>Planned',frozen:true,cssClass:'plannedScenario',mutator:rounder,formatter:plannedCell},
+              {field:'intsShort',title:'Ints<br>Shortfall',frozen:true,cssClass:'neededScenario',formatter:shortfallCell},
+              {field:'plannedTotalSwapped',title:'plannedTotalSwapped',visible:false,mutator:rounder}
+            ]
+            plan.booked.forEach((day, i) => {
+              cols.push({field:day.dte.format("YYYY-MM-DD"),title:day.dte.format("YYYY-MM-DD"),cssClass:'cellScenario',titleFormatter:header,formatter:hoursCell})
+            });
+            var table=new Tabulator(".scenarioViewer."+shift,{
+              layout:"fitData",
+              height:400,
+              columns:cols,
+              headerSort:false,
+              movableRows: true,
+              data:plan.jobs[shift].sort((a,b)=>a.ranking-b.ranking),
+              rowMoved:function(row){
+                // let newParams=getParams()
+                params.forceRanking=true
+                params.jobs=params.jobs.map(job=>{
+                  if (row.getTable().getRows().find(el=>el.getData().jobID==job.jobID)) {
+                    job.ranking=row.getTable().getRows().find(el=>el.getData().jobID==job.jobID).getPosition()
+                  }
+                  return job
+                })
+                runScenarioLoop(params).then(e=>{
+                  row.getTable().replaceData(e.jobs[shift])
+                })
+              }
+            })
+          });
+        }).catch(err=>console.log(err))
+      })
+    })
+    $('#Modal').modal('show')
+  }
+  function runScenario(params){
+    return new Promise((resolve,reject) => {
+      $.ajax({
+        url: '/get-resource-projections/0',
+        type: 'GET',
+        contentType: 'application/json',
+        success: function (response) {
+          let latestEnd=moment.max(params.jobs.map(job=>{
+            let rJob=response.jobs.find(el=>el.jobID==job.jobID)
+            let en
+            if (rJob) {
+              en=moment.utc(rJob.endDate)
+            }
+            return en
+          }).filter(el=>el))
+          let dates=moment.range(moment.utc().startOf('d').add(1,'d'),latestEnd)
+          let bankHolDates=bankHols.map(el=>el.date)
+          let datesArr=[]
+          let shifts=['Day','Eve']
+          let needed={}
+          let dayCount=0
+          for (let day of dates.by('day')) {
+            let booked={}
+            let isForecasted={}
+            shifts.forEach((shift, i) => {
+              isForecasted[shift]=datesArr.length>=params['delayForecast'+shift]
+              let hoursField=isForecasted[shift]?'forecasted':'Hours'
+              let bookedArr=response.booked.filter(el=>moment.utc(el.bookingDate).valueOf()==day.valueOf() && el['is'+shift])
+              if (isForecasted[shift]) {
+                bookedArr=response.forecasted.filter(el=>(el.bookingDay-1)==day.day() && el['is'+shift])
+              }
+              booked[shift]=0
+              if (params.includeAcademy) {
+                booked[shift]=bookedArr.reduce((a,b)=>a+b.Hours,0)
+              }else {
+                booked[shift]=bookedArr.find(el=>el.isAllocatable==1)?bookedArr.find(el=>el.isAllocatable==1).Hours:0
+              }
+              booked[shift]=Math.round((booked[shift]*0.9)*2)/2
+            })
+            datesArr.push({
+              dte:day,
+              dayType:bankHolDates.includes(day.format("YYYY-MM-DD"))?'bankHol':([0,6].includes(day.day())?'weekend':'workday'),
+              booked:booked,
+              isForecasted:isForecasted,
+              shortfall:{Day:0,Eve:0},
+              planned:{Day:0,Eve:0}
+            })
+          }
+          params.jobs=params.jobs.map(job=>{
+            let rJob=response.jobs.find(el=>el.jobID==job.jobID)
+            if (rJob) {
+              job.jobID=job.isSwapped?job.jobID+"a":job.jobID
+              job.stDate=moment.max(moment.utc().startOf('d'),moment.utc(rJob.startDate))
+              job.enDate=moment.utc(rJob.endDate)
+              job.shift=job.isSwapped?(rJob.isJobDay?'Eve':'Day'):(rJob.isJobDay?'Day':'Eve')
+              job.intsLeft=rJob.intsLeft
+              job.ahr=job.ahr?job.ahr:rJob.ahr
+              job.neededTotal=job.isSwapped?job.swappedShortfall:job.intsLeft/job.ahr
+              job.datesArr=datesArr.filter(el=>(el.dayType=='workday' || job.weekends) && el.dte.valueOf()>=job.stDate.valueOf() && el.dte.valueOf()<=job.enDate.valueOf())
+              job.needed=job.max?Math.min(job.max,job.neededTotal/job.datesArr.length):job.neededTotal/job.datesArr.length
+              job.plannedTotal=0
+            }
+            return job
+          }).filter(el=>el.neededTotal>0 && el.enDate>moment())
+          let timelineNeeded={
+            Day:params.jobs.filter(el=>el.shift=='Day').reduce((a,b)=>a+b.neededTotal,0),
+            Eve:params.jobs.filter(el=>el.shift=='Eve').reduce((a,b)=>a+b.neededTotal,0)
+          }
+          params.jobs=params.jobs.map(job=>{
+            //% of total hours needed this job accounts for
+            job.allocation=job.neededTotal/timelineNeeded[job.shift]
+            return job
+          })
+          // params.jobs=params.jobs.map(el=>({...el,rand:Math.random()}))
+          // console.log(params.forceRanking)
+          if (!params.forceRanking) {
+            // params.jobs.sort((a,b)=>a.rand-b.rand)
+            params.jobs.sort((a,b)=>a.datesArr.length-b.datesArr.length)
+            let prioritised=[]
+            prioritised=prioritised.concat(params.jobs.filter(el=>el.mustFinish).map(el=>({...el,priority:0})))
+            prioritised=prioritised.concat(params.jobs.filter(el=>!el.mustFinish && !el.sacrifice && !el.online).map(el=>({...el,priority:1})))
+            prioritised=prioritised.concat(params.jobs.filter(el=>!el.mustFinish && !el.sacrifice && el.online).map(el=>({...el,priority:2})))
+            prioritised=prioritised.concat(params.jobs.filter(el=>!el.mustFinish && el.sacrifice).map(el=>({...el,priority:3})))
+            params.jobs=prioritised
+          }else {
+            params.jobs.sort((a,b)=>a.ranking-b.ranking)
+          }
+          // console.log(params.jobs)
+          datesArr=datesArr.map(day=>{
+            day.jobs=params.jobs.filter(el=>day.dte.valueOf()>=el.stDate.valueOf() && day.dte.valueOf()<=el.enDate.valueOf() && (day.dayType=='workday' || el.weekends))
+            let dte=day.dte.format("YYYY-MM-DD")
+            shifts.forEach((shift, i) => {
+              let shiftJobs=day.jobs.filter(el=>el.shift==shift)
+              day.shortfall[shift]=shiftJobs.reduce((a,b)=>a+b.needed,0)-day.booked[shift]
+              if (day.shortfall[shift]>0) {
+                // console.log(dte,shift,"SHORTFALL IN SHIFT",shiftJobs)
+                let priority=2
+                let r=0
+                let prePlan=[]
+                do{
+                  let range=r/100
+                  prePlan=[]
+                  // console.log(dte,shiftJobs)
+                  let reductionJobs=shiftJobs.filter(el=>el.priority>=priority)
+                  // console.log(dte,shift,"RUNNING REDUCTION",priority,reductionJobs)
+                  reductionJobs.forEach((job, i) => {
+                    let jobNeeded=job.needed
+                    let maxReduction=job.min?(jobNeeded-job.min)/jobNeeded:1
+                    let reductionPerc=Math.min(maxReduction,(range/reductionJobs.length)*(i+1))
+                    if (job.mustFinish && priority>=0) {
+                      reductionPerc=0
+                    }else if (!job.mustFinish && priority<0) {
+                      reductionPerc=maxReduction
+                    }
+                    prePlan.push({jobID:job.jobID,reduction:jobNeeded*reductionPerc,maxed:reductionPerc>=maxReduction,mustFinish:job.mustFinish})
+                  });
+                  if (priority>-1 && prePlan.filter(el=>el.maxed && !el.mustFinish).length==prePlan.filter(el=>!el.mustFinish).length) {
+                    // console.log("ALL NON-MF AT ZERO",priority,JSON.parse(JSON.stringify(prePlan)))
+                    priority--
+                    // console.log("NEW PRIORITY",priority)
+                    r=0
+                  }else if (prePlan.filter(el=>el.maxed).length==prePlan.length) {
+                    // console.log("ALL MF AT ZERO",priority,JSON.parse(JSON.stringify(prePlan)))
+                    priority--
+                    // console.log("NEW PRIORITY",priority)
+                    r=0
+                  }
+                  r++
+                  // console.log("CONTINUE WHILE?",prePlan.reduce((a,b)=>a+b.reduction,0)<=day.shortfall[shift] && priority>=-1,prePlan.reduce((a,b)=>a+b.reduction,0),day.shortfall[shift],priority)
+                } while(prePlan.reduce((a,b)=>a+b.reduction,0)<=day.shortfall[shift] && priority>=-1)
+                params.jobs=params.jobs.map(job=>{
+                  let preJob=prePlan.find(el=>el.jobID==job.jobID)
+                  let dJob=shiftJobs.find(el=>el.jobID==job.jobID)
+                  if (preJob) {
+                    job[dte]=Math.floor((job.needed-preJob.reduction)*2)/2
+                    job.plannedTotal=job.plannedTotal+job[dte]
+                  }else if (dJob) {
+                    job[dte]=Math.floor(job.needed*2)/2
+                    job.plannedTotal=job.plannedTotal+job[dte]
+                  }
+                  return job
+                })
+              }else if(shiftJobs.length>0) {
+                // console.log(dte,shift,"NO SHORTFALL IN SHIFT",shiftJobs)
+                params.jobs=params.jobs.map(job=>{
+                  let dJob=shiftJobs.find(el=>el.jobID==job.jobID)
+                  if (dJob) {
+                    job[dte]=Math.floor(job.needed*2)/2
+                    job.plannedTotal=job.plannedTotal+job[dte]
+                  }
+                  return job
+                })
+              }
+            })
+            return day
+          })
+          // console.log("AFTER INITIAL",JSON.parse(JSON.stringify(params.jobs.map(el=>{return{jobName:el.jobName,'2022-03-07':el['2022-03-07']}}))))
+
+          //REDUCE JOB SHORTFALLS WHERE JOBS NEED FINISHING BY TAKING FROM LOWER PRIORITY JOBS
+          let shortfallReduced=0
+          let j=0
+          while(j<params.jobs.filter(el=>el.plannedTotal<el.neededTotal && (params.finishJobs || el.mustFinish)).length){
+            let job=params.jobs.filter(el=>el.plannedTotal<el.neededTotal && (params.finishJobs || el.mustFinish))[j]
+            // console.log("SHORTFALL FOUND",job.jobName,job.neededTotal-job.plannedTotal)
+            let lowerJobs=params.jobs.filter(el=>el.shift==job.shift).slice(params.jobs.indexOf(job)+1)
+            let prioritisedDates=datesArr.slice().filter(el=>(el.dayType=='workday' || job.weekends) && el.dte.valueOf()>=job.stDate.valueOf() && el.dte.valueOf()<=job.enDate.valueOf()).map(el=>{
+              el.lowerHours=lowerJobs.reduce((a2,b2)=>a2+Number(b2[el.dte.format("YYYY-MM-DD")]?b2[el.dte.format("YYYY-MM-DD")]:0),0)
+              return el
+            }).filter(el=>el.lowerHours>0 && (job[el.dte.format("YYYY-MM-DD")]<job.max || !job.max))
+            prioritisedDates.sort((a,b)=>b.lowerHours-a.lowerHours)
+            let totalLowerHours=prioritisedDates.reduce((a,b)=>a+b.lowerHours,0)
+            shortfallReduced=0
+            prioritisedDates.forEach((day, i) => {
+              let dayProportionOfLower=day.lowerHours/totalLowerHours
+              let dayShortfallToReduce=(job.neededTotal-job.plannedTotal)*dayProportionOfLower
+              if (job.max) {
+                let diff=job.max-job[day.dte.format("YYYY-MM-DD")]
+                dayShortfallToReduce=Math.min(diff,dayShortfallToReduce)
+              }
+              // console.log("CALCULATING SHORTFALL TO REDUCE",dayShortfallToReduce,(job.neededTotal-job.plannedTotal),dayProportionOfLower,day.lowerHours,totalLowerHours)
+              let dayShortfallReduced=0
+              let dte=day.dte.format("YYYY-MM-DD")
+              let r=0
+              let prePlan=[]
+              let dayJobs=lowerJobs.filter(el=>el.jobID)
+              do{
+                let range=r/100
+                prePlan=[]
+                let reductionJobs=lowerJobs.filter(el=>el[dte])
+                reductionJobs.forEach((rJob, i) => {
+                  let jobNeeded=rJob[dte]
+                  let reductionPerc=Math.min(1,(range/reductionJobs.length)*(i+1))
+                  // console.log("PREPLANNING",rJob.jobID,jobNeeded,reductionPerc,jobNeeded*reductionPerc)
+                  prePlan.push({jobID:rJob.jobID,reduction:jobNeeded*reductionPerc,perc:reductionPerc})
+                });
+                dayShortfallReduced=prePlan.reduce((a,b)=>a+b.reduction,0)
+                r++
+                // console.log("WHILE CONTINUE?",dayShortfallReduced<=dayShortfallToReduce && prePlan.filter(el=>el.perc==1).length!=prePlan.length,dayShortfallToReduce,dayShortfallReduced,prePlan.filter(el=>el.perc==1).length!=prePlan.length)
+              } while(dayShortfallReduced<=dayShortfallToReduce && prePlan.filter(el=>el.perc==1).length!=prePlan.length)
+              params.jobs=params.jobs.map(el=>{
+                let preJob=prePlan.find(p=>p.jobID==el.jobID)
+                if (preJob) {
+                  el[dte]=el[dte]-Math.ceil(preJob.reduction*2)/2
+                  el.plannedTotal=el.plannedTotal-Math.ceil(preJob.reduction*2)/2
+                  // console.log("TAKEN "+preJob.reduction+" FROM "+el.jobName," | NOW AT "+el[dte])
+                }else if (el.jobID==job.jobID) {
+                  el[dte]=el[dte]+Math.ceil(dayShortfallReduced*2)/2
+                  el.plannedTotal=el.plannedTotal+Math.ceil(dayShortfallReduced*2)/2
+                  // console.log("ADDED "+dayShortfallReduced+" TO "+el.jobName,dayShortfallReduced,"| NOW AT "+el.plannedTotal)
+                }
+                return el
+              })
+              shortfallReduced=shortfallReduced+Math.ceil(dayShortfallReduced*2)/2
+            });
+            if (shortfallReduced==0) {
+              j++
+            }
+            // console.log("SHORTFALL REDUCED BY",shortfallReduced)
+          }
+          // console.log("AFTER SHORTFALLS",JSON.parse(JSON.stringify(params.jobs.map(el=>{return{jobName:el.jobName,'2022-03-07':el['2022-03-07']}}))))
+
+          //FILL UP SURPLUSES
+          shifts.forEach((shift, i) => {
+            datesArr.forEach((day, i) => {
+              let dte=day.dte.format("YYYY-MM-DD")
+              let shiftJobs=params.jobs.filter(el=>el[dte]!==undefined && el.shift==shift)
+              day.surplus={}
+              day.surplus[shift]=day.booked[shift]-shiftJobs.reduce((a,b)=>a+b[dte],0)
+              if (day.surplus[shift]>0) {
+                let surplusDaysLeft=datesArr.filter(el=>el.booked[shift]-params.jobs.filter(j=>j[el.dte.format("YYYY-MM-DD")]!==undefined && j.shift==shift).reduce((a,b)=>a+b[dte],0)>0 && el.dte>day.dte)
+                let shortfallJobs=shiftJobs.filter(el=>el.plannedTotal<el.neededTotal).map(sj=>{
+                  sj.surplusDaysLeft=surplusDaysLeft.filter(el=>sj[el.dte.format("YYYY-MM-DD")]!==undefined).length+1
+                  return sj
+                })
+                // console.log("SURPLUS JOBS",dte,shift,shortfallJobs)
+                let r=0
+                let prePlan=[]
+                let priority=0
+                if (shortfallJobs.length>0) {
+                  do{
+                    let range=r/100
+                    prePlan=[]
+                    let reductionJobs=shortfallJobs.filter(el=>el.priority<=priority)
+                    //shortfall divided by number of surplus days left
+                    reductionJobs.forEach((rJob, i) => {
+                      let jobShortfall=rJob.neededTotal-rJob.plannedTotal
+                      let jobNeeded=rJob.max?Math.min(rJob.max-rJob[dte],jobShortfall/rJob.surplusDaysLeft):jobShortfall/rJob.surplusDaysLeft
+                      let additionPerc=Math.min(1,(range/reductionJobs.length)*(i+1))
+                      let addition=day.surplus[shift]*additionPerc
+                      // console.log("PREPLANNING",rJob.jobID,jobShortfall,additionPerc,addition)
+                      prePlan.push({jobID:rJob.jobID,addition:Math.min(jobNeeded,addition),needed:jobNeeded,maxed:Math.min(jobNeeded,addition)>=jobNeeded})
+                    });
+                    // console.log("PRIORITY CHECK",prePlan.filter(el=>el.addition>=el.needed).length,prePlan.length,prePlan.reduce((a,b)=>a+b.addition,0),day.surplus[shift])
+                    if (prePlan.filter(el=>el.maxed).length==prePlan.length && prePlan.reduce((a,b)=>a+b.addition,0)<day.surplus[shift]) {
+                      // console.log("SURPLUS NOT FILLED",priority,JSON.parse(JSON.stringify(prePlan)))
+                      priority++
+                      // console.log("NEW PRIORITY",priority)
+                      r=0
+                    }
+                    r++
+                    // console.log("WHILE CONTINUE?",prePlan.reduce((a,b)=>a+b.addition,0),priority)
+                  } while(prePlan.reduce((a,b)=>a+b.addition,0)<day.surplus[shift] && priority<=3)
+                  params.jobs=params.jobs.map(job=>{
+                    let preJob=prePlan.find(el=>el.jobID==job.jobID)
+                    if (preJob) {
+                      job[dte]=job[dte]+Math.floor(preJob.addition*2)/2
+                      job.plannedTotal=job.plannedTotal+Math.floor(preJob.addition*2)/2
+                    }
+                    return job
+                  })
+                }
+              }
+            });
+          });
+
+          let bookedData=datesArr.map((day, i) => {
+            return {
+              dte:day.dte,
+              isForecasted:day.isForecasted,
+              Eve:day.booked.Eve,
+              Day:day.booked.Day
+            }
+          });
+          console.log("FINAL",JSON.parse(JSON.stringify(params.jobs.map(el=>{return{jobName:el.jobName,'2022-03-07':el['2022-03-07']}}))))
+          params.jobs=params.jobs.map((job,i)=>{
+            let swapped=params.jobs.find(el=>el.jobID==job.jobID+"a")
+            job.plannedTotalSwapped=swapped?swapped.plannedTotal:0
+            job.ranking=i
+            job.intsShort=((job.plannedTotal+job.plannedTotalSwapped)-job.neededTotal)*job.ahr
+            return job
+          })
+          resolve({params:params,booked:bookedData,jobs:{Day:params.jobs.filter(el=>el.shift=='Day'),Eve:params.jobs.filter(el=>el.shift=='Eve')}})
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+          reject()
+        },
+      })
+    })
+  }
+  function prioritiseDay(shift,dte,params){
+    let dateStr=dte.replace("-","").replace("-","")
+    // let shortfall=-Number($('#shortfall_'+shift[0].toLowerCase()+'_'+dateStr).eq(0).text())
+    return new Promise((resolve,reject) => {
+      $.ajax({
+        url: '/get-resource-projections/'+dte,
+        type: 'GET',
+        contentType: 'application/json',
+        success: function (response) {
+          let booked=Number($('#booked_'+shift[0].toLowerCase()+'_'+dateStr).eq(0).text())
+          let shiftJobs=response.jobs.filter(el=>el['isJob'+shift] && !response.planned.find(p=>p.jobID==el.jobID && moment(p.plannerDate).format("YYYY-MM-DD")==dte) && el.daysLeft>=0)
+          shiftJobs=shiftJobs.map((job, i) => {
+            var st=moment.max(moment.utc(),moment.utc(job.startDate)).valueOf()
+            var en=moment.utc(job.endDate).valueOf()
+            var bankHolsForJob=bankHols?bankHols.filter(el=>moment.utc(el.date).valueOf()>=st && moment.utc(el.date).valueOf()<=en):null
+            job.bankHolCount=bankHolsForJob?bankHolsForJob.length:0
+            var neededRound=(job.calcHours/((job.daysLeft+1)-job.bankHolCount))
+            neededRound=(Math.ceil(neededRound * 2) / 2);
+            job.needed=Math.max(0,neededRound)
+            job.mustFinish=false
+            if (mustFinish) {
+              job.mustFinish=mustFinish.includes(job.jobID)
+            }
+            // console.log(bankHolsForJob,job.bankHolCount,job.calcHours,job.daysLeft,neededRound)
+            return job
+          });
+          // console.log("shiftJobs",shiftJobs)
+          shiftJobs=shiftJobs.filter(el=>Number($('#resource_popover_'+el.jobID+'_'+dateStr+" span").eq(0).text())>0)
+          let planned=response.planned.filter(p=>p['isJob'+shift] && moment(p.plannerDate).format("YYYY-MM-DD")==dte)
+          let shortfall=(shiftJobs.reduce((a,b)=>a+b.needed,0)+planned.reduce((a,b)=>a+b.plannerHours,0))-booked
+          console.log(shortfall,shiftJobs.length,$('.resource-date-'+dateStr+".prioritised").length)
+          if (shortfall<=0 || shiftJobs.length==0 || $('.resource-date-'+dateStr+".prioritised").length>0) {
+            reject()
+          }else {
+            let arr=[]
+            let r=0
+            let deadlineDays=2
+            // console.log("shiftJobs passed",shiftJobs)
+            do{
+              let range=r/100
+              arr=[]
+              let reductionJobs=shiftJobs.filter(el=>!el.daysLeft<deadlineDays).sort((a,b)=>(+b.mustFinish)-(+a.mustFinish))
+              reductionJobs.forEach((job, i) => {
+                let el=$('#resource_popover_'+job.jobID+'_'+dateStr+" span").eq(0)
+                let jobNeeded=job.needed
+                let reductionPerc=Math.min(1,(range/reductionJobs.length)*(i+1))
+                arr.push({jobID:job.jobID,dte:dte,jobName:$('.jobName_'+job.jobID).eq(0).text().trim(),wasNeeded:jobNeeded,perc:reductionPerc,reduction:jobNeeded*reductionPerc})
+              });
+              if (arr.filter(el=>el.perc==1).length==arr.length) {
+                deadlineDays--
+              }
+              r++
+            } while(arr.reduce((a,b)=>a+b.reduction,0)<shortfall || deadlineDays==0)
+            // console.log(arr)
+            arr.forEach((job, i) => {
+              let el=$('#resource_popover_'+job.jobID+'_'+dateStr+" span")
+              let reduced=job.wasNeeded-job.reduction
+              el.text(Math.round(reduced*2)/2)
+              el.addClass('prioritised')
+            });
+            $.ajax({
+              url: '/add-auto-resource/',
+              type: 'POST',
+              data:JSON.stringify(arr),
+              contentType: 'application/json',
+              success:function(response){
+                resolve()
+                window.FlashMessage.success('Resource auto-prioritised for '+moment(dte).format("DD/MM/YYYY"));
+              },
+              error: function (jqXHR, exception) {
+                alert(getErrorMessage(jqXHR, exception))
+                reject()
+              },
+            })
+          }
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+          reject()
+        },
+      })
+    })
+  }
+  function unPrioritise(shift,dte){
+    let dateStr=dte.replace("-","").replace("-","")
+    // let shortfall=-Number($('#shortfall_'+shift[0].toLowerCase()+'_'+dateStr).eq(0).text())
+    return new Promise((resolve,reject) => {
+      $('.needed_'+dateStr+'_'+(shift=='Day'?'true':'false')+' span.prioritised').removeClass('prioritised').addClass('calculated')
+      $.ajax({
+        url: '/remove-auto-resource/'+dte+"/"+shift,
+        type: 'GET',
+        contentType: 'application/json',
+        success:function(response){
+          resolve()
+          window.FlashMessage.success('Resource reset for '+moment(dte).format("DD/MM/YYYY"));
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+          reject()
+        },
+      })
+    })
+  }
+
+  async function testPrioritise(){
+    <% dates.filter(el=>moment(el).format("YYYY-MM-DD")!=moment().format("YYYY-MM-DD")).forEach((date,i) => {%>
+    await prioritise('Eve','<%=moment(date).format("YYYY-MM-DD")%>',[6343,6344])
+    <%})%>
+    $('.flash-container').remove()
+    calculateProjections()
+  }
+  function createGraph(){
+    console.log("running createGraph")
+    $('[data-id="chartCell"] canvas').remove()
+    $('[data-id="chartCell"]').eq(2).append('<canvas class="projectionChart" height="'+$('[data-id="chartCell"]').eq(2).height()/3+'px" style=""></canvas>')
+    var ctxL = $('.projectionChart').eq(0);
+    $('body').addClass('loading')
+    window.myLineChart = new Chart(ctxL, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [
+            {
+              label: "Booked",
+              data: [],
+              pointBackgroundColor:'orange',
+              pointBorderColor:'orange',
+              pointHitRadius: 5,
+              backgroundColor: [
+                'rgba(0, 255, 0, 0.7)',
+              ],
+              borderColor: [
+                'orange',
+              ],
+              pointRadius:2,
+              borderWidth: 2,
+              hidden:false,
+              fill:3
+            },
+            {
+              label: "Needed",
+              data: [],
+              pointBackgroundColor:'blue',
+              pointBorderColor:'blue',
+              pointHitRadius: 5,
+              borderColor: [
+              'blue',
+              ],
+              pointRadius:2,
+              borderWidth: 2,
+              hidden:false,
+              fill:false
+            },
+            {
+              label: "surplus",
+              data: [],
+              borderColor:'rgba(0, 0, 0, 0)',
+              pointRadius:0,
+              hidden:false,
+              fill:false
+            },
+            {
+              label: "shortfall",
+              data: [],
+              pointRadius:0,
+              borderColor:'rgba(0, 0, 0, 0)',
+              backgroundColor: [
+                'rgba(255, 0, 0, 0.7)',
+              ],
+              hidden:false,
+              fill:2
+            }
+          ]
+        },
+        options: {
+          plugins: {
+            datalabels: {
+              display:false
+            },
+            filler: {
+              propagate: false
+            }
+          },
+          responsive: true,
+          legend: {
+            display: false,
+            labels: {
+              usePointStyle: true,
+              boxWidth: 10,
+              fontColor: 'white'
+            }
+          },
+          title: {
+            display: false,
+            text: 'Resource projections',
+            fontColor: 'black',
+            fontSize: 14,
+            fontStyle: 'normal'
+          },
+          scales: {
+            yAxes: [{
+              display:false,
+              ticks: {
+                fontColor: 'black'
+              },
+              gridLines: {
+                display:false
+              }
+            }],
+            xAxes: [{
+              display:true,
+              ticks: {
+                display: false
+              },
+            }]
+          }
+        }
+    });
+    window.dispatchEvent(new Event('resize'))
+    $('.DTFC_LeftBodyWrapper,.DTFC_LeftBodyLiner').height(($('.DTFC_ScrollWrapper').height()-$('.DTFC_LeftHeadWrapper').height())-13)
+    $('body').removeClass('loading')
+    console.log("finished createGraph")
+  }
+</script>
+</html>

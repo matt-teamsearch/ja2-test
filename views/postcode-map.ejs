@@ -1,0 +1,329 @@
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.8.0/dist/leaflet.css"
+integrity="sha512-hoalWLoI8r4UszCkZ5kL8vayOGVae1oxXe/2A4AO6J9+580uKHDO3JdHb7NzwwzK5xr/Fs0W40kiNHxM9vyTtQ=="
+crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.8.0/dist/leaflet.js"
+integrity="sha512-BB3hKbKWOc9Ez/TAwyWxNXeoV9c1v6FIeYiBieIWkpLjauysF18NzgR1MBNBXf8/KABdlkX68nAhlwcDFLGPCQ=="
+crossorigin=""></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"
+crossorigin=""></script>
+<script src="https://unpkg.com/@ngageoint/leaflet-geopackage@4.1.1/dist/leaflet-geopackage.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css"/>
+
+<style media="screen">
+  #map {
+    height: 400px;
+    width: 92%;
+    margin: 10px auto;
+    border: 1px solid #949494;
+    border-radius: 10px;
+  }
+  div#mapInfo {
+      display: none;
+      position: absolute;
+      top: 13px;
+      right: 10px;
+      background: white;
+      z-index: 900;
+      padding: 10px;
+      box-shadow: 0 0 5px #ff000099;
+      opacity: 0.2;
+      transition: 0.5s all;
+      height: 350px;
+      max-height: 350px;
+      overflow: scroll;
+  }
+  div#mapInfo:hover {
+    opacity: 0.9;
+  }
+  div#districtsCont {
+      display: flex;
+      flex-wrap: wrap;
+      width: 90%;
+      margin: auto;
+      border: 1px solid gainsboro;
+      border-radius: 8px;
+  }
+  .districtChecks:checked ~ label {
+    background: var(--primary);
+    color: white;
+  }
+  .districtChecksBox>label {
+      width: 4em;
+  }
+  .districtChecks {
+      display:none;
+  }
+  .mapFullScreen {
+      font-size: 32px;
+      position: absolute;
+      top: 81px;
+      left: 5%;
+      z-index: 999;
+      padding: 0px 6px;
+      line-height: 40px;
+      border: 1px solid gainsboro;
+      box-shadow: 1px 1px 6px #0000006b;
+  }
+  a[disabled] {
+    color: grey;
+    pointer-events: none;
+  }
+  .mapContainer[disabled] {
+      pointer-events: none;
+      mix-blend-mode: luminosity;
+      opacity: 0.3;
+  }
+</style>
+<button class="btn btn-sm btn-xlsx" id="downloadTableDataBtn" onclick="downloadPcodeData()" disabled>Download location data</button>
+<div class="mapContainer" disabled style="position: relative;">
+  <div id="mapDataTable" style="display:none;">
+  </div>
+  <div id="map"></div>
+  <div id="mapInfo"></div>
+  <div id="districtsCont"></div>
+</div>
+<script type="text/javascript">
+  var map = L.map('map').setView([51.505, -0.09], 13);
+  var markers = L.markerClusterGroup();
+  L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
+    attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
+    maxZoom: 18,
+    id: 'mapbox/streets-v11',
+    tileSize: 512,
+    zoomOffset: -1,
+    accessToken: 'pk.eyJ1IjoibWF0dHdvcnNsZXk4OCIsImEiOiJjbDNiaTlidWMwYm83M2JwNGh6NTNtcWZtIn0.h0OOSKSRUgvRyIfCeRSaBw'
+  }).addTo(map);
+  let addRadio=(plot,serial,pcode)=>{
+    return `<div class="pcodeReplaceOpt"><input type="radio" data-lat="`+plot[0]+`" data-long="`+plot[1]+`" name="`+serial+`" value="`+pcode+`" id="`+serial+`-`+pcode+`"><label for="`+serial+`-`+pcode+`">`+pcode+`</label></div>`
+  }
+  function getMisingPcSuggestion(postcode,el){
+    let td=$(el).parent()
+    $(td).loader({container:'.missingPcodesTable'})
+    return $.ajax({
+      url: '/suggest-postcode/'+encodeURIComponent(postcode),
+      type:'GET',
+      global:false,
+      success:(resp)=>{
+        $(td).loader("done")
+        td.html(resp.result.length>0?resp.result.map(r=>addRadio([r.latitude,r.longitude],$(el).attr("data-serial"),r.postcode)).concat(addRadio([null,null],$(el).attr("data-serial"),'N/A')).join(" "):'None found')
+        if (resp.result.length>0) {
+          let r=resp.result[0]
+          $('input[name="'+$(el).attr("data-serial")+'"]').eq(0).attr('checked',true)
+          let newMarker=L.marker([r.latitude,r.longitude]).bindPopup($(el).attr("data-serial")+": "+r.postcode)
+          let newLayer=markers.addLayer(newMarker).addTo(map)
+          map.fitBounds(markers.getLayers().map(el=>el._latlng))
+          let table=Tabulator.prototype.findTable("#mapDataTable")[0]
+          let updated={
+            longitude:r.longitude,
+            latitude:r.latitude,
+            Matched_postcode:!r.postcode?'':r.postcode,
+            status:'live'
+          }
+          updated.id=table.getData().find(d=>d.Serial==$(el).attr("data-serial")).id
+          table.updateData([updated])
+          let hasMarker=true
+          $('input[name="'+$(el).attr("data-serial")+'"]').on('change',function(e){
+            let updated={
+              longitude:$(e.target).attr('data-long'),
+              latitude:$(e.target).attr('data-lat'),
+              Matched_postcode:!$(e.target).val() || $(e.target).val()=='N/A'?'':$(e.target).val(),
+              status:'live'
+            }
+            updated.id=table.getData().find(d=>d.Serial==$(el).attr("data-serial")).id
+            table.updateData([updated]);
+            if (!hasMarker) {
+              newMarker=L.marker([$(e.target).attr('data-lat'),$(e.target).attr('data-long')]).bindPopup($(e.target).attr('name')+": "+$(e.target).val())
+              newLayer=markers.addLayer(newMarker).addTo(map)
+              hasMarker=true
+            }else {
+              try{
+                newMarker.setLatLng([$(e.target).attr('data-lat'),$(e.target).attr('data-long')]).setPopupContent($(e.target).attr('name')+": "+$(e.target).val())
+              }catch(err){
+                markers.removeLayer(newMarker)
+                hasMarker=false
+                console.log(err)
+              }
+            }
+            map.fitBounds(markers.getLayers().map(el=>el._latlng))
+          })
+        }
+      }
+    })
+  }
+  function getAllMissingPostcodes(){
+    $('button[data-serial]').each(function(e){
+      $(this).click()
+    })
+  }
+  function addDistricts(district){
+    $.getJSON("https://raw.githubusercontent.com/missinglink/uk-postcode-polygons/master/geojson/"+district+".geojson", function( data ) {
+      let l=L.geoJSON(data,{
+        onEachFeature:function (feature, layer) {
+          layer.bindPopup(feature.properties.description)
+        }
+      }).addTo(map)
+      $('#district-'+district).on('change',function(e){
+        l.remove()
+      })
+    })
+  }
+  function downloadPcodeData(){
+    let table=Tabulator.prototype.findTable("#mapDataTable")[0]
+    table.download("xlsx", "Postcode data matchup "+moment().format()+".xlsx")
+  }
+  $('#districtsCont').html('')
+  let districts=['AB','AL','B','BA','BB','BD','BF','BH','BL','BN','BR','BS','BT','BX','CA','CB','CF','CH','CM','CO','CR','CT','CV','CW','DA','DD','DE','DG','DH','DL','DN','DT','DY','E','EC','EH','EN','EX','FK','FY','G','GL','GU','GY','HA','HD','HG','HP','HR','HS','HU','HX','IG','IM','IP','IV','JE','KA','KT','KW','KY','L','(GIR)','LA','LD','LE','LL','LN','LS','LU','M','ME','MK','ML','N','NE','NG','NN','NP','NR','NW','OL','OX','PA','PE','PH','PL','PO','PR','RG','RH','RM','S','SA','SE','SG','SK','SL','SM','SN','SO','SP','SR','SS','ST','SW','SY','TA','TD','TF','TN','TQ','TR','TS','TW','UB','W','WA','WC','WD','WF','WN','WR','WS','WV','YO','ZE']
+  districts.forEach((dist, i) => {
+    $('#districtsCont').append(`<div class="districtChecksBox"><input type="checkbox" id="district-`+dist+`" name="district-`+dist+`" class="districtChecks" value="`+dist+`"><label class="btn btn-flat" for="district-`+dist+`">`+dist+`</label></div>`)
+  });
+  $('.districtChecks').on('change',function(e){
+    $('label[for="'+e.target.id+'"]').toggleClass("btn-flat").toggleClass("btn-primary")
+    if ($(e.target).is(':checked')) {
+      addDistricts($(e.target).val())
+    }
+  })
+  function mapPostcodes(rawData){
+    resetMap()
+    $('.mapContainer').attr('disabled',true)
+    $('.mapContainer').loader()
+    $('#mapInfo').hide()
+    let plots=[]
+    let missing=[]
+    let data=rawData.filter(el=>el.longitude!=0 || el.latitude!=0 || el.postcode)
+    let noLocation=rawData.filter(el=>(el.longitude==undefined || el.longitude==0) && (el.latitude==undefined || el.latitude==0) && !el.postcode)
+    function getData(){
+      return new Promise((resolve,reject)=>{
+        if (data[0].longitude!=undefined) {
+          // plots=data.map(el=>({serial:el.Serial,postcode:"Lat:"+el.Latitude+" Long:"+el.Longitude,plot:[el.Latitude,el.Longitude]}))
+          // $('#downloadTableDataBtn').attr('disabled',false)
+          // var reportTable=new Tabulator("#mapDataTable",{
+          //   data:data.map((el,i)=>({id:i,Serial:el.Serial,latitude:el.Latitude,longitude:el.Longitude})),
+          //   autoColumns:true,
+          // })
+          // resolve()
+          $.ajax({
+            url: '/longlat-lookup',
+            type: 'POST',
+            data: {data:data},
+            success:function(response){
+              plots=response.map(el=>({serial:el.serial,agent:el.agent,intDate:moment(el.intDate).format("DD/MM/YYYY HH:mm:ss"),postcode:(el.postcode?el.postcode:'unknown'),plot:[el.latitude[0],el.longitude[0]]}))
+              $('#downloadTableDataBtn').attr('disabled',false)
+              $("#mapDataTable").empty()
+              if (Tabulator.prototype.findTable("#mapDataTable")) {
+                Tabulator.prototype.findTable("#mapDataTable").forEach(t=>t.destroy())
+              }
+              var reportTable=new Tabulator("#mapDataTable",{
+                data:response.map((el,i)=>({id:i,Serial:el.serial,Agent:el.agent,Interview_Date:moment(el.intDate).format("DD/MM/YYYY HH:mm:ss"),Nearby_postcode:(el.postcode?el.postcode:'unknown'),status:el.status,latitude:el.latitude[0],longitude:el.longitude[0]})).concat(noLocation.map((el,i)=>({id:i+response.length,Serial:el.serial,Agent:el.agent,Interview_Date:moment(el.intDate).format("DD/MM/YYYY HH:mm:ss"),Nearby_postcode:'',status:'',latitude:'',longitude:''}))),
+                autoColumns:true,
+              })
+              resolve()
+            },
+            error:(a,b)=>{
+              reject()
+              alert("Error looking up postcodes in db")
+              console.log(a,b)
+            }
+          })
+        }else {
+          $.ajax({
+            url: '/postcode-lookup',
+            type: 'POST',
+            data: {data:data},
+            success:function(response){
+              plots=response.filter(el=>el.longitude).map(el=>({serial:el.serial,agent:el.agent,intDate:moment(el.intDate).format("DD/MM/YYYY HH:mm:ss"),postcode:el.postcode[0],plot:[el.latitude,el.longitude]}))
+              missing=response.filter(el=>!el.longitude).map(el=>({serial:el.serial,agent:el.agent,postcode:el.postcode[0]}))
+              $('#downloadTableDataBtn').attr('disabled',false)
+              $("#mapDataTable").empty()
+              if (Tabulator.prototype.findTable("#mapDataTable")) {
+                Tabulator.prototype.findTable("#mapDataTable").forEach(t=>t.destroy())
+              }
+              var reportTable=new Tabulator("#mapDataTable",{
+                data:response.map((el,i)=>({id:i,Serial:el.serial,Agent:el.agent,Interview_Date:moment(el.intDate).format("DD/MM/YYYY HH:mm:ss"),Original_postcode:el.postcode[0],Matched_postcode:el.postcode[1],status:el.status,latitude:el.latitude,longitude:el.longitude})).concat(noLocation.map((el,i)=>({id:i+response.length,Serial:el.serial,Agent:el.agent,Interview_Date:moment(el.intDate).format("DD/MM/YYYY HH:mm:ss"),Original_postcode:'',Matched_postcode:'',status:'',latitude:'',longitude:''}))),
+                autoColumns:true,
+              })
+              resolve()
+            },
+            error:(a,b)=>{
+              reject()
+              alert("Error looking up postcodes in db")
+              console.log(a,b)
+            }
+          })
+        }
+      })
+    }
+    getData().then(e=>{
+      $('.mapContainer').attr('disabled',false)
+      if (missing.length>0) {
+        let misHTML=`
+        <h6>Unmatched postcodes</h6><button type="button" class="btn btn-sm btn-primary" name="button" onclick="getAllMissingPostcodes()">Search all</button>
+        <table class="missingPcodesTable table-sm table table-striped table-bordered">
+          <th>Serial</th><th>Agent</th><th>Postcode</th><th>Suggestion</th>`
+        missing.forEach((item, i) => {
+          misHTML=misHTML+`<tr><td>`+item.serial+`</td><td>`+item.agent+`</td><td>`+item.postcode+`</td><td><button type="button" class="btn btn-sm btn-primary" data-serial="`+item.serial+`" onclick="getMisingPcSuggestion('`+item.postcode+`',this)">Search</button></td></tr>`
+        });
+        misHTML=misHTML+"</table>"
+        $('#mapInfo').html(misHTML)
+        $('#mapInfo').show()
+        $('.mapContainer').append(`<button type="button" class="btn btn-light btn-sm mapFullScreen" onclick="fullscreenmap()"><i class="fas fa-expand"></i></button>`)
+      }else {
+        $('#mapInfo').hide()
+      }
+      markers.addLayers(plots.map(plot=>L.marker(plot.plot).bindPopup(`
+      Serial: `+plot.serial+"<br>"
+      +`Agent: `+plot.agent+"<br>"
+      +`Date: `+plot.intDate+"<br>"
+      +`Postcode: `+(plot.postcode?plot.postcode:'unknown'))))
+      map.addLayer(markers);
+      try{
+        map.fitBounds(plots.map(el=>el.plot))
+      }catch(err){
+        console.log(err)
+      }
+      $('.mapContainer').loader('done')
+    }).catch(err=>{
+      resetMap()
+      $('.mapContainer').loader('done')
+    })
+  }
+  function resetMap(){
+    $('#mapInfo').hide()
+    $('#mapInfo').html('')
+    $('.districtChecks').attr('checked',false)
+    $("#mapDataTable").empty()
+    markers.clearLayers()
+  }
+  let defaultData=[{"Serial":"F9561995","Postcode":"TF1 3LH"},{"Serial":"DF31BAAC","Postcode":"TF6 6QE"},{"Serial":"4A302815","Postcode":"TF1 3LQ"},{"Serial":"329F2247","Postcode":"TF2 6HB"},{"Serial":"38FED081","Postcode":"TF1 3EQ"},{"Serial":"4444E6EA","Postcode":"TF4 2PL"},{"Serial":"25B119E9","Postcode":"TF1 5HB"},{"Serial":"C0A80C77","Postcode":"TF3 5AT"},{"Serial":"89227B41","Postcode":"TF1 3PS"},{"Serial":"563811DA","Postcode":"TF6 5DG"},{"Serial":"464F9F26","Postcode":"TF2 9DA"},{"Serial":"52245B56","Postcode":"TF1 3AS"},{"Serial":"0B803FBC","Postcode":"TF4 3BT"},{"Serial":"B8BDFC88","Postcode":"TF10 7SQ"},{"Serial":"792F8701","Postcode":"TF2 9UE"},{"Serial":"2F3E3DFB","Postcode":"TF7 5QJ"},{"Serial":"5B2C20C0","Postcode":"TF6 6LE"},{"Serial":"3C3C70D9","Postcode":"TF1 2EZ"},{"Serial":"A3442F17","Postcode":"TF2 7DQ"},{"Serial":"CA7AF2CB","Postcode":"TF3 5AZ"},{"Serial":"48F00DC6","Postcode":"TF2 8QU"},{"Serial":"B5338111","Postcode":"TF4 2FG"},{"Serial":"7BDD7579","Postcode":"TF2 9PY"},{"Serial":"4D9B17CF","Postcode":"TF4 2RG"},{"Serial":"41ECB1D0","Postcode":"TF1 2HP"},{"Serial":"12053ABE","Postcode":"TF2 9UD"},{"Serial":"894CAD95","Postcode":"TF1 2ER"},{"Serial":"63D5418C","Postcode":"TF1 6YJ"},{"Serial":"D40F8E7C","Postcode":"TF10 8LH"},{"Serial":"288AC6C9","Postcode":"TF1 3NJ"},{"Serial":"BBD30B2C","Postcode":"TF4 3SJ"},{"Serial":"CDE03E58","Postcode":"TF1 3BP"},{"Serial":"28A4865E","Postcode":"TF1 6FX"}]
+  function fullscreenmap(){
+    // if already full screen; exit
+    // else go fullscreen
+    if (
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.mozFullScreenElement ||
+      document.msFullscreenElement
+    ) {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      } else if (document.mozCancelFullScreen) {
+        document.mozCancelFullScreen();
+      } else if (document.webkitExitFullscreen) {
+        document.webkitExitFullscreen();
+      } else if (document.msExitFullscreen) {
+        document.msExitFullscreen();
+      }
+    } else {
+      element = $('#map').get(0);
+      if (element.requestFullscreen) {
+        element.requestFullscreen();
+      } else if (element.mozRequestFullScreen) {
+        element.mozRequestFullScreen();
+      } else if (element.webkitRequestFullscreen) {
+        element.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+      } else if (element.msRequestFullscreen) {
+        element.msRequestFullscreen();
+      }
+    }
+  }
+</script>

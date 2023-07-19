@@ -1,0 +1,214 @@
+<%- include('partials/'+versionPages.header) %>
+<style media="screen">
+
+  .tabulator .tabulator-header{
+    font-weight: 500!important;
+    font-size: small!important;
+  }
+  .tabulator .tabulator-header .tabulator-col .tabulator-col-content{
+    padding: 2px!important;
+    text-align: center;
+  }
+  .tabulator .tabulator-cell{
+    padding: 2px!important;
+    text-align: center;
+  }
+  [tabulator-field="clientName"]{
+    text-align: left!important;
+  }
+  .colToggle {
+    padding: 0px 2px;
+    margin: 0px 0px 0px 5px;
+    font-size: 13px;
+    border:none;
+  }
+  .tabulator-tree-level-1.tabulator-row-even {
+      background-color: #f1f8ff!important;
+  }
+  .tabulator-tree-level-1.tabulator-row-odd {
+      background-color: #e0efff!important;
+  }
+  .openRow{
+    color: #ffffff;
+    font-weight: 500;
+    background-color: #4fa4ff!important;
+  }
+</style>
+<script type="text/javascript">
+  $(document).ready(function(){
+    try{
+      $().reportFilter({
+        filters:{
+          stDate:"<%=currPayPeriodSt%>",
+          enDate:"<%=currPayPeriodEn%>"
+        },
+        onRefresh:(vals)=>{
+          rTable.setData('/get-client-stats',{stdate:vals.stDate, endate:vals.enDate})
+        }
+      })
+    }catch(e){
+      $('#oldFilters').show()
+    }
+    let spendCols=[]
+    let salesCols=[]
+    var rTable=new Tabulator("#clientTable",{
+      autoResize:true,
+      layout:"fitData",
+      height:"600px",
+      ajaxURL:'/get-client-stats',
+      ajaxParams:{stdate:'<%=currPayPeriodSt%>', endate:'<%=currPayPeriodEn%>'},
+      layoutColumnsOnNewData:true,
+      dataTree:true,
+      ajaxResponse:function(url, params, response){
+        spendCols=response.costTypes.map(el=>{
+          return {field:'spend.'+el.costTypeName,title:el.costTypeName,responsive:1,width:100,formatter:'money',visible:false}
+        })
+        salesCols=response.costTypes.map(el=>{
+          return {field:'sales.'+el.costTypeName,title:el.costTypeName,responsive:1,width:100,formatter:'money',visible:false}
+        })
+        let data=response.clients.map(c=>{
+          c._children=response.projects.filter(p=>p.clientID==c.clientID).map(p=>{
+            p.clientName=p.quoteNo+" "+p.quoteName
+            let sales={}
+            response.costTypes.forEach((type, i) => {
+              let salesArr=response.sales.filter(el=>el.costTypeID==type.costTypeID && el.projectID==p.projectID)
+              sales[type.costTypeName]=salesArr?salesArr.reduce((a,b)=>a+b.sales,0):0
+            });
+            sales['Data Processing']=sales['Data Processing']+p.pmfee
+            sales['Telephone sample']=sales['Telephone sample']+p.samplefee
+            p.sales=sales
+            p.salesTotal=Object.keys(sales).reduce((a,b)=>a+sales[b],0)
+            let spend={}
+            response.costTypes.forEach((type, i) => {
+              let spendArr=response.spends.filter(el=>el.typeID==type.costTypeID && el.projectID==p.projectID)
+              spend[type.costTypeName]=spendArr?spendArr.reduce((a,b)=>a+b.spend,0):0
+            });
+            spend['UK Telephone Fieldwork']=spend['UK Telephone Fieldwork']+p.catiSpend
+            p.spend=spend
+            p.spendTotal=Object.keys(spend).reduce((a,b)=>a+spend[b],0)
+            p.completed=p.recruit==1?'Qual recruit':'Quant'
+            return p
+          })
+          let sales={}
+          response.costTypes.forEach((type, i) => {
+            let salesArr=c._children
+            sales[type.costTypeName]=salesArr?salesArr.reduce((a,b)=>a+b.sales[type.costTypeName],0):0
+          });
+          c.sales=sales
+          c.salesTotal=Object.keys(sales).reduce((a,b)=>a+sales[b],0)
+          let spend={}
+          response.costTypes.forEach((type, i) => {
+            let spendArr=c._children
+            spend[type.costTypeName]=spendArr?spendArr.reduce((a,b)=>a+b.spend[type.costTypeName],0):0
+          });
+          c.spend=spend
+          c.spendTotal=Object.keys(spend).reduce((a,b)=>a+spend[b],0)
+          c.contacts=c._children.map(p=>p.contacts.trim()).filter((el,i,self)=>self.indexOf(el)==i).join(', ')
+          c.contactsInfo=c._children.map(p=>p.contacts.trim()+" <"+p.contactsEmail.trim()+">").filter((el,i,self)=>self.indexOf(el)==i).join('; ')
+          return c
+        })
+        return data
+      },
+      columns:[
+        {field:'clientName',title:'Client',width:200,responsive:0,frozen:true,cellClick:(e,cell)=>{
+          if (cell.getData().contactsInfo) {
+            cell.getRow().treeExpand()
+          }else {
+            window.open('/overview/'+cell.getData().quoteID)
+          }
+        }},
+        {field:'contacts',title:'PM(s)',width:200,responsive:0,cellClick:(e,cell)=>{
+          if (cell.getData().contactsInfo) {
+            var mail = document.createElement("a");
+            mail.href = "mailto:"+cell.getData().contactsInfo;
+            mail.click()
+            mail.remove()
+            $('body').removeClass("loading")
+          }
+          return false
+        },formatter:(cell,i,onRendered)=>{
+          if (cell.getData().contactsInfo) {
+            onRendered(function(){
+              $(cell.getElement()).tooltip({
+                title:cell.getData().contactsInfo
+              })
+            })
+          }
+          return cell.getValue()
+        }},
+        {field:'completed',title:'Jobs completed',width:100,responsive:0},
+        {field:'cont',title:'Contribution',width:100,responsive:0,formatter:cell=>cell.getValue()?(cell.getValue()*100).toFixed(2)+"%":'-%'}
+      ],
+      dataLoaded:function(data){
+        let table=this
+        table.getColumns().forEach((col, i) => {
+          if (col.getField().indexOf('sales')>-1 || col.getField().indexOf('spend')>-1) {
+            col.delete()
+          }
+        });
+        let spendHeader=function(col,params,onRendered){
+          let btn=document.createElement("button");
+          $(btn).html('<i class="fas fa-columns"></i>')
+          $(btn).addClass("btn btn-outline-primary colToggle")
+          onRendered(function(){
+            $(col.getElement()).append(btn)
+            $(btn).on('click',function(e){
+              table.getColumns().forEach((col, i) => {
+                if(col.getField().indexOf('spend')>-1){
+                  col.toggle()
+                }
+              });
+              table.redraw()
+            })
+          })
+          return col.getValue()
+        }
+        let salesHeader=function(col,params,onRendered){
+          let btn=document.createElement("button");
+          $(btn).html('<i class="fas fa-columns"></i>')
+          $(btn).addClass("btn btn-outline-primary colToggle")
+          onRendered(function(){
+            $(col.getElement()).append(btn)
+            $(btn).on('click',function(e){
+              table.getColumns().forEach((col, i) => {
+                if(col.getField().indexOf('sales')>-1){
+                  col.toggle()
+                }
+              });
+              table.redraw()
+            })
+          })
+          return col.getValue()
+        }
+        table.addColumn({field:'',title:'Spend',columns:[{field:'spendTotal',title:'Total',formatter:'money',responsive:1,width:100,formatterParams:{symbol:'£'}}],width:100,visible:true,titleFormatter:spendHeader,headerSort:false},false)
+        table.addColumn({field:'spendDetail',title:'Spend breakdown',columns:spendCols,visible:false,titleFormatter:spendHeader},false)
+        table.addColumn({field:'',title:'Sales',columns:[{field:'salesTotal',title:'Total',formatter:'money',responsive:1,width:100,formatterParams:{symbol:'£'}}],width:100,visible:true,titleFormatter:salesHeader,headerSort:false},false)
+        table.addColumn({field:'salesDetail',title:'Sales breakdown',columns:salesCols,visible:false,titleFormatter:salesHeader},false)
+      },
+      dataTreeRowExpanded:(row)=>{
+        $(row.getElement()).addClass("openRow")
+      },
+      dataTreeRowCollapsed:(row)=>{
+        $(row.getElement()).removeClass("openRow")
+      }
+    })
+    $('.inputdate').on('change',function(e){
+      rTable.setData('/get-client-stats',{stdate:$('#stdate').val(), endate:$('#endate').val()})
+    })
+  })
+</script>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5 class="card-title">Client Report</h5>
+      <div id="oldFilters" style="display:none;">
+        <input type="date" style="display:inline; width:auto;" max='<%=moment().subtract(1,'d').format("YYYY-MM-DD")%>' class="form-control inputdate" id="stdate" name="stdate" style="width:200px; margin:auto;" value="<%=currPayPeriodSt%>"> to <input type="date" max='<%=moment().format("YYYY-MM-DD")%>' style="display:inline; width:auto;" class="inputdate form-control" id="endate" name="endate" style="width:200px; margin:auto;" value="<%=currPayPeriodEn%>">
+      </div>
+      <div id="clientTable">
+
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

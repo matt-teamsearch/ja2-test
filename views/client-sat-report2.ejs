@@ -1,0 +1,521 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .good{
+    fill: #28a745cf;
+    color: #28a745cf;
+  }
+  .bad{
+    fill: #a72828cf;
+    color: #a72828cf;
+  }
+  .neutral{
+    fill: #a77428cf;
+    color: #a77428cf;
+  }
+  .single{
+    width:40%;
+    display:inline-block;
+    margin:auto;
+  }
+  .double{
+    width:20%;
+    display:inline-block;
+    margin:auto;
+  }
+  #s5bar {
+    margin-top: 40px;
+    cursor: pointer;
+  }
+  .smileys {
+    display: inline-block;
+    vertical-align: top;
+    margin-bottom:40px;
+  }
+  .fa-smile{
+    color: #28a745cf;
+  }
+  .fa-frown{
+    color: #a72828cf;
+  }
+  .tooltip-inner{
+    text-align:left;
+  }
+  .bs-tooltip-top{
+    left:5px!important;
+  }
+  [data-toggle='tooltip']{
+    cursor:pointer;
+  }
+  .tabulator-col-content {
+    padding: 3px!important;
+    font-size: smaller;
+  }
+  .tabulator-cell{
+    white-space: normal!important;
+    font-size: smaller;
+  }
+  .tabulator-cell,.tabulator-col-content {
+    padding: 3px!important;
+  }
+  @-webkit-keyframes flashBorder {
+    0%   { box-shadow:inset 0 0 0px 0px #ffc107 }
+    25%  { box-shadow:inset 0 0 9px 2px #ffc107 }
+    50% { box-shadow:inset 0 0 0px 0px #ffc107 }
+    75%  { box-shadow:inset 0 0 9px 2px #ffc107 }
+    100% { box-shadow:inset 0 0 0px 0px #ffc107 }
+  }
+  .flashBorder{
+    animation-name: flashBorder;
+    animation-duration: 1s;
+    animation-fill-mode: forwards;
+  }
+  .actionBtns {
+    height: 100%;
+    width: 100%;
+    font-size: 21px;
+    padding: 2px;
+    line-height: 1em;
+    border: none;
+  }
+  .actionBtns.btn-outline-success {
+    pointer-events:none;
+    cursor:initial;
+  }
+  #nonResponderTable .tabulator-col-title {
+    white-space: break-spaces!important;
+  }
+</style>
+<script type="text/javascript">
+  let clients=<%-JSON.stringify(clients)%>
+  function loadGraphs(){
+    $('.card-body.viewerHeight').loader({info:'Talking to Forsta',container:".container"})
+    getCsatScoresF({stDate:$('#stdate').val(),enDate:$('#endate').val()}).then(projectsF=>{
+      // getCsatScores({stDate:$('#stdate').val(),enDate:$('#endate').val()}).then(projects=>{
+        let projects=projectsF
+        // console.log(projects)
+        var staffData=<%-JSON.stringify(staff)%>
+        staffData=staffData.map(staff=>{
+          var staffResp=projects.filter(el=>el.projectCM==staff.staffID || (el.projectDP==staff.staffID && el.s5pm))
+          var staffMean=NaN
+          if (staffResp) {
+            var scoreSum=staffResp.reduce((a,b)=>{
+              var ret
+              if (staff.staffJobTitleID==5) {
+                ret=b.s5cm
+              }else if (staff.staffJobTitleID==6){
+                ret=b.s5pm
+              }
+              return a+Number(ret)
+            },0)
+            staffMean=scoreSum/staffResp.length
+            staffMean=Math.round(staffMean * 100) / 100
+          }
+          staff.s5=staffMean
+          return staff
+        })
+        const data = {
+          labels: staffData.map(el=>el.staffName),
+          datasets: [{
+            label: 'Overall',
+            data: staffData.map(el=>el.s5),
+            backgroundColor: staffData.map(el=>el.s5<7?'#a72828cf':(el.s5<8.75?'#a77428cf':'#28a745cf')),
+            borderWidth: 1
+          }]
+        };
+        const config = {
+          type: 'bar',
+          data: data,
+          options: {
+            plugins: {
+              datalabels: {
+                color:"white"
+              }
+            },
+            scales: {
+              yAxes: [{
+                display: false,
+                ticks: {
+                  beginAtZero: true
+                }
+              }],
+              xAxes: [{
+                display: true
+              }]
+            },
+            legend: {
+              display: false,
+            },
+            onClick: (e) => {
+              var xLabel = window.s5chart.scales['x-axis-0'].getValueForPixel(e.offsetX);
+              var table=Tabulator.prototype.findTable('#feedbackTable')[0]
+              var filters=table.getFilters().length>0?table.getFilters()[0][0].value:NaN
+              if (filters==staffData[xLabel].staffID) {
+                table.clearFilter()
+                $('#fbTableTitle').html("All feedback")
+              }else {
+                table.setFilter([[
+                {field:"projectCM", type:"=", value:staffData[xLabel].staffID},
+                {field:"projectDP", type:"=", value:staffData[xLabel].staffID}
+                ]])
+                $('#fbTableTitle').html(staffData[xLabel].staffName+"'s feedback")
+              }
+            }
+          },
+        };
+        if (window.s5chart) {
+          window.s5chart.destroy()
+        }
+        window.s5chart = new Chart($('#s5bar'),config)
+        var overall=projects.map(el=>el.s5calc).reduce((a,b)=>a+Number(b),0)
+        overall=overall/projects.length
+        var overallPm=projects.filter(el=>el.s5pm).reduce((a,b)=>a+Number(b.s5pm),0)
+        overallPm=overallPm/projects.filter(el=>el.s5pm).length
+        var overallCm=projects.reduce((a,b)=>a+Number(b.s5cm),0)
+        overallCm=overallCm/projects.length
+        $('#s5gauge').html('')
+        $('#s5gaugePm').html('')
+        $('#s5gaugeCm').html('')
+        createGauge(overall,'s5gauge','Overall',8.75,0,10,false,false,isNaN(overall))
+        createGauge(overallPm,'s5gaugePm','Data/Scripting',8.75,0,10,false,false,isNaN(overallPm))
+        createGauge(overallCm,'s5gaugeCm','Management/Comms',8.75,0,10,false,false,isNaN(overallCm))
+        $('#smileyCont').html('')
+        for (var i = 0; i < staffData.length; i++) {
+          var staff=staffData[i]
+          var proj=projects.filter(el=>el.projectCM==staff.staffID || (el.projectDP==staff.staffID && el.s5pm))
+          var smileyTxt=''
+          for (var p = 0; p < proj.length; p++) {
+            var s5=(proj[p].projectCM==staff.staffID?proj[p].s5cm:proj[p].s5pm)
+            var ttle="<h5>"+proj[p].quoteNo+" "+proj[p].quoteName+"</h5><b>Overall</b> - "+proj[p].s5+"<br><b>"+staff.staffName+"'s score</b> - "+s5+"<br><br><b>Scripting</b> - "+proj[p].s5_1+"<br><b>Data</b> - "+proj[p].s5_2+"<br><b>Management</b> - "+proj[p].s5_3+"<br><b>Comms</b> - "+proj[p].s5_4+"<br><br><b>What did we do well?</b> - "+proj[p].s3+"<br><br><b>Where could we improve?</b> - "+proj[p].s4
+            if (s5>=8.75) {
+              smileyTxt=smileyTxt+'<i data-toggle="tooltip" data-className="smiley" data-projid="'+proj[p].BrokerPanelId+'" data-html="true" title="'+shorten(ttle,400)+'" class="far fa-smile"></i>'
+            }else {
+              smileyTxt=smileyTxt+'<i data-toggle="tooltip" data-className="smiley" data-projid="'+proj[p].BrokerPanelId+'" data-html="true" title="'+shorten(ttle,400)+'" class="far fa-frown"></i>'
+            }
+          }
+          $('#smileyCont').append('<div class="smileys" style="width:'+100/staffData.length+'%">'+smileyTxt+'</div>')
+        }
+        $('[data-toggle="tooltip"]').tooltip({
+          container:'body',
+        })
+        function shorten(str,len){
+          return str.length>(len-3)?str.substring(0,len)+"...":str
+        }
+        var ynFormat=function(cell){return cell.getValue()==1?'Y':(cell.getValue()==2?'N':'')}
+        function initial(str){
+          var ret=""
+          for (var i = 0; i < str.split(' ').length; i++) {
+            ret=ret+str.split(' ')[i].charAt(0).toUpperCase()
+          }
+          return ret
+        }
+        var scoreFormat=function(cell){
+          return cell.getValue()>=0?cell.getValue():'n/a'
+        }
+        console.log("fb data",projects)
+        if (Tabulator.prototype.findTable('#feedbackTable')[0]) {
+          Tabulator.prototype.findTable('#feedbackTable')[0].destroy()
+        }
+        var fbTable=new Tabulator("#feedbackTable",{
+          autoResize:true,
+          layout:"fitColumns",
+          height:'500px',
+          resizableColumns:false,
+          data:projects,
+          index:"BrokerPanelId",
+          columns:[
+          {field:'BrokerPanelId',visible:false},
+          {title:'Project', field:'quoteName', widthGrow:1,accessorDownload:(v,d)=>d.quoteNo+" "+v, formatter:function(cell){return cell.getData().quoteNo+" "+cell.getValue()}},
+          {title:'Date',field:'respDate',accessorDownload:v=>moment(v).format("DD/MM/YYYY"), widthGrow:0.5, sorter:(a,b)=>moment(a).valueOf()-moment(b).valueOf(),formatter:function(cell){
+            return cell.getValue()?moment(cell.getValue()).format("DD/MM/YYYY"):'-'
+          }},
+          {field:'projectDP',visible:false,download:true,title:"PM",accessorDownload:v=>staffData.find(s=>s.staffID==v)?staffData.find(s=>s.staffID==v).staffName:"n/a"},
+          {field:'projectCM',visible:false,download:true,title:"CM",accessorDownload:v=>staffData.find(s=>s.staffID==v)?staffData.find(s=>s.staffID==v).staffName:"n/a"},
+          // {title:'CM',field:'cmName', formatter:function(cell){return cell.getData().projectCM>0?initial(cell.getValue()):'n/a'}},
+          // {title:'PM',field:'pmName', formatter:function(cell){return cell.getData().projectDP>0?initial(cell.getValue()):'n/a'}},
+          {title:'Overall sat',field:'s5'},
+          {title:'Scripting',field:'s5_1',formatter:scoreFormat,accessorDownload:v=>v>=0?v:'n/a'},
+          {title:'Data',field:'s5_2',formatter:scoreFormat,accessorDownload:v=>v>=0?v:'n/a'},
+          {title:'Management',field:'s5_3',formatter:scoreFormat,accessorDownload:v=>v>=0?v:'n/a'},
+          {title:'Comms',field:'s5_4',formatter:scoreFormat,accessorDownload:v=>v>=0?v:'n/a'},
+          {title:'Started on time?',visible:false,download:true,field:'s1a', formatter:ynFormat,accessorDownload:v=>v==1?"Y":(v==2?"N":'n/a')},
+          {title:'Finished on time?',visible:false,download:true,field:'s1b', formatter:ynFormat,accessorDownload:v=>v==1?"Y":(v==2?"N":'n/a')},
+          {title:'Hit quotas?',visible:false,download:true,field:'s1c', formatter:ynFormat,accessorDownload:v=>v==1?"Y":(v==2?"N":'n/a')},
+          {title:'Took hassle out of fieldwork?',visible:false,download:true,field:'s2', formatter:ynFormat,accessorDownload:v=>v==1?"Y":(v==2?"N":'n/a')},
+          {title:'What did we do well?',field:'s3',formatter:"html", widthGrow:2},
+          {title:'What could we have done better?', widthGrow:2,field:'s4'},
+          {field:'clientID',visible:false,download:true,title:"Client",accessorDownload:v=>clients.find(c=>c.clientID==v).clientName},
+          {title:'Responder',field:'cName', widthGrow:0.5}
+          ],
+        })
+        $.ajax({
+          url: '/all-projects-raw',
+          type: 'POST',
+          global:false,
+          contentType: 'application/json',
+          data: JSON.stringify({stDate:$('#stdate').val(),enDate:$('#endate').val()}),
+          success: function (projectsRaw) {
+            // console.log("after ajax",allProjectsRaw)
+            // console.log("clientTable",clients)
+            var clientTable=new Tabulator("#clientTable",{
+              autoResize:true,
+              layout:"fitColumns",
+              height:'500px',
+              selectable:1,
+              resizableColumns:false,
+              initialSort:'completed',
+              data:clients.map(client=>{
+                let clientProj=projectsRaw.filter(el=>el.clientID==client.clientID && new Date(el.endDate).getTime()<new Date($('#endate').val()).getTime())
+                client.completed=clientProj.length
+                let clientScored=projects.filter(el=>el.s5>=0 && el.clientID==client.clientID)
+                client.scored=clientScored.length
+                function getScore(q){
+                  return clientScored.filter(el=>Number(el[q])/2>=0).reduce((a,b)=>a+Number(b[q]),0)/clientScored.filter(el=>Number(el[q])/2>=0).length || 'na'
+                }
+                client.s5=getScore('s5')
+                for (var i = 1; i < 5; i++) {
+                  client['s5_'+i]=getScore('s5_'+i)
+                }
+                return client
+              }).filter(el=>el.completed>0),
+              index:"clientID",
+              columns:[
+              {field:'clientID',visible:false},
+              {field:'clientName',title:'Client'},
+              {field:'completed',title:'Projects completed'},
+              {field:'scored',title:'Projects scored'},
+              {field:'s5',title:'Overall sat'},
+              {field:'s5_1',title:'Scripting'},
+              {field:'s5_2',title:'Data'},
+              {field:'s5_3',title:'Management'},
+              {field:'s5_4',title:'Comms'},
+              ],
+              rowClick:(e,row)=>{
+                var table=fbTable
+                var filters=table.getFilters().length>0?table.getFilters()[0][0].value:NaN
+                if (filters==row.getData().clientID) {
+                  table.clearFilter()
+                  $('#fbTableTitle').html("All feedback")
+                }else {
+                  table.setFilter([[
+                  {field:"clientID", type:"=", value:row.getData().clientID}
+                  ]])
+                  $('#fbTableTitle').html(row.getData().clientName+"'s feedback")
+                }
+              }
+            })
+            // console.log('nonResponderTable',projectsRaw.filter(el=>!projects.find(p=>p.projectID==el.projectID) && new Date(el.endDate).getTime()<new Date().getTime() && el.excludeFromCsat!=1).map(el=>({...el,...clients.find(c=>c.clientID==el.clientID)})))
+              var nonResponderTable=new Tabulator("#nonResponderTable",{
+                autoResize:true,
+                layout:"fitColumns",
+                height:'500px',
+                data:projectsRaw.filter(el=>!projects.find(p=>p.projectID==el.projectID) && new Date(el.endDate).getTime()<new Date().getTime() && el.excludeFromCsat!=1).map(el=>({...el,...clients.find(c=>c.clientID==el.clientID)})),
+                  columns:[
+                  // {formatter:"rowSelection", titleFormatter:"rowSelection", align:"center", headerSort:false},
+                  {title:'Project', field:'projectName', widthGrow:1, mutator:function(val,d){return d.quoteNo+" "+d.quoteName}},
+                  {title:'Client', field:'clientName'},
+                  {title:'Client PM', field:'contactName'},
+                  {title:'Project finished', field:'endDate', formatter:function(cell){return cell.getValue()?moment.utc(cell.getValue()).format("DD/MM/YYYY"):''}},
+                  {title:'Email chase 1', field:'csatEmailChased', editor:'tickCross', formatter:function(cell){return cell.getValue()?moment.utc(cell.getValue()).format("DD/MM/YYYY"):''}},
+                  {title:'Email chase 2', field:'csatPhoneChased', editor:'tickCross', formatter:function(cell){return cell.getValue()?moment.utc(cell.getValue()).format("DD/MM/YYYY"):''}},
+                  {title:'Chase now',columns:[
+                  {width:45,formatter:(cell)=>`<button type="button" class="`+(cell.getData().csatEmailChased?'btn btn-sm btn-flat btn-outline-success':'btn btn-sm btn-outline-primary')+` actionBtns" title="Send first email chase" onclick="emailChase(`+cell.getData().projectID+`)"><i class="`+(cell.getData().csatEmailChased?'fas fa-check':'far fa-envelope')+`"></i></button>`},
+                  {width:45,formatter:(cell)=>`<button type="button" `+(cell.getData().csatEmailChased?'':'disabled')+` class="`+(cell.getData().csatPhoneChased?'btn btn-sm btn-flat btn-outline-success':'btn btn-sm btn-outline-primary')+` actionBtns" title="Send second email chase" onclick="phoneChase(`+cell.getData().projectID+`)"><i class="`+(cell.getData().csatPhoneChased?'fas fa-check':'far fa-envelope')+`"></i></button>`},
+                  ]},
+                  {title:'Chase notes', field:'csatChaseNote', editor:'textarea',cellEdited:(cell)=>{
+                    updateNote(moment().format("YYYY-MM-DD"),cell.getValue(),'nonResponderTable',cell.getData().projectID)
+                  }},
+                  ],
+                })
+              }
+            })
+            $('.card-body.viewerHeight').loader('done')
+    })
+  }
+  function createGauge(data,id,title,target,min,max,reverse,perc,isnull){
+    var valClass=""
+    if (reverse) {
+      if (data*0.8>target) {
+        valClass="bad"
+      }else if (data<=target) {
+        valClass="good"
+      }else {
+        valClass="neutral"
+      }
+    }else {
+      if (data<target*0.8) {
+        valClass="bad"
+      }else if (data>=target) {
+        valClass="good"
+      }else {
+        valClass="neutral"
+      }
+    }
+    data=Math.round(data * 100) / 100
+    Gauge(
+       document.getElementById(id),
+       {
+         min: min,
+         max: max,
+         dialStartAngle: 180,
+         dialEndAngle: 0,
+         value: 0.00,
+         label: function(val) {
+           var gVal=data
+           if (perc) {
+             gVal=data+"%"
+           }
+           if(isnull){
+             gVal=''
+           }
+           return gVal
+         },
+         valueClass: valClass,
+         viewBox: "0 0 100 57",
+         title: title,
+         color: function(value) {
+           let col
+           if (reverse) {
+             if (value*0.8>target) {
+               col="rgb(219, 70, 70)"
+             }else if (value<=target) {
+               col="rgb(50, 168, 82)"
+             }else {
+               col="rgb(219, 132, 70)"
+             }
+           }else {
+             if (value<target*0.8) {
+               col="rgb(219, 70, 70)"
+             }else if (value>=target) {
+               col="rgb(50, 168, 82)"
+             }else {
+               col="rgb(219, 132, 70)"
+             }
+           }
+           return col
+         }
+       }
+     ).setValueAnimated(data,1.5)
+  }
+$(document).ready(function () {
+  loadGraphs()
+  $().reportFilter({
+    filters:{
+      stDate:$('#stdate').val(),
+      enDate:$('#endate').val()
+    },
+    onRefresh:(vals)=>{
+      $('#stdate').val(vals.stDate)
+      $('#endate').val(vals.enDate)
+      loadGraphs()
+    },
+  })
+  // $('.selectFilters').on('change',function(e){
+  //   loadGraphs()
+  // })
+})
+
+$(document).on('click', '[data-className="smiley"]', function(evt) {
+  $('.flashBorder').removeClass("flashBorder")
+  var table=Tabulator.prototype.findTable('#feedbackTable')[0]
+  table.clearFilter(true)
+  var row=$(this).attr("data-projid")
+  table.scrollToRow(row,"top").then(function(e){
+    $(table.getRow(row).getElement()).addClass("flashBorder")
+  }).catch(function(err){
+    console.log(err)
+  })
+})
+function downloadTable(id,name){
+  Tabulator.prototype.findTable('#'+id)[0].download("xlsx", name+" "+moment.utc($('#stdate').val()).format("DDMMYY")+"-"+moment.utc($('#endate').val()).format("DDMMYY")+".xlsx", {sheetName:"Client sat"});
+}
+function phoneChase(projectID){
+  $.ajax({
+    url: '/send-csat-chase/1/'+projectID,
+    type: 'GET',
+    contentType: 'application/json',
+    success: function (response) {
+      window.FlashMessage.success('Email sent!');
+      let table=Tabulator.prototype.findTable("#nonResponderTable")[0]
+      table.getRows().forEach((row, i) => {
+        if (row.getData().projectID==projectID) {
+          row.update({csatPhoneChased:new Date()})
+          row.reformat()
+        }
+      });
+    },
+    error: function (jqXHR, exception) {
+      alert(getErrorMessage(jqXHR, exception))
+    },
+  });
+}
+function emailChase(projectID){
+  $.ajax({
+    url: '/send-csat-chase/0/'+projectID,
+    type: 'GET',
+    contentType: 'application/json',
+    success: function (response) {
+      window.FlashMessage.success('Email sent!');
+      let table=Tabulator.prototype.findTable("#nonResponderTable")[0]
+      table.getRows().forEach((row, i) => {
+        if (row.getData().projectID==projectID) {
+          row.update({csatEmailChased:new Date()})
+          row.reformat()
+        }
+      });
+    },
+    error: function (jqXHR, exception) {
+      alert(getErrorMessage(jqXHR, exception))
+    },
+  });
+}
+function updateNote(date,note,table,jobID){
+  var data =[]
+  var jsonData={};
+  var vals=[]
+  jsonData.tableName=table
+  jsonData.jobID=jobID
+  jsonData.date=date
+  jsonData.page='client-sat-report'
+  jsonData.note=note
+  data.push(jsonData)
+  $.ajax({
+      url: '/update-note',
+      type: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify(data),
+      success: function (response) {
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+  });
+}
+</script>
+  <div class="container" style="padding-top:70px;">
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body viewerHeight">
+        <h4 class="card-title">Client Satisfaction</h4>
+        <div style="display:none;" id="oldFilters">
+          <input type="date" style="display:inline; width:auto;" class="form-control inputdate selectFilters" id="stdate" name="stdate" value="<%=moment.utc(tdy).subtract(3,'months').format("YYYY-MM-DD")%>" style="width:200px; margin:auto;"> to <input type="date" style="display:inline; width:auto;" class="selectFilters inputdate form-control" id="endate" name="endate" value="<%=tdy%>" style="width:200px; margin:auto;">
+        </div>
+        <br>
+        <div class="gaugeCont double"><div id="s5gaugePm" ></div>Data/Scripting</div>
+        <div class="gaugeCont single"><div id="s5gauge"></div>Overall</div>
+        <div class="gaugeCont double"><div id="s5gaugeCm"></div>Management/Comms</div>
+        <canvas id="s5bar" height="50"></canvas>
+        <div id="smileyCont"></div>
+        <h2 id="fbTableTitle" class="">All feedback</h2>
+        <button type="button" class="btn btn-sm btn-xlsx" onclick="downloadTable('feedbackTable','Project Feedback')">Download to XLSX</button>
+        <div id="feedbackTable"></div>
+        <h2 id="fbTableTitle" class="">Clients</h2>
+        <button type="button" class="btn btn-sm btn-xlsx" onclick="downloadTable('clientTable','Client Feedback')">Download to XLSX</button>
+        <div id="clientTable"></div>
+        <h2 id="fbTableTitle" class="">Non-responders</h2>
+        <button type="button" class="btn btn-sm btn-xlsx" onclick="downloadTable('nonResponderTable','Csat non-responses')">Download to XLSX</button>
+        <!-- <button type="button" class="btn btn-outline-info btn-sm" onclick="sendChaser()">Chase selected</button> -->
+        <div id="nonResponderTable"></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

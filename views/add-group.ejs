@@ -1,0 +1,154 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  $(document).on('change', '#CPIs', function(evt) {
+    var val=0
+    var cnt=0
+    $(this).find('option:selected').each(function() {
+      cnt++
+      val=val+Number($(this).attr('data-cpi'))
+    });
+    if (cnt>0) {
+      $('#quotedCPI').val(Math.round(val/cnt,2))
+    }else {
+      alert("Must select at least one CPI")
+    }
+  })
+</script>
+<div class="container" style="padding-top:70px;">
+  <% if (message) { %>
+    <p class="text-center text-danger"><%= message %></p>
+    <% } %>
+    <% if (project) { %>
+      <%  project.forEach((project , index) => { %>
+        <div class="card-header text-center py-2"><strong>Add a new target group</strong></div>
+        <form class="add-project-form form-styles" action="" method="post" enctype="multipart/form-data">
+          <input type="text" name="user" id="user" style="display:none;">
+          <input type="text" name="projectID" id="projectID" style="display:none;" value="<%= project.projectID %>">
+          <div class="card-header text-center py-2"><strong><%= project.quoteNo %> <%= project.quoteName %></strong></div>
+          <div class="form-row">
+            <div class="form-group col-md-5">
+              <label for="groupName">Group Name</label>
+              <input type="text" class="form-control" name="groupName" id="groupName" value="" required>
+            </div>
+            <div class="form-group col-md-3">
+              <label for="Audience">Audience</label>
+              <select class="selectpicker" data-style="btn-light" name="Audience" id="Audience" required>
+                <optgroup label="Select Table">
+                  <option value="" >Select Audience</option>
+                  <option value="1">Business</option>
+                  <option value="2">Consumer</option>
+                  <option value="3">Both</option>
+                </optgroup>
+              </select>
+            </div>
+            <div class="form-group col-md-3">
+              <label for="Shift">Shift</label>
+              <select class="selectpicker" data-style="btn-light" name="Shift" id="Shift">
+                <optgroup label="Select Table">
+                  <option value="" >Select Shift</option>
+                  <option value="1">Day</option>
+                  <option value="2">Evening</option>
+                  <option value="3" style="display:none;">Both</option>
+                  <option value="4">NA</option>
+                </optgroup>
+              </select>
+            </div>
+          </div>
+          <div class="form-group col-md-6">
+            <label id="CATI-Clicker" class="btn btn-outline-secondary">
+              <input type="checkbox" name="CATIPhone" id="CATIPhone" value="1"> CATI
+            </label>
+            <label id="Recruit-Clicker" class="btn btn-outline-secondary">
+              <input type="checkbox" name="Recruit" id="Recruit" value="1"> Recruit
+            </label>
+            <label id="F2F-Clicker" class="btn btn-outline-secondary">
+              <input type="checkbox" name="F2F" id="F2F" value="1"> F2F
+            </label>
+            <label id="Online-Clicker" class="btn btn-outline-secondary">
+              <input type="checkbox" name="Online" id="Online" value="1"> Online
+            </label>
+            <label id="International-Clicker" class="btn btn-outline-secondary">
+              <input type="checkbox" name="International" id="International" value="1"> International
+            </label>
+            <label id="Validation-Clicker" class="btn btn-outline-secondary">
+              <input type="checkbox" name="Validation" id="Validation" value="1"> Validation
+            </label>
+            <label id="Recontact-Clicker" class="btn btn-outline-secondary">
+              <input type="checkbox" name="Recontact" id="Recontact" value="1"> Recontact
+            </label>
+            <label id="Confirmit-Clicker" class="btn btn-outline-secondary">
+              <input type="checkbox" name="Confirmit" id="Confirmit" value="1"> Confirmit
+            </label>
+            <label id="DP-Clicker" class="btn btn-outline-secondary">
+              <input type="checkbox" name="DP" id="DP" value="1"> DP
+            </label>
+            <label id="inHouse-Clicker" class="btn btn-outline-secondary">
+              <input type="checkbox" name="inHouse" id="inHouse" value="1" checked> inHouse
+            </label>
+            <label id="hourly-Clicker" class="btn btn-outline-secondary">
+              <input type="checkbox" name="hourly" id="hourly" value="1"> Charged hourly
+            </label>
+          </div>
+          <div class="card-header text-center py-2"><strong>Dates</strong></div>
+          <div class="form-row">
+            <div class="form-group col-md-3">
+              <label for="startDate">Start Date</label>
+              <input type="date" class="form-control" name="startDate" id="startDate" value="" required>
+            </div>
+            <div class="form-group col-md-3">
+              <label for="endDate">End Date</label>
+              <input type="date" class="form-control" name="endDate" id="endDate" value="" required>
+            </div>
+            <div class="form-group col-md-3">
+              <label for="dataDate">Data Date</label>
+              <input type="date" class="form-control" name="dataDate" id="dataDate" value="" required>
+            </div>
+            <div class="form-group col-md-3">
+              <label for="tablesDate">Tables Date</label>
+              <input type="date" class="form-control" name="tablesDate" id="tablesDate" value="">
+            </div>
+          </div>
+          <div class="card-header text-center py-2"><strong>Group Targets</strong></div>
+          <div class="form-row">
+            <div class="form-group col-md-4">
+              <label for="targetInterviews">Target Interviews</label>
+              <input type="number" class="form-control" name="targetInterviews" id="targetInterviews" value="" required step="1" min="1">
+            </div>
+            <div class="form-group col-md-4">
+              <label for="quotedCPI">CPI</label>
+              <div class="form-row">
+                <select data-width="70%" class="selectpicker" data-style="btn-light" multiple name="CPIs" id="CPIs" required>
+                  <%cpis.forEach((cpi, i) => {%>
+                    <option value="<%=cpi.costID%>" data-cpi="<%=cpi.unitValue%>"><%=cpi.costName+" £"+Number(cpi.unitValue).toFixed(0)%></option>
+                    <%});%>
+                  </select>
+                  <input readonly style="width:30%" type="number" class="form-control" name="quotedCPI" id="quotedCPI" value="" step="0.01" min="0">
+                </div>
+              </div>
+            <div class="form-group col-md-4">
+              <label for="hourlyTarget">Hourly Target</label>
+              <input type="number" class="form-control" name="hourlyTarget" id="hourlyTarget" value="" step="0.01" min="0.01">
+            </div>
+          </div>
+          <div class="card-header text-center py-2"><strong>Survey length</strong></div>
+          <div class="form-row">
+            <div class="form-group col-md-6">
+              <label for="ExpectedLength">Expected</label>
+              <input type="number" class="form-control" name="ExpectedLength" id="ExpectedLength" value="" required step="0.25" min="0">
+            </div>
+            <div class="form-group col-md-6">
+              <label for="EndLength">Timed/final</label>
+              <input type="number" class="form-control" name="EndLength" id="EndLength" value="" step="0.25" min="0">
+            </div>
+          </div>
+          <input type="number" class="form-control" name="quoteID" id="quoteID" value="<%= project.quoteID %>" style="display:none;">
+          <button type="submit" class="btn btn-primary btn-block">Add Group</button>
+        </form>
+        <% }) %>
+        <% } else { %>
+          <p class="text-center">Project Not Found. Go <a href="/add">here</a> to add Projects.</p>
+          <% } %>
+        </div>
+      </div>
+    </body>
+    </html>

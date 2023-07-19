@@ -1,0 +1,428 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+.tabulator-row .tabulator-cell, .tabulator-col-content{
+  padding:3px!important
+}
+.tabulator-row .tabulator-cell{
+  height:25px!important;
+}
+.weekEnd div {
+    background-color: #aba8a8!important;
+}
+.tabulator-col-title{
+  white-space:normal!important;
+}
+.tabulator-col-title,.tabulator-cell{
+  font-size: smaller;
+}
+.tabulator .tabulator-header .tabulator-col.tabulator-sortable .tabulator-col-title{
+  padding-right:5px!important;
+}
+#tableContainer i.fas.fa-sync-alt {
+  line-height: 62vh;
+}
+#tableContainer{
+  position:relative;
+  margin-top: 10px;
+}
+#refreshOverlay{
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  font-size: 150px;
+  background-color: #0f0f0f66;
+  mix-blend-mode: initial;
+  color: white;
+  left: -2000px;
+  top:0px;
+  cursor:pointer;
+}
+#refreshOverlay:hover{
+  background:unset;
+  color:black;
+}
+#refreshOverlay.spin{
+  animation: spin 1s infinite;
+  background:unset;
+  color:black;
+}
+@keyframes spin {
+  0%   { transform: rotate(0deg);; }
+  100% { transform: rotate(720deg);; }
+}
+.bootstrap-select > .dropdown-toggle {
+  padding-top: 2px;
+}
+</style>
+
+<%
+
+%>
+
+<div class="container" style="padding-top:70px;max-width:97%">
+  <div class="card viewerHeight text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <div id="oldFilters" style="display:none;">
+        <h5 class="card-title">Interviewer snapshot for period: <input type="date" style="display:inline; width:auto;" class="form-control inputdate selectFilters" id="stdate" name="stdate" style="width:200px; margin:auto;" value="<%=currPayPeriodSt%>"> to <input type="date" style="display:inline; width:auto;" class="selectFilters inputdate form-control" id="endate" name="endate" style="width:200px; margin:auto;" value="<%=currPayPeriodEn%>"></h5>
+        <div class="alert alert-danger fade show" id="datemessage" role="alert" style="display:none;">Please enter a valid date range</div>
+        Showing:
+        <select class="selectpicker selectFilters" data-live-search="true" id="dataType" name="dataType">
+          <option value="1" selected>Interviews</option>
+          <option value="2">QC checks</option>
+          <option value="3">Absence & lateness</option>
+        </select>
+        Grouped by:
+        <select class="selectpicker tableFilters" data-live-search="true" id="groupBy" name="groupBy">
+          <option value="" selected></option>
+          <option value="Team">Team</option>
+          <option value="TL">Team Leader</option>
+        </select>
+      </div>
+      <button type="button" class="btn btn-sm btn-xlsx" id="downloadToExcel">Download XLSX</button>
+      <div id="tableContainer">
+      <div id="snapshotTable" style="width:auto;min-width:500px;" class="table table-sm table-striped table-bordered">
+      </div>
+      <div id="refreshOverlay">
+        <i class="fas fa-sync-alt"></i>
+      </div>
+      </div>
+  </div>
+</div>
+<div class='modal fade' role='dialog' id='Modal'>
+  <div class='modal-dialog modal-dialog-centered' role='document'>
+    <div class='modal-content'>
+      <div class='modal-header'>
+        <h5 class='modal-title' id='Modal-title'></h5>
+        <button type='button' class='close modalClose' data-dismiss='modal' aria-label='Close'>
+          <span aria-hidden='true'>&times;</span>
+        </button>
+      </div>
+      <div class='modal-body' id='modal-body'>
+
+      </div>
+    </div>
+  </div>
+</div>
+<!-- <script src="https://cdn.jsdelivr.net/npm/xlsx-style@0.8.13/dist/xlsx.core.min.js"></script> -->
+<script>
+  (function($) {
+    $.fn.hasScrollBar = function() {
+        return this.get(0).scrollWidth > this.width();
+    }
+  })(jQuery);
+  $(document).ready(function () {
+    let timerSt=Date.now()
+    var stDate=moment.utc('<%=currPayPeriodSt%>').startOf('d')
+    var enDate=moment.min(moment.utc('<%=currPayPeriodEn%>').startOf('d'),moment.utc().subtract(1,'d').startOf('d'))
+    var dates=Array.from(moment.range(stDate,enDate).by('day')).map(el=>({valueOf:el.valueOf(),date:el.format("YYYY-MM-DD"),th:el.format("Do"),wd:el.format("dd")}))
+    var dataType=$("#dataType").val()
+    var table=new Tabulator("#snapshotTable",{
+      autoResize:true,
+      // layout:"fitColumns",
+      height:'65vh',
+      resizableColumns:false,
+      ajaxURL:"/interviewer-snapshot/1",
+      layout:"fitDataTable",
+      groupClosedShowCalcs:true,
+      ajaxParams:{stDate:stDate.format("YYYY-MM-DD"), enDate:enDate.format("YYYY-MM-DD")},
+      ajaxResponse:function(url, params, response){
+        timerSt=Date.now()
+        dates=Array.from(moment.range(params.stDate,params.enDate).by('day')).map(el=>({valueOf:el.valueOf(),date:el.format("YYYY-MM-DD"),th:el.format("Do"),wd:el.format("dd")}))
+        var tableData=response.totals.map(agent=>{
+          var obj={}
+          obj.Interviewer=agent.agentName
+          obj.Team=agent.teamName
+          obj.TL=agent.TL
+          var agentDailys=response.dailys.filter(el=>agent.agentID==el.agentID && agent.teamID==el.teamID)
+          var agentDetail=response.detail.filter(el=>agent.agentID==el.agentID && agent.teamID==el.teamID)
+          dates.forEach((day, i) => {
+            var daily=agentDailys?agentDailys.find(el=>el.inputDate.split("T")[0]==day.date):null
+            if(daily){
+              obj[day.valueOf+'-onTarget']=daily.onTarget<0?false:true
+              obj[day.valueOf+'-ints']=Number(daily.dailyData)?Math.round(daily.dailyData):daily.dailyData
+              let detail=agentDetail?agentDetail.filter(el=>el.inputDate).filter(el=>el.inputDate.split("T")[0]==day.date):[]
+              detail=detail.map(el=>{
+                delete el.agentID
+                delete el.teamID
+                delete el.inputDate
+                return el
+              })
+              obj[day.valueOf+'-detail']=JSON.stringify(detail)
+            }else {
+              // obj[day.valueOf+'-onTarget']=null
+              // obj[day.valueOf+'-ints']=null
+              // obj[day.valueOf+'-hide']=true
+              // obj[day.valueOf+'-detail']=null
+            }
+           })
+           if (dataType==1) {
+             obj['Total surveys']=agent.ints
+             obj['Avg surveys']=Math.round(agent.ints/agent.shifts)
+             obj['Num days worked']=agent.shifts
+             obj['Num days on target']=agent.onTargetShifts
+             obj['Num days not on target']=agent.shifts-agent.onTargetShifts
+           }else if (dataType==2) {
+             obj['Total QCs']=agent.QCcount
+             obj['Avg score']=Math.round(agent.QCscore)
+             obj['Surveys']=agent.ints
+             obj['% checked']=(agent.QCcount/agent.ints)*100
+           }else if (dataType==3) {
+             obj['Total late days']=agent.lateCount
+             obj['Total sickness']=agent.sickCount
+             obj['Total cancelled by us']=agent.cancelledCount
+             obj['Total cancelled by agent']=agent.cancelledAgentCount
+             obj['Other']=agent.absenceCount-(agent.sickCount+agent.cancelledCount+agent.cancelledAgentCount)
+             obj['Num days worked']=agent.daysCount
+           }
+           return obj
+        })
+        console.log("tableData",tableData,Date.now()-timerSt)
+        return tableData;
+      },
+      autoColumns:true,
+      autoColumnsDefinitions:function(definitions){
+        console.log("Defs started")
+        var origDef=definitions
+        let totalFields=["Total surveys","Avg surveys","Num days worked","Num days on target","Num days not on target","Total QCs","Avg score","Surveys","% checked",'Total sickness','Total cancelled by us','Total cancelled by agent','Other','Total late days','Num days worked']
+        // console.log(origDef)
+        var newDef=[]
+        let dx=0
+        newDef.push(origDef[0])
+        dates.forEach((day, i) => {
+          newDef.push({title:day.wd, columns:[
+            {field:day.valueOf+"-onTarget", visible:false},
+            {field:day.valueOf+"-detail", visible:false},
+            {field:day.valueOf+"-ints",title:day.th,headerSort:false, hozAlign:'center', topCalc:"sum", headerHozAlign:'center', accessorDownload:function(val){return val===null?'':val}},
+            ], headerSort:false, hozAlign:'center', headerHozAlign:'center', cssClass:(day.wd=='Su' || day.wd=='Sa'?'weekEnd':'')})
+        });
+        origDef.forEach((def, i) => {
+          if (totalFields.includes(def.title)) {
+            newDef.push(def)
+          }
+        });
+        var endCalcsDefs={
+          width:70,
+          headerHozAlign:'center',
+          hozAlign:'center'
+        }
+        var percCalcs={
+          formatter:"progress", formatterParams:{
+            min:0,
+            max:5,
+            color:["rgba(255,0,0,0.4)", "#ffa50075", "rgba(0,255,0,0.4)"],
+            legendColor:"#000000",
+            legendAlign:"center",
+            legend:function(val){
+              return Number(val).toFixed(1)+"%"
+            }
+          },
+          hozAlign:'left',
+          topCalc:function(values, data, calcParams){
+            var surveys = 0;
+            var checks = 0;
+            data.forEach(function(row){
+              checks=checks+Number(row["Total QCs"])
+              surveys=surveys+Number(row.Surveys)
+            });
+            return (checks/surveys)*100;
+          },
+          topCalcFormatter:"progress", topCalcFormatterParams:{
+            min:0,
+            max:5,
+            color:["rgba(255,0,0,0.4)", "#ffa50075", "rgba(0,255,0,0.4)"],
+            legendColor:"#000000",
+            legendAlign:"center",
+            legend:function(val){
+              return Number(val).toFixed(1)+"%"
+            }
+          },
+        }
+        var avgTopCalc={
+          topCalc:"avg"
+        }
+        var avgQC=function(vals,data){
+          let allScores=[]
+          data.forEach((row, i) => {
+            let keys=Object.keys(row).filter(k=>k.indexOf("detail")>-1)
+            let scores=keys.map(k=>{
+              return row[k]?JSON.parse(row[k]).map(d=>d.Score):[]
+            })
+            allScores=allScores.concat(scores.flat(2))
+          });
+          let res=(allScores.reduce((a,b)=>a+Number(b),0)/allScores.length).toFixed(2)
+          return res
+        }
+        var avgQcTopCalc={
+          topCalc:avgQC
+        }
+        var sumTopCalc={
+          topCalc:"sum"
+        }
+        newDef=newDef.map(el=>{
+          if (totalFields.includes(el.field)) {
+            return {
+              ...el,
+              ...endCalcsDefs
+            }
+          }else {
+            return el
+          }
+        })
+        newDef=newDef.map(el=>{
+          if (["% checked"].includes(el.field)) {
+            return {
+              ...el,
+              ...percCalcs
+            }
+          }else {
+            return el
+          }
+        })
+        newDef=newDef.map(el=>{
+          if (el.field=="Avg score") {
+            return {
+              ...el,
+              ...avgQcTopCalc
+            }
+          }else if (el.title.includes("Avg")) {
+            return {
+              ...el,
+              ...avgTopCalc
+            }
+          }else if(!["% checked"].includes(el.field)){
+            return {
+              ...el,
+              ...sumTopCalc
+            }
+          }else {
+            return el
+          }
+        })
+        newDef[0].frozen=true
+        newDef[0].topCalc="count"
+        // newDef[1].frozen=true
+        // newDef[2].frozen=true
+        // newDef[1].visible=false
+        // newDef[2].visible=false
+        console.log(newDef,Date.now()-timerSt)
+        return newDef;
+      },
+      rowFormatter:function(row){
+        // console.log("formatting")
+        let d=row.getData()
+        let st=Date.now()
+        // console.log(d)
+        dates.forEach((day, i) => {
+          let v=day.valueOf
+          let lSt=Date.now()
+          // console.log(day)
+          if(d[v+"-onTarget"]===false){
+            row.getCell(v+"-ints").getElement().style.backgroundColor = "rgba(255,0,0,0.4)";
+          }else if (d[v+"-ints"]=="L") {
+            row.getCell(v+"-ints").getElement().style.backgroundColor = "rgba(255,180,0,0.4)";
+          }else if (d[v+"-onTarget"]) {
+            row.getCell(v+"-ints").getElement().style.backgroundColor = "rgba(0,255,0,0.4)";
+          }
+          let bgEn=Date.now()
+          if (d[v+"-detail"]) {
+            let tableHTML="<table class='table table-sm table-striped'>"
+              +Object.keys(JSON.parse(d[v+"-detail"])[0]).map(k=>"<th>"+k+"</th>").join("")
+              +JSON.parse(d[v+"-detail"]).map(el=>"<tr>"+Object.keys(el).map(k=>"<td>"+el[k]+"</td>").join("")+"</tr>").join("")
+              +"</table>"
+            setTooltip(row.getCell(v+"-ints").getElement(),tableHTML)
+          }
+        })
+        // console.log("formatting done",Date.now()-timerSt)
+      },
+      dataLoaded:function(data){
+        this.setSort("Interviewer", "asc")
+        console.log("data loaded",Date.now()-timerSt)
+      },
+      groupVisibilityChanged:function(group, visible){
+        if (!$('.tabulator-table').hasScrollBar()) {
+          $('.tabulator-row.tabulator-calcs.tabulator-calcs-top').css("padding-left","0px")
+        }
+      }
+    })
+    try{
+      $().reportFilter({
+        onRefresh:(vals,changed)=>{
+          dataType=vals.dataType?vals.dataType:0
+          if(changed.length==1 && changed[0]=='groupBy'){
+            table.setGroupBy(vals.groupBy)
+          }else {
+            table.setGroupBy(vals.groupBy)
+            table.setData("/interviewer-snapshot/"+dataType, {stDate:vals.stDate, enDate:vals.enDate})
+          }
+        },
+        filters:{stDate:stDate.format("YYYY-MM-DD"),enDate:enDate.format("YYYY-MM-DD")},
+        customFilters:[
+          {label:'Showing',el:$('#dataType')[0],val:[1]},
+          {label:'Group by',el:$('#groupBy')[0],val:[]},
+        ]
+      })
+    }catch(e){
+      $('#oldFilters').show()
+    }
+    function setTooltip(el,title){
+      return new Promise((res,rej)=>{
+        $(el).tooltip({
+          title:title,
+          html:true,
+          sanitize:false,
+        })
+      })
+    }
+    $('#downloadToExcel').click(function(e){
+      table.download("xlsx", "Interviewer Snapshot "+moment().format()+".xlsx", {
+        documentProcessing:function(workbook){
+          workbook.Props = {
+            Title: "JA2 Interviewer Snapshot",
+            CreatedDate: new Date()
+          };
+          // function toColumnName(num) {
+          //   for (var ret = '', a = 1, b = 26; (num -= a) >= 0; a = b, b *= 26) {
+          //     ret = String.fromCharCode(parseInt((num % b) / a) + 65) + ret;
+          //   }
+          //   return ret;
+          // }
+          // let d=2
+          // var sheet = workbook.Sheets.Sheet1;
+          // for (let day of dates.by('day')) {
+          //   let r=4
+          //   table.getData().map(row=>row[day.valueOf()+"-onTarget"]).forEach((onTarget, i) => {
+          //     let s=onTarget?15:10
+          //     let ref=toColumnName(d)+r
+          //     workbook.Sheets.Sheet1[ref].s=s
+          //     r++
+          //   });
+          //   d++
+          // }
+          return workbook;
+        }
+      })
+    })
+    $('.selectFilters').change(function() {
+      $('#refreshOverlay').css('left','0px')
+    })
+    $('.tableFilters').change(function() {
+      table.setGroupBy($('#groupBy').val())
+    })
+    $('#refreshOverlay').on('click', function(evt) {
+      if ($("#endate").val() && $("#stdate").val()) {
+        dataType=$("#dataType").val()
+        let en=moment.min(moment.utc($("#endate").val()).startOf('d'),moment.utc().subtract(1,'d').startOf('d'))
+        let st=moment.utc($("#stdate").val()).startOf('d')
+        dates=moment.range(st,en)
+        $('#refreshOverlay').css('left','-2000px')
+        $('#datemessage').css("display","none")
+        table.setData("/interviewer-snapshot/"+dataType, {stDate:st.format("YYYY-MM-DD"), enDate:en.format("YYYY-MM-DD")})
+      }else{
+        $("#datemessage").text('Invalid date range')
+        $('#datemessage').css("display","block")
+      }
+    })
+  })
+</script>
+</body>
+</html>

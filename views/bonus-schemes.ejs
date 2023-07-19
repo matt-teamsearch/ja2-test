@@ -1,0 +1,214 @@
+<%- include('partials/'+versionPages.header) %>
+<style media="screen">
+.bandGroup {
+  display: flex;
+  justify-content: space-evenly;
+}
+.bandCont {
+  max-width: 450px;
+  margin: 20px auto;
+  padding: 15px;
+  border: 1px solid var(--secondary);
+  background: white;
+}
+input.bonusAmount {
+  padding-left: 11px;
+  width: 100px;
+  padding-right: 1px;
+}
+.currency {
+  position: relative;
+}
+.currency::before {
+  content: "£";
+  position: absolute;
+  left: 5px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.lowerCell,.upperCell{
+  text-align:right;
+  position: relative;
+}
+.lowerCell:hover .bandSymbol, .upperCell:hover .bandSymbol, .lowerCell:focus-within .bandSymbol, .upperCell:focus-within .bandSymbol {
+  visibility: hidden;
+}
+.ltmtCell {
+  text-align: right;
+}
+.ltmtText {
+  white-space: nowrap;
+}
+.bandUpper,.bandLower{
+  width: 80px;
+}
+span.bandSymbol {
+  visibility:visible;
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+.bandTable input {
+  background: none;
+  border: 1px solid var(--subtle);
+}
+</style>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <select class="selectpicker" name="bonusSchemeSelect">
+        <option value="" selected>New scheme</option>
+        <% schemes.forEach(scheme=>{%>
+          <option value="<%=scheme.schemeID%>"><%=scheme.schemeName%></option>
+        <%})%>
+      </select>
+      <form class="" action="/add-bonus-scheme" method="post">
+        <h5 id="schemeName">New bonus scheme</h5>
+        <input type="text" id="schemeName" name="schemeName" placeholder="Name..." value="" required>
+        <select class="selectpicker" onchange="refreshOrder()" id="kpi" name="kpi" required>
+          <option value="ahr">AHR</option>
+          <option value="cont">Contribution</option>
+        </select>
+        <div class="conditionCont">
+          <table class="conditionTable">
+            <tr>
+              <td>Where</td>
+              <td><select class="selectpicker" id="conditionWhere" name="conditionWhere" onchange="updateOperator()">
+                <option value=""></option>
+                <option value="payRate" data-action="/get-payrates" data-valField="payRateID" data-textField="payRate">Wage Rate</option>
+                <option value="hrs">Hours Worked</option>
+                <option value="ints">Interviews</option>
+                <option value="cont">Contribution</option>
+                <option value="ahr">AHR</option>
+              </select></td>
+              <td><select class="selectpicker" id="conditionOperator" onchange="updateDivisor()">
+                <option value=""></option>
+                <option value="in">Includes</option>
+                <option value="between">Between</option>
+                <option value=">">Greater than</option>
+                <option value="<">Less than</option>
+              </select></td>
+              <td id="divisorSelect"><select multiple class="selectpicker" id="conditionDivisorSelect" name="conditionDivisorSelect">
+                <option value=""></option>
+              </select></td>
+              <td class="divisorInput divisorFrom"><input type="number" name="conditionDivisorFrom" value="-9999999999999999"></td>
+              <td class="divisorInput divisorTo"><input type="number" name="conditionDivisorTo" value="9999999999999999"></td>
+            </tr>
+          </table>
+        </div>
+        <div class="bandCont">
+          <table class="bandTable">
+            <tr class="bandRow">
+              <td><input type="hidden" name="bandOrder" value="0"></td>
+              <td class="ltCell ltmtCell" style="display:none;"><span class="lt ltmtText">Lower than</span></td>
+              <td class="mtCell ltmtCell" style="display:none;"><span class="mt ltmtText">Higher than</span></td>
+              <td class="lowerCell" style="display:none;"><input type="number" class="bandLower" name="bandLower" value="-9999999999999999.99"><span class="bandSymbol"></span></td>
+              <td class="upperCell"><span class="between"> to </span><input type="number" class="bandUpper" name="bandUpper" onchange="refreshOrder()" value=""><span class="bandSymbol"></span></td>
+              <td class="currency"><input type="number" class="bonusAmount" name="bonusAmount" onchange="formatCurrency(this)" value=""></td>
+              <td><button type="button" class="addBtn" onclick="addBand(this)">Add</button></td>
+            </tr>
+          </table>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+<script type="text/javascript">
+  function updateOperator(){
+    if($('#conditionWhere option:selected').attr("data-action")){
+      $.ajax({
+        url:$('#conditionWhere option:selected').attr("data-action"),
+        type:'get',
+        success:resp=>{
+          $('#conditionDivisorSelect').empty()
+          resp.forEach((item, i) => {
+            let opt=new Option(item[$('#conditionWhere option:selected').attr("data-textField")],item[$('#conditionWhere option:selected').attr("data-valField")])
+            $('#conditionDivisorSelect').append(opt)
+          });
+          $('#conditionDivisorSelect').selectpicker('refresh')
+          $('#divisorSelect').show()
+          $('.divisorInput').hide()
+          $('#conditionOperator option[value="in"]').attr("disabled",false)
+          $('#conditionOperator option:not([value="in"])').attr("disabled",true)
+          $('#conditionOperator').val('in').selectpicker('refresh')
+        }
+      })
+    }else {
+      $('#conditionOperator option[value="in"]').attr("disabled",true)
+      $('#conditionOperator option:not([value="in"])').attr("disabled",false)
+      $('#conditionOperator').val("").selectpicker('refresh')
+      $('#divisorSelect').hide()
+      $('.divisorInput').show()
+    }
+  }
+  function updateDivisor(){
+    if ($('#conditionOperator').val()=='<') {
+      $('.divisorInput.divisorTo').show()
+      $('.divisorInput.divisorFrom').hide()
+    }else if ($('#conditionOperator').val()=='>') {
+      $('.divisorInput.divisorTo').hide()
+      $('.divisorInput.divisorFrom').show()
+    }else if ($('#conditionWhere option:selected').attr("data-action")) {
+      $('.divisorInput').hide()
+      $('#divisorSelect').show()
+    }else {
+      $('.divisorInput').show()
+      $('#divisorSelect').hide()
+    }
+  }
+  function formatCurrency(el){
+    $(el).val((Math.round($(el).val()*100)/100).toFixed(2))
+  }
+  function addBand(el){
+    let thisGrp=$(el).closest(".bandRow")
+    let newGrp=thisGrp.clone(true)
+    newGrp.find(".bandLower").val(thisGrp.find(".bandUpper").val())
+    newGrp.find(".bandUpper").val(thisGrp.next().find(".bandLower").val())
+    thisGrp.after(newGrp)
+    refreshOrder()
+    return newGrp
+  }
+  function refreshOrder(initial){
+    if ($('#kpi').val()=='ahr') {
+      $('.bandSymbol').html("ph")
+    }else {
+      $('.bandSymbol').html("%")
+    }
+    let count=0
+    let finalGrp
+    $('.bandCont').find('.bandRow').each(function(g){
+      if (count==0) {
+        $(this).find(".bandLower").val(-9999999999999999.99).closest("td").hide()
+        $(this).find(".ltCell").show()
+        $(this).find(".between").hide()
+      }else {
+        $(this).find(".bandLower").val($(this).prev().find(".bandUpper").val())
+        $(this).find(".lowerCell").show()
+        $(this).find(".between").show()
+        $(this).find(".ltCell").hide()
+      }
+      $(this).attr('data-bandorder',count)
+      $(this).find("bandOrder").val(count)
+      count++
+      finalGrp=$(this)
+    })
+    let penultimateGrp
+    let topGrp
+    if (initial) {
+      topGrp=addBand(finalGrp)
+      penultimateGrp=finalGrp
+    }else {
+      topGrp=finalGrp
+      penultimateGrp=finalGrp.prev()
+    }
+    topGrp.find(".bandLower").val(penultimateGrp.find(".bandUpper").val()).prop("disabled",true)
+    topGrp.find(".bandUpper").val(9999999999999999.99).closest("td").hide()
+    topGrp.find(".between").hide()
+    topGrp.find(".mtCell").show()
+    topGrp.find(".addBtn").hide()
+  }
+  refreshOrder(true)
+</script>
+</body>
+</html>

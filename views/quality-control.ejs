@@ -1,0 +1,726 @@
+<%- include('partials/'+versionPages.header) %>
+<%
+const dateIf = (inDate, seperator, order) => {
+  let day =''
+  if (new Date(inDate).getDate() < 10) {
+    day = '0' + new Date(inDate).getDate()
+  } else {
+    day = new Date(inDate).getDate()
+  }
+  let month =''
+  if (new Date(inDate).getMonth()+1 < 10) {
+    month = '0' + (new Date(inDate).getMonth()+1)
+  } else {
+    month = (new Date(inDate).getMonth()+1)
+  }
+  let year = new Date(inDate).getFullYear()
+  if(order=="f"){
+    return(day+seperator+month+seperator+year)
+  }
+  if(order=="r"){
+    return(year+seperator+month+seperator+day)
+  }
+}
+let defDate=new Date()
+defDate.setDate(defDate.getDate()-5)
+let prevPayPeriodSt = new Date(stDate)
+prevPayPeriodSt.setMonth(prevPayPeriodSt.getMonth()-1)
+let prevPayPeriodEn = new Date(enDate)
+prevPayPeriodEn.setMonth(prevPayPeriodEn.getMonth()-1)
+let nextPayPeriodSt = new Date(stDate)
+nextPayPeriodSt.setMonth(nextPayPeriodSt.getMonth()+1)
+let nextPayPeriodEn = new Date(enDate)
+nextPayPeriodEn.setMonth(nextPayPeriodEn.getMonth()+1)
+%>
+<style>
+  .table-sm thead th, .table-sm tbody td {
+    /* white-space: nowrap; */
+    /* font-size: smaller; */
+    padding: 5px!important;
+  }
+  .dataTables_length{
+    display:none;
+  }
+
+  .date_search, .monthBtn{
+    width:auto;
+    display:inline;
+  }
+  #suggestion{
+    box-shadow: 0px 0px 10px 2px var(--primary);
+    padding: 10px;
+    margin: 20px;
+  }
+  #selectFilterGroup2{
+    background-color: #e4e4e4;
+    padding: 10px;
+    border-radius: 5px;
+  }
+  #nextMonthBtn{float:right;}
+  #prevMonthBtn{float:left;}
+  .statsCont{
+    margin-bottom:50px;
+  }
+  .stats{
+    width: 100%;
+    margin: auto;
+  }
+  .stats table {
+    margin: auto;
+  }
+  .good{
+    fill: rgb(50, 168, 82);
+    color: rgb(50, 168, 82);
+  }
+  .bad{
+    fill: rgb(219, 70, 70);
+    color: rgb(219, 70, 70);
+  }
+  .neutral{
+    fill: rgb(219, 132, 70);
+    color: rgb(230 159 0);
+  }
+  .value{
+    stroke-width:9;
+    transition: stroke 3000ms ease 0s!important;
+  }
+  .dial{
+    stroke-width:10;
+    stroke: #80808054;
+  }
+  .text-container{
+    font-size:22px;
+  }
+  .hover-content{
+    cursor:pointer;
+  }
+  .unfinished{
+    color:red;
+    font-weight:100;
+  }
+  .sub {
+    font-size: large;
+
+  }
+  .call{
+    color: #d08706
+  }
+  .intro{
+    color: #d087067d;
+  }
+  .table-sm{
+    margin: 0px!important;
+  }
+  .activeFilter{
+    filter: brightness(0.9);
+  }
+  .selectFilters {
+    width: 20%!important;
+  }
+</style>
+<script>
+  $body.addClass("loading")
+  const dateIf = (inDate, seperator, order) => {
+    let day =''
+    if (new Date(inDate).getDate() < 10) {
+      day = '0' + new Date(inDate).getDate()
+    } else {
+      day = new Date(inDate).getDate()
+    }
+    let month =''
+    if (new Date(inDate).getMonth()+1 < 10) {
+      month = '0' + (new Date(inDate).getMonth()+1)
+    } else {
+      month = (new Date(inDate).getMonth()+1)
+    }
+    let year = new Date(inDate).getFullYear()
+    if(order=="f"){
+      return(day+seperator+month+seperator+year)
+    }
+    if(order=="r"){
+      return(year+seperator+month+seperator+day)
+    }
+  }
+  $(document).ready(function () {
+    var buttonCommon = {
+      exportOptions: {
+        columns: [':visible'],
+        format: {
+          body: function (data, row, column, node) {
+            let val=$(node).text()
+            if (column === 10 && data) {
+              val=val.replace( /\n.*|<[^>]*>/g, '' )
+            }
+            if (column == 9) {
+              val=data
+            }
+            return val
+          }
+        },
+        orthogonal: 'export'
+      }
+    };
+    function shorten(txt,len){
+      if (txt.length>len) {
+        txt=txt.slice(0,len)+"..."
+      }
+      return txt
+    }
+    var agenttable = $('#monitorAgentsTable').DataTable({
+      dom: 'Bfrtip',
+      buttons: [
+          $.extend( true, {}, buttonCommon, {
+             extend: 'copyHtml5',
+             exportOptions: { orthogonal: 'export' }
+         } ),
+         $.extend( true, {}, buttonCommon, {
+             extend: 'excelHtml5',
+             exportOptions: { orthogonal: 'export' }
+         } ),
+       ]
+    });
+    var jobstable = $('#monitorJobsTable').DataTable({
+      dom: 'Bfrtip',
+      buttons: [
+          $.extend( true, {}, buttonCommon, {
+             extend: 'copyHtml5',
+             exportOptions: { orthogonal: 'export' }
+         } ),
+         $.extend( true, {}, buttonCommon, {
+             extend: 'excelHtml5',
+             exportOptions: { orthogonal: 'export' }
+         } ),
+       ]
+    });
+    $('#monitorChecksTable').DataTable({
+      length:10,
+      language: {
+        zeroRecords: "No matching records - try expanding the date period above"
+      },
+      ajax: {
+        url: '/all-QC-checks/<%=dateIf(stDate,"-","r")%>/<%=dateIf(enDate,"-","r")%>/false',
+        dataSrc: ''
+      },
+      pageLength: 10,
+      dom: 'Bfrtip',
+      order: [[ 0, "desc" ]],
+      buttons: [
+          $.extend( true, {}, buttonCommon, {
+             extend: 'copyHtml5',
+             exportOptions: { orthogonal: 'export' }
+         } ),
+         $.extend( true, {}, buttonCommon, {
+             extend: 'excelHtml5',
+             exportOptions: { orthogonal: 'export' }
+         } ),
+         {
+           extend: 'collection',
+           text: 'Type',
+           className: 'btn dropdown-toggle',
+           buttons: [
+           {
+             text: "All",
+             action: function( e, dt, button, config ) {
+               filterTable("type","",button)
+             }
+           },
+           {
+             text: "Full call",
+             action: function( e, dt, button, config ) {
+               filterTable("type","Call",button)
+             }
+           },
+           {
+             text: "Intro",
+             action: function( e, dt, button, config ) {
+               filterTable("type","Intro",button)
+             }
+           },
+           ]
+         },
+         {
+           extend: 'collection',
+           text: 'Finished',
+           className: 'btn dropdown-toggle',
+           buttons: [
+           {
+             text: "All",
+             action: function( e, dt, button, config ) {
+               filterTable("isFinished","",button)
+             }
+           },
+           {
+             text: "Finished",
+             action: function( e, dt, button, config ) {
+               filterTable("isFinished",1,button)
+             }
+           },
+           {
+             text: "Unfinished",
+             action: function( e, dt, button, config ) {
+               filterTable("isFinished",0,button)
+             }
+           },
+           ]
+         }
+       ],
+      columns: [
+        { data: 'MasterQCID', name: 'QC ID' },
+        { data: 'isFinished',
+          fnCreatedCell: function (nTd, sData, oData, iRow, iCol) {
+            $(nTd).html(oData.isFinished ? "" : "UNFINISHED");
+          } },
+          { data: 'isFinished',
+            name: 'isFinished',
+            visible:false
+          },
+        { data: 'dateMonitored',
+          fnCreatedCell: function (nTd, sData, oData, iRow, iCol) {
+            $(nTd).html(dateIf(oData.dateMonitored,"/","f"));
+          }
+         },
+        { data: 'type', name: 'type' },
+        { data: 'agentName' },
+        { data: 'teamName' },
+        { data: 'jobName' ,
+          fnCreatedCell: function (nTd, sData, oData, iRow, iCol) {
+            $(nTd).html(oData.quoteNo+" "+oData.quoteName+" - "+oData.jobName);
+          }
+         },
+        { data: 'interviewDate',
+          fnCreatedCell: function (nTd, sData, oData, iRow, iCol) {
+            $(nTd).html(dateIf(oData.interviewDate,"/","f"));
+          }
+         },
+        { data: 'score',
+          fnCreatedCell: function (nTd, sData, oData, iRow, iCol) {
+            $(nTd).html(oData.type=="Call" ? oData.score : "");
+          }
+         },
+        { data: 'controllerNotes',
+          fnCreatedCell: function (nTd, sData, oData, iRow, iCol) {
+            $(nTd).tooltip({title:shorten(oData.controllerNotes,300)});
+          },
+          render:function(data,type,row){
+            return type == 'export' ? data: shorten(data,20)
+          }
+         },
+        { data: 'clientFriendly',
+          fnCreatedCell: function (nTd, sData, oData, iRow, iCol) {
+            $(nTd).html((oData.clientFriendly==1) ? "Yes" : "No");
+          }
+        },
+        { data: 'recordingID',
+          fnCreatedCell: function (nTd, sData, oData, iRow, iCol) {
+            var txt=oData.recordingID.substring(oData.recordingID.indexOf("=")+1,oData.recordingID.indexOf("=")+9)
+            var html='<a href="'+oData.recordingID+'" target="_blank">'+txt+'</a>'
+            if (oData.recordingID.indexOf("=")<0) {
+              html='<a href="#" class="recordingIDRC" data-recID="'+oData.recordingID+'">'+txt+'</a>'
+            }
+            $(nTd).html(html);
+          } },
+        { data: 'serial' },
+        { data: 'MasterCoachID',
+          fnCreatedCell: function (nTd, sData, oData, iRow, iCol) {
+            if (oData.MasterCoachID) {
+              $(nTd).html('<a href="/coaching-follow-up/'+oData.MasterCoachID+'" target="_blank">'+oData.MasterCoachID+'</a>');
+            }else {
+              $(nTd).html('');
+            }
+          } },
+      ],
+      createdRow: function ( row, data, index ) {
+        $(row).addClass('hover-content QCrow')
+        if (data['isFinished']!=1) {
+          $(row).addClass('unfinished')
+        }
+        $(row).attr('data-href',data['MasterQCID'])
+      },
+      initComplete: function( settings, json ) {
+        // $('.notesTooltip').tooltip({title:function(e){
+        //   return shorten($(this).prop("title"),200)
+        // }})
+        $body.removeClass("loading")
+      }
+    });
+    // var checkstable = $('#monitorChecksTable').DataTable({
+    //   ordering: false,
+    //   language: {
+    //     zeroRecords: "No matching records - try expanding the date period above"
+    //   }
+    // });
+    $('[data-toggle="tooltip"]').tooltip()
+    $("#agent_search").trigger("change")
+    function filterTable(col,val,button){
+      $(button).parent().children('.dt-button').removeClass('activeFilter')
+      if (val==="") {
+        $("[aria-expanded='true']").removeClass('activeFilter')
+      }else {
+        $("[aria-expanded='true']").addClass('activeFilter')
+        $(button).addClass('activeFilter')
+      }
+      $('#monitorChecksTable').DataTable()
+      .columns(col+":name")
+      .search(val)
+      .draw();
+      $(".dt-button-background").trigger("click");
+    }
+  })
+  function downloadFile(url){
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download="";
+    document.body.appendChild(a);
+    console.log(url)
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+  $(document).on('click', '.recordingIDRC', function(evt) {
+    let id=$(this).attr("data-recID")
+    $.ajax({
+      url: '/get-rc-recording/'+id,
+      type: 'GET',
+      contentType: 'application/json',
+      success: function (response) {
+        downloadFile(response)
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  })
+  $(document).on('click', '.QCrow', function(eventObject) {
+    if($(eventObject.target).closest("a").length==0){
+      window.open("/edit-qc-check/"+$(eventObject.target).parent().attr("data-href"))
+    }
+  });
+  $(document).on('change', '.period_search', function(evt) {
+    let en=new Date($("#stats-enDate").val())
+    let st=new Date($("#stats-stDate").val())
+    let empty=new Date("1970-01-01")
+    if (st<=en && en > empty && st > empty) {
+      $('#datemessage').css("visibility","hidden")
+      window.location.href=("/quality-control/" + dateIf(st,"-","r") + "/" + dateIf(en,"-","r"))
+    }else if (st>en) {
+      $("#datemessage").text('Start date cannot be after end date')
+      $('#datemessage').css("display","block")
+    }else if (en <= empty || st <= empty) {
+      $("#datemessage").text('Must enter both dates')
+      $('#datemessage').css("display","block")
+    }
+  })
+  $(document).on('change', 'select.selectFilters', function(evt) {
+    $("#suggestion").fadeOut(50)
+    var data =[]
+    var jsonData={};
+    var targetid=this.id
+    jsonData.agentID=$("#agent_search").val()
+    jsonData.jobID=$("#job_search").val()
+    jsonData.date=$("#date_search").val()
+    jsonData.teamID=$("#team_search").val()
+    data.push(jsonData)
+    $.ajax({
+        url: '/get-QC-suggestion',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          if (response.length==0) {
+            $(".sugg_info").css("visibility","hidden")
+          }else {
+            $(".sugg_info").css("visibility","visible")
+            $("#sugg_agentName").text(response[0].agentName)
+            $("#sugg_jobName").text(response[0].jobName)
+            $("#sugg_date").text(dateIf(response[0].inputDate,"/","f"))
+            $("#sugg_link").attr("href","/add-qc-check/"+response[0].agentID+"/"+response[0].jobID+"/"+dateIf(response[0].inputDate,"-","r"))
+          }
+          $("#suggestion").fadeIn(300);
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+    return false;
+  })
+  function getErrorMessage(jqXHR, exception) {
+     var msg = '';
+     if (jqXHR.status === 0) {
+         msg = 'Not connect.\n Verify Network.';
+     } else if (jqXHR.status == 404) {
+         msg = 'Requested page not found. [404]';
+     } else if (jqXHR.status == 500) {
+         msg = 'Internal Server Error [500]. '+JSON.parse(jqXHR.responseText).error;
+     } else if (exception === 'parsererror') {
+         msg = 'Requested JSON parse failed.';
+     } else if (exception === 'timeout') {
+         msg = 'Time out error.';
+     } else if (exception === 'abort') {
+         msg = 'Ajax request aborted.';
+     } else {
+         msg = 'Uncaught Error.\n' + jqXHR.responseText;
+     }
+     return msg;
+   }
+   function refreshSuggestion(){
+     $("#agent_search").trigger("change")
+   }
+   function editClick(id){
+     window.location.href=("/edit-qc-check/"+id)
+   }
+
+</script>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body viewerHeight">
+      <h5 class="card-title">Quality Control</h5>
+      <div class="stats" id="dayStats">
+        <h2>Today</h2>
+        <h5>(target 70p/d)</h5>
+        <table width="60%">
+          <tr>
+            <td width="50%"><div class="gauge-container" id="todayTarget"></div></td>
+            <td width="50%">
+              <table class="table table-sm" width="100%">
+                <tr>
+                  <td width="40%"></td>
+                  <td width="30%">Full calls</td>
+                  <td width="30%">Intros</td>
+                </tr>
+              <%stats.forEach((user, i) => {
+                if (user.todayCountCall+user.todayCountIntro>0) {%>
+                <tr>
+                  <td><div class="user" id=""><%=user.staffName%></div></td>
+                  <td><div class="call sub" id=""><%=user.todayCountCall%></div></td>
+                  <td><div class="intro sub" id=""><%=user.todayCountIntro%></div></td>
+                </tr>
+              <%}});%>
+                <tr>
+                  <td><div class="user" id="">Total</div></td>
+                  <td><div class="call sub" id=""><%=stats.map(user => user.todayCountCall).reduce((a, b) => a + b, 0)%></div></td>
+                  <td><div class="intro sub" id=""><%=stats.map(user => user.todayCountIntro).reduce((a, b) => a + b, 0)%></div></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div class="card" id="suggestion">
+        <div id="selectFilterGroup">
+          <select class="selectpicker selectFilters" data-live-search="true" id="job_search" name="job_search">
+            <option selected value>Any job</option>
+          <% allJobs.forEach((job,i) => { %>
+            <option value="<%=job.jobID%>" <%if(job.jobID==sessJob){%>selected<%}%>><%=job.jobName%></option>
+          <% }) %>
+          </select>
+          <select class="selectpicker selectFilters" data-live-search="true" id="team_search" name="team_search">
+            <option selected value>Any team</option>
+          <% allTeams.forEach((team,i) => { %>
+            <option value="<%=team.agentTeamID%>" <%if(team.agentTeamID==sessTeam){%>selected<%}%>><%=team.teamName%></option>
+          <% }) %>
+          </select>
+          <select class="selectpicker selectFilters" data-live-search="true" id="agent_search" name="agent_search">
+            <option selected value>Any agent</option>
+          <% allAgents.forEach((agent,i) => { %>
+            <option value="<%=agent.agentID%>" <%if(agent.agentID==sessAgent){%>selected<%}%>><%=agent.agentName%></option>
+          <% }) %>
+          </select>
+          <label for="date_search">On or after:</label> <input class="form-control date_search selectFilters" min="<%=dateIf(stDate,"-","r")%>" max="<%=dateIf(enDate,"-","r")%>" type="date" id="date_search" name="date_search" value="<%if(sessDate){%><%=sessDate%><%}else{%><%=dateIf(defDate,"-","r")%><%}%>"/>
+        </div>
+        <h5 class="card-header">
+          Suggested monitoring
+        </h5>
+        <div class="card-body sugg_info">
+          <%
+          let suggCall={}
+          if (call.length>0) {
+            suggCall=call[0]
+          }else {
+            suggCall.agentName=""
+            suggCall.jobName=""
+            suggCall.inputDate=""
+            suggCall.jobID=0
+          }%>
+        <ul class="list-group list-group-flush">
+          <li class="list-group-item" id="sugg_agentName"><%= suggCall.agentName  %></li>
+          <li class="list-group-item" id="sugg_jobName"><%= suggCall.jobName %></li>
+          <li class="list-group-item" id="sugg_date"><%= dateIf(suggCall.inputDate,"/","f") %></li>
+        </ul>
+        <div class="card-body">
+          <a href="/add-qc-check/<%= suggCall.agentID %>/<%= suggCall.jobID %>/<%= dateIf(suggCall.inputDate,"-","r") %>" id="sugg_link" class="btn btn-primary btn-block">Start QC</a>
+          <a href="#" class="card-link" onclick="refreshSuggestion()">Try another</a>
+        </div>
+      </div>
+      </div>
+      <div class="stats" id="periodStats">
+        <h2>This period</h2>
+        <div id="selectFilterGroup2">
+          <a href="/quality-control/<%= dateIf(prevPayPeriodSt,"-","r") %>/<%= dateIf(prevPayPeriodEn,"-","r") %>" id="prevMonthBtn" class="btn btn-secondary monthBtn"><i class="fas fa-arrow-left"></i> Previous month</a>
+          <label for="stats-stDate">From: </label> <input class="form-control date_search period_search" type="date" id="stats-stDate" name="stats-stDate" value="<%=dateIf(stDate,"-","r")%>"/>
+          <label for="stats-enDate">To: </label> <input class="form-control date_search period_search" type="date" id="stats-enDate" name="stats-enDate" value="<%=dateIf(enDate,"-","r")%>"/>
+          <a href="/quality-control/<%= dateIf(nextPayPeriodSt,"-","r") %>/<%= dateIf(nextPayPeriodEn,"-","r") %>" id="nextMonthBtn" class="<% if (stDate==currPayPeriodSt) {%>disabled<%}%> btn btn-secondary btn-block monthBtn">Next month <i class="fas fa-arrow-right"></i></a>
+        </div>
+        <h5>(target 1400p/m - should be on <%=Math.min(periodDone*70,1400)%> today)</h5>
+        <table width="60%">
+            <td width="50%"><div class="gauge-container" id="periodTarget"></div></td>
+            <td width="50%">
+              <table class="table table-sm" width="100%">
+                <tr>
+                  <td width="40%"></td>
+                  <td width="30%">Full calls</td>
+                  <td width="30%">Intros</td>
+                </tr>
+              <%stats.forEach((user, i) => {
+                if (user.monthCountCall+user.monthCountIntro>0) {%>
+                <tr>
+                  <td><div class="user" id=""><%=user.staffName%></div></td>
+                  <td><div class="call sub" id=""><%=user.monthCountCall%></div></td>
+                  <td><div class="intro sub" id=""><%=user.monthCountIntro%></div></td>
+                </tr>
+              <%}});%>
+                <tr>
+                  <td><div class="user" id="">Total</div></td>
+                  <td><div class="call sub" id=""><%=stats.map(user => user.monthCountCall).reduce((a, b) => a + b, 0)%></div></td>
+                  <td><div class="intro sub" id=""><%=stats.map(user => user.monthCountIntro).reduce((a, b) => a + b, 0)%></div></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+      <div class="alert alert-danger fade show" id="datemessage" role="alert">Please enter a valid date range</div>
+      <div id="monitorChecks" class="statsCont">
+        <table id="monitorChecksTable" width="100%" class="table table-hover table-sm">
+          <thead><th>QC ID</th><th> </th><th> </th><th>Date monitored</th><th>Type</th><th>Agent</th><th>Team</th><th>Job</th><th>Interview date</th><th>Score</th><th>Notes</th><th>Client-suitable?</th><th>Recording</th><th>Serial</th><th>Coaching ID</th></thead>
+          <tbody>
+        </table>
+      </div>
+      <div id="monitorAgents" class="statsCont">
+        <table id="monitorAgentsTable" class="statsTables table table-hover table-sm">
+          <thead>
+            <tr><th rowspan="2">Agent</th><th rowspan="2">WFH</th><th rowspan="2">Interviews</th><th colspan="2">Calls monitored</th><th colspan="2">Intros monitored</th><th colspan="2">Total monitored</th></tr>
+            <tr><th>#</th><th>%</th><th>#</th><th>%</th><th>#</th><th>%</th><th>To hit 5% calls</th><th>To hit 5% total</th></tr>
+          </thead>
+          <% monitorAgents.forEach((agent,i) => { %>
+            <tr>
+              <td><%= agent.agentName %></td>
+              <td><%if (agent.isRemote==1) {%><i class='fas fa-home'></i><%}%></td>
+              <td><%= agent.interviews %></td>
+              <td><%= agent.callMonitorings%></td>
+              <td><%= (agent.callMonitorings>0) ? ((agent.callMonitorings/agent.interviews)*100).toFixed(2) : (0).toFixed(2)%>%</td>
+              <td><%= agent.introMonitorings%></td>
+              <td><%= (agent.introMonitorings>0) ? ((agent.introMonitorings/agent.interviews)*100).toFixed(2) : (0).toFixed(2)%>%</td>
+              <td><%= (agent.callMonitorings+agent.introMonitorings)%></td>
+              <td><%= (agent.callMonitorings+agent.introMonitorings>0) ? (((agent.callMonitorings+agent.introMonitorings)/agent.interviews)*100).toFixed(2) : (0).toFixed(2)%>%</td>
+              <td><%= Math.max(0,Math.round((agent.interviews*0.05)-agent.callMonitorings))  %></td>
+              <td><%= Math.max(0,Math.round((agent.interviews*0.05)-(agent.callMonitorings+agent.introMonitorings))) %></td>
+            </tr>
+          <% }) %>
+        </table>
+      </div>
+      <div id="monitorJobs" class="statsCont">
+        <table id="monitorJobsTable" class="statsTables table table-hover table-sm">
+          <thead>
+            <tr><th rowspan="2">Job</th><th rowspan="2">Interviews</th><th colspan="2">Calls monitored</th><th colspan="2">Intros monitored</th><th colspan="2">Total monitored</th></tr>
+            <tr><th>#</th><th>%</th><th>#</th><th>%</th><th>#</th><th>%</th><th>To hit 5% calls</th><th>To hit 5% total</th></tr>
+          </thead>
+          <% monitorJobs.forEach((job,i) => { %>
+            <tr>
+              <td><%= job.jobName %></td>
+              <td><%= job.interviews %></td>
+              <td><%= job.callMonitorings%></td>
+              <td><%= (job.callMonitorings>0) ? ((job.callMonitorings/job.interviews)*100).toFixed(2) : (0).toFixed(2)%>%</td>
+              <td><%= job.introMonitorings%></td>
+              <td><%= (job.introMonitorings>0) ? ((job.introMonitorings/job.interviews)*100).toFixed(2) : (0).toFixed(2)%>%</td>
+              <td><%= (job.callMonitorings+job.introMonitorings)%></td>
+              <td><%= (job.callMonitorings+job.introMonitorings>0) ? (((job.callMonitorings+job.introMonitorings)/job.interviews)*100).toFixed(2) : (0).toFixed(2)%>%</td>
+              <td><%= Math.max(0,Math.round((job.interviews*0.05)-job.callMonitorings)) %></td>
+              <td><%= Math.max(0,Math.round((job.interviews*0.05)-(job.callMonitorings+job.introMonitorings))) %></td>
+            </tr>
+          <% }) %>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  $(document).ready(function() {
+    $('#datemessage').css("display","none")
+    createGauge(<%=stats.map(user => user.todayCountCall).reduce((a, b) => a + b, 0)%>,"Today","todayTarget","Today",<%=todayDone*2.2%>,0,<%=Math.max(70,stats.map(user => user.todayCountCall).reduce((a, b) => a + b, 0))%>,false,false)
+    createGauge(<%=stats.map(user => user.monthCountCall).reduce((a, b) => a + b, 0)%>,"Month","periodTarget","Current period",<%=Math.min(periodDone*70,1400)%>,0,<%=Math.max(Math.min(periodDone*70,1400),stats.map(user => user.monthCountCall).reduce((a, b) => a + b, 0))%>,false,false)
+  })
+  function createGauge(data,team,id,title,target,min,max,reverse,perc){
+    var valClass=""
+    if (reverse) {
+      if (data*0.8>target) {
+        valClass="bad"
+      }else if (data<=target) {
+        valClass="good"
+      }else {
+        valClass="neutral"
+      }
+    }else {
+      if (data<target*0.8) {
+        valClass="bad"
+      }else if (data>=target) {
+        valClass="good"
+      }else {
+        valClass="neutral"
+      }
+    }
+    Gauge(
+       document.getElementById(id),
+       {
+         min: min,
+         max: max,
+         dialStartAngle: 180,
+         dialEndAngle: 0,
+         value: 0,
+         label: function(val) {
+           var gVal=data
+           if (perc) {
+             gVal=data+"%"
+           }
+           return gVal
+         },
+         valueClass: valClass,
+         viewBox: "0 0 100 57",
+         title: title,
+         color: function(value) {
+           let col
+           if (reverse) {
+             if (value*0.8>target) {
+               col="rgb(219, 70, 70)"
+             }else if (value<=target) {
+               col="rgb(50, 168, 82)"
+             }else {
+               col="rgb(219, 132, 70)"
+             }
+           }else {
+             if (value<target*0.8) {
+               col="rgb(219, 70, 70)"
+             }else if (value>=target) {
+               col="rgb(50, 168, 82)"
+             }else {
+               col="rgb(219, 132, 70)"
+             }
+           }
+           return col
+         }
+       }
+     ).setValueAnimated(data,1.5)
+  }
+  function getBusinessDatesCount(startDate, endDate) {
+      var count = 0;
+      var curDate = startDate;
+      while (curDate <= endDate) {
+          var dayOfWeek = curDate.getDay();
+          if(!((dayOfWeek == 6) || (dayOfWeek == 0)))
+             count++;
+          curDate.setDate(curDate.getDate() + 1);
+      }
+      return count;
+  }
+  </script>
+</body>
+</html>

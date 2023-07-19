@@ -1,0 +1,201 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px;">
+  <% if (message != '') { %>
+    <p class="text-center text-danger"><%= message %></p>
+    <% } %>
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body">
+        <h5 class="card-title">Dashboard</h5>
+        <%
+        var quotes = []
+        quotes.push(YTDquotes, Q1quotes, Q2quotes, Q3quotes, Q4quotes)
+        var quotesMeth = []
+        var quotesMethComm = []
+        var qCATI={}
+        var qRecruit={}
+        var qFace={}
+        var qInternational={}
+        var qOnline={}
+        quotesMethComm.push(qCATI, qRecruit, qFace, qInternational, qOnline)
+        YTDquotes.forEach((quote, index) => {
+          if (quote.isQuoteAsCATI) {
+            qCATI.push(quote)
+          }
+          if (quote.isQuoteAsRecruitment) {
+            qRecruit.push(quote)
+          }
+          if (quote.isQuoteAsFace) {
+            qFace.push(quote)
+          }
+          if (quote.isQuoteAsInternational) {
+            qInternational.push(quote)
+          }
+          if (quote.isQuoteAsOnline) {
+            qOnline.push(quote)
+          }
+        });
+        quotesMeth.push(qCATI, qRecruit, qFace, qInternational, qOnline)
+        quotesMeth.forEach((quoteMeth, index) => {
+          for(var i = 0; i < quote.length; ++i){
+            if(quoteMeth[i].isProjectCommissioned == 1)
+            quotesMethComm.qCATI.push(quoteMeth[i])
+          }
+        });
+
+        %>
+        <table>
+          <thead>
+            <tr>
+            <th>Quotes</th>
+            <th>YTD</th>
+            <th>Q1</th>
+            <th>Q2</th>
+            <th>Q3</th>
+            <th>Q4</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Overall</td>
+              <%
+              quotes.forEach((quote, index) => {%>
+                <td>
+                  <%=quote.length%>
+                </td>
+              <%});%>
+            </tr>
+            <tr>
+              <td>
+                Tel
+              </td>
+              <%
+              quotes.forEach((quote, index) => {
+                var count = 0;
+                for(var i = 0; i < quote.length; ++i){
+                  if(quote[i].isQuoteAsCATI == 1)
+                  count++;
+                }
+              %>
+              <td>
+                <%=count%>
+              </td>
+              <%});%>
+            </tr>
+            <tr>
+              <td>
+                Recruit
+              </td>
+              <%
+              quotes.forEach((quote, index) => {
+                var count = 0;
+                for(var i = 0; i < quote.length; ++i){
+                  if(quote[i].isQuoteAsRecruitment == 1)
+                  count++;
+                }
+              %>
+              <td>
+                <%=count%>
+              </td>
+              <%});%>
+            </tr>
+            <tr>
+              <td>
+                Online
+              </td>
+              <%
+              quotes.forEach((quote, index) => {
+                var count = 0;
+                for(var i = 0; i < quote.length; ++i){
+                  if(quote[i].isQuoteAsOnline == 1)
+                  count++;
+                }
+              %>
+              <td>
+                <%=count%>
+              </td>
+              <%});%>
+            </tr>
+            <tr>
+              <td>
+                F2F
+              </td>
+              <%
+              quotes.forEach((quote, index) => {
+                var count = 0;
+                for(var i = 0; i < quote.length; ++i){
+                  if(quote[i].isQuoteAsFace == 1)
+                  count++;
+                }
+              %>
+              <td>
+                <%=count%>
+              </td>
+              <%});%>
+            </tr>
+            <tr>
+              <td>
+                International
+              </td>
+              <%
+              quotes.forEach((quote, index) => {
+                var count = 0;
+                for(var i = 0; i < quote.length; ++i){
+                  if(quote[i].isQuoteAsInternational == 1)
+                  count++;
+                }
+              %>
+              <td>
+                <%=count%>
+              </td>
+              <%});%>
+            </tr>
+          </tbody>
+      </div>
+    </div>
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body">
+        <canvas id="myChart" style="max-width: 500px;"></canvas>
+      </div>
+    </div>
+</div>
+<script>
+var ctx = document.getElementById("myChart").getContext('2d');
+var myChart = new Chart(ctx, {
+type: 'bar',
+data: {
+labels: ["Tel", "Recruit", "Online", "F2F", "International"],
+datasets: [{
+label: '# of Votes',
+data: [12, 19, 3, 5, 2],
+backgroundColor: [
+'rgba(255, 99, 132, 0.2)',
+'rgba(54, 162, 235, 0.2)',
+'rgba(255, 206, 86, 0.2)',
+'rgba(75, 192, 192, 0.2)',
+'rgba(153, 102, 255, 0.2)',
+'rgba(255, 159, 64, 0.2)'
+],
+borderColor: [
+'rgba(255,99,132,1)',
+'rgba(54, 162, 235, 1)',
+'rgba(255, 206, 86, 1)',
+'rgba(75, 192, 192, 1)',
+'rgba(153, 102, 255, 1)',
+'rgba(255, 159, 64, 1)'
+],
+borderWidth: 1
+}]
+},
+options: {
+scales: {
+yAxes: [{
+ticks: {
+beginAtZero: true
+}
+}]
+}
+}
+});
+</script>
+</body>
+</html>

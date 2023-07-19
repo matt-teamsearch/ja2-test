@@ -1,0 +1,177 @@
+#costsTable .tabulator-headers, #projectDatesTable .tabulator-headers{
+  display:none;
+}
+#costsTable .tabulator-calcs .tabulator-cell{
+  border:none;
+}
+.tableCheck {
+  width: 100%;
+  height: 100%;
+  cursor:pointer;
+}
+.remBtn, .addBtn, .naBtn{
+  padding: 0px;
+  height: 100%;
+  border: none;
+  width: 100%;
+  font-size: small;
+}
+.noRightBorder{
+  border-right:none!important;
+}
+.addRemCol, .naCol{
+  padding:0px!important
+}
+#costsTable .tabulator .tabulator-header .tabulator-col .tabulator-col-content,.teamsTable .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+  padding: 2px;
+  font-size: small;
+}
+#jobsTable.tabulator .tabulator-header{
+  font-weight: 500!important;
+  font-size: small!important;
+}
+#jobsTable.tabulator .tabulator-header .tabulator-col .tabulator-col-content{
+  padding: 2px!important;
+  text-align: center;
+}
+#jobsTable.tabulator .tabulator-cell{
+  padding: 2px!important;
+  text-align: center;
+}
+.teamsTable.tabulator .tabulator-cell{
+  padding: 2px!important;
+  line-height: 40px;
+}
+.teamsTable .tabulator-col-content{
+  padding: 2px!important;
+}
+.teamsTable .tabulator-row:last-of-type{
+  font-style: italic;
+  color: #858585;
+}
+#projectDatesGantt.tabulator .tabulator-header .tabulator-col .tabulator-col-content{
+  padding: 2px!important;
+}
+.ganttCell{
+  padding: 0px!important;
+}
+.tabulator-cell.ganttCell:hover,.tabulator-cell.ganttToday:hover {
+  border: 1px solid red!important;
+}
+.tabulator-cell.selected{
+  background-color:var(--primary)!important;
+}
+.tabulator-cell.editing.newDate{
+  background-color:var(--primary)!important;
+}
+.ganttTask{
+  padding: 2px!important;
+}
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.badge-cm{
+  background-color: var(--purple);
+  color:white;
+}
+.badge-pm{
+  background-color: var(--pink);
+  color:white;
+}
+.tabulator-edit-select-list {
+  width: fit-content!important;
+  box-shadow: 2px 2px 4px 1px #00000075;
+  border-radius: 3px;
+  padding: 3px;
+  padding-right: 8px;
+}
+.tabulator-edit-select-list-item {
+  white-space: nowrap;
+}
+#qm-replyCount,#dedicatedTeamCount{
+  top: -4px;
+  left: -6px;
+  font-size: 1em;
+  height: 21px;
+  width: 21px;
+  transition: all 0.5s;
+}
+#qm-replyCount.qm-mode-active{
+  z-index: 10000;
+  font-size: 3em;
+  height: 68px;
+  width: 72px;
+  pointer-events: none;
+}
+.replyCount.new {
+  background-color: red;
+  color: white;
+  right:unset;
+  left:1px;
+}
+.replyCount {
+  background-color: #d3d3d3;
+  color: black;
+  justify-content: center;
+  align-items: center;
+  border-radius: 100%;
+  text-align: center;
+  display: flex;
+  font-size: 0.6em;
+  position: absolute;
+  right: 1px;
+  top: 1px;
+  width: 15px;
+  height: 15px;
+  box-shadow: 0px 3px 4px 0px rgb(0 0 0 / 40%);
+}
+img.queryImg {
+  width: 50%;
+  position: absolute;
+  top: 6px;
+  border: 1px solid gainsboro;
+  box-shadow: #00000045 -2px 1px 2px -1px;
+}
+.tabulator-cell.queryImgCell{
+  position: relative;
+  border-left:none;
+}
+.mfp-zoom-out-cur, .mfp-zoom-out-cur .mfp-image-holder .mfp-close{
+  cursor: initial!important
+}
+button.mfp-delete {
+  position: absolute;
+  bottom: 6px;
+  right: 7px;
+  padding: 0px 15px;
+  background: transparent;
+  border: none;
+  color: var(--danger);
+  font-size: xxx-large;
+}
+.ganttEvent{
+  height:100%;
+  width:100%;
+  background: var(--primary);
+}
+#projectDatesGantt .tabulator-frozen{
+  background-color: white!important;
+}
+#projectDatesGantt .tabulator-row:last-child .tabulator-frozen {
+    box-shadow: rgb(102 142 212 / 33%) 0px 0px 20px 8px inset;
+}
+.ganttToday{
+  color:red!important;
+  border-left:2px solid red!important;
+  border-right:2px solid red!important;
+}
+.rowSelection.tabulator-cell input{
+  pointer-events: none;
+  transform: scale(2);
+}
+.rowSelection .tabulator-col-title input{
+  margin-top: 34px;
+  transform: scale(2);
+}

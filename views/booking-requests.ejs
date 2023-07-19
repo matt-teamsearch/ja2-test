@@ -1,0 +1,263 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .confBtn,.confAllBtn{
+    border:none;
+    width:100%;
+    height:100%;
+  }
+  .conf{
+    padding:0px!important;
+  }
+  .noRightBorder{
+    border-right:none!important;
+  }
+  .rejected{
+    color: red;
+    text-decoration: line-through;
+  }
+  .accepted{
+    color:var(--success)!important;
+    background-color:#28a74573!important;
+  }
+  .confAllBtn {
+    font-size: x-large;
+    padding:0px;
+  }
+  .sent{
+    animation: fadeOut ease 0.5s;
+    animation-iteration-count: 1;
+    animation-fill-mode: forwards;
+  }
+  @keyframes fadeOut {
+    0% {
+      opacity: 1;
+      left:0px;
+      height:43px;
+      min-height:22px;
+    }
+    50%{
+      left:2000px;
+      opacity:0.7;
+      height:43px;
+      min-height:22px;
+    }
+    99%{
+      left:2000px;
+      opacity: 0;
+      height:0px;
+      min-height:0px;
+    }
+    100% {
+      left:0px;
+      opacity: 0;
+      height:0px;
+      min-height:0px;
+    }
+  }
+  .tabulator-col.firstFri{
+    color:var(--danger)!important;
+  }
+  .tabulator-col.firstFri::after {
+    content: '!';
+    position: absolute;
+    top: 0;
+    left: 0;
+    color: var(--danger);
+    font-size: 20px;
+  }
+  .tabulator-cell.contractShift {
+    opacity: 0.7;
+    font-style: italic;
+  }
+</style>
+<div class="container" style="padding-top:70px; max-width: 100%;">
+  <div class="card viewerHeight ext-dark bg-light text-center">
+    <div class="card-body">
+      <h5 class="card-title">Staff Booking Requests%></h5>
+      <select class="selectpicker" id="teamID" data-container="body" onchange="changeTeam()">
+        <option value="0" <%=teamID==0?'selected':''%>>All teams</option>
+        <%teams.forEach((team,i)=>{%>
+          <option value="<%=team.agentTeamID%>" <%=team.agentTeamID==teamID?'selected':''%>><%=team.teamName%></option>
+        <%})%>
+      </select>
+      <input type="date" style="display:none;" name="bookingWeek" id="bookingWeek" value="<%=moment(bookingWeek).format("YYYY-MM-DD")%>" style="width: 200px;display: inline-block;" class="form-control" onchange="changeTeam()">
+      <div id="requestsTable"></div>
+    </div>
+  </div>
+</div>
+<script>
+  let bookingWeek='<%=bookingWeek%>'
+  let firstFriSwaps={
+    '2023-05-05':moment('2023-05-12'),
+  }
+  let getFirstFri=(week)=>{
+    let firstFri = moment(week).set('date', 1).day(12)
+    if(firstFri.date() > 7) { //
+      firstFri = firstFri.day(-2)
+    }
+    if (firstFriSwaps[firstFri.format("YYYY-MM-DD")]) {
+      firstFri=firstFriSwaps[firstFri.format("YYYY-MM-DD")]
+    }
+    return firstFri
+  }
+  let columns=[
+    {field:"agentID",visible:false},
+    {field:"teamID",visible:false},
+    {field:"agentEmail",visible:false},
+    {field:"bookingWeek",minWidth:127,title:"Week",formatter:cell=>'W/c '+moment(cell.getValue()).format("DD/MM/YYYY")},
+    {field:"firstFri",visible:false,mutator:(v,d)=>moment(d.bookingWeek).isSame(getFirstFri(d.bookingWeek),'week')},
+    {field:"agentName",minWidth:118,title:"Agent"},
+    {field:"hours",title:"Hours",width:80,formatter:(cell,p,onR)=>{
+      // console.log(cell.getData())
+      let shifts=Object.keys(cell.getData()).filter(el=>el.indexOf('shift_')>-1 && el.indexOf('req')<0)
+      let dispShifts=shifts.map(el=>cell.getData()[el]).filter(el=>el.st)
+      let minShifts=shifts.filter(el=>Number(el.split("_")[1])<6).map(el=>cell.getData()[el]).filter(el=>el.st)
+      let sumHours=arr=>arr.reduce((a,b)=>a+Number(moment.utc(b.en,"hh:mm:ss").diff(moment.utc(b.st,"hh:mm:ss"),'hours')),0)
+      let sum=sumHours(dispShifts)
+      let minSum=sumHours(minShifts)
+      onR(()=>{
+        $(cell.getElement()).tooltip({
+          title:minSum+" Mon-Sat hours. "+sum+" hours total."
+        })
+      })
+      return minSum<12?'<span style="color:red;font-weight:bold;">'+sum+'</span>':sum
+    }}
+  ]
+  let shifts=[]
+  for (var i = 0; i < 7; i++) {
+    shifts.push({field:'shift_'+i+"_req_mut",visible:false,mutator:(v,d,t,p,col)=>{
+      let n=col.getField().split("_")[1]
+      v=d['shift_'+n+"_req"]
+      if (d['start'+n]) {
+        v={st:null,en:null}
+      }
+      return v
+    }})
+    shifts.push({field:'shift_'+i,width:110,cssClass:'noRightBorder'+(moment(bookingWeek).add(i,'d').isSame(getFirstFri(bookingWeek),'day')?' firstFri':''),title:moment(bookingWeek).add(i,'d').format("ddd"),mutator:(val,d,t,p,col)=>{
+      let ret=val
+      let n=col.getField().split("_")[1]
+      if (t=='data') {
+        // console.log(col.getField())
+        // console.log(col.getField().split("_")[1])
+        let hrEn=val.en?val.en.split(":")[0]:null
+        ret=(d.firstFri && n==4 && hrEn>17) || d['start'+n]?{st:null,en:null}:val
+      }
+      return ret
+    },formatter:(cell,p,onR)=>{
+      let n=cell.getField().split("_")[1]
+      let req=cell.getData()['shift_'+n+"_req_mut"]
+      if (!cell.getValue().st && req.st && !cell.getData()['start'+n]) {
+        $(cell.getElement()).addClass('rejected')
+        if (cell.getData().firstFri && cell.getField().split("_")[1]==4) {
+          onR(()=>{
+            $(cell.getElement()).tooltip({title:'First friday of the month - no hours allowed after 5pm'})
+          })
+        }
+      }else {
+        $(cell.getElement()).removeClass('rejected')
+      }
+      let val={st:cell.getValue().st,en:cell.getValue().en}
+      if (cell.getData()['start'+n]) {
+        val={st:moment.utc(cell.getData()['start'+n]).format("HH:mm:ss"),en:moment.utc(cell.getData()['end'+n]).format("HH:mm:ss")}
+        onR(()=>{
+          $(cell.getElement()).addClass("contractShift").tooltip({title:'Contracted shift - cannot reject/accept'})
+        })
+      }
+      return val.st?moment.utc(val.st,"hh:mm:ss").format("HH:mm")+" - "+moment.utc(val.en,"hh:mm:ss").format("HH:mm"):(req.st?moment.utc(req.st,"hh:mm:ss").format("HH:mm")+" - "+moment.utc(req.en,"hh:mm:ss").format("HH:mm"):'')
+    }})
+    shifts.push({field:'rej-'+i,title:'',cssClass:'conf',width:40,formatter:function(cell){
+      let n=cell.getField().split("-")[1]
+      let btn=cell.getData()['shift_'+n].st?'<button type="button" class="btn btn-outline-danger confBtn"><i class="fas fa-thumbs-down"></i></button>':'<button type="button" class="btn btn-outline-primary confBtn"><i class="fas fa-undo-alt"></i></button>'
+      return cell.getData()['shift_'+n+"_req_mut"].st && !cell.getData()['start'+n]?btn:''
+    },cellClick:function(e,cell){
+      let n=cell.getField().split("-")[1]
+      let shiftCell=cell.getRow().getCell('shift_'+n)
+      if (!cell.getData()['start'+n]) {
+        if (shiftCell.getValue().st) {
+          shiftCell.setValue({st:null,en:null})
+        }else {
+          shiftCell.setValue(cell.getData()[shiftCell.getField()+"_req_mut"])
+        }
+        cell.getRow().reformat()
+      }
+    }})
+  }
+  columns.push({title:"Shifts",field:'shifts',columns:shifts})
+  columns.push({title:"Period",field:'weeks',minWidth:100,formatter:cell=>(cell.getValue()?cell.getValue():1)+' week(s)'})
+  columns.push({field:'send',title:'',cssClass:'conf',width:60,formatter:function(e){
+    return '<button type="button" class="btn btn-outline-primary confAllBtn"><i class="fas fa-thumbs-up"></i></button>'
+  },cellClick:function(e,cell){
+    $(cell.getRow().getElement()).loader()
+    // setTimeout(()=>{
+    addBooking(cell).then(function(e){
+      $(cell.getRow().getElement()).addClass('sent').loader("done")
+      setTimeout(()=>cell.getRow().delete(),1500)
+    })
+    // },3000)
+  }})
+  $(document).ready(function(e){
+    var repTable=new Tabulator("#requestsTable",{
+      layout:"fitColumns",
+      ajaxURL:"/get-booking-requests/<%=teamID%>/"+bookingWeek,
+      ajaxResponse:(u,p,resp)=>{
+        console.log(resp)
+        return resp.requests.map(el=>{
+          let obj=JSON.parse(JSON.stringify(resp.agents.find(a=>a.agentID==el.agentID)))
+          let ret=el
+          if (obj) {
+            delete obj.agentID
+            ret={...el,...obj}
+          }
+          return ret
+        })
+      },
+      columns:columns,
+      height:'72vh',
+      headerSort:false,
+      renderComplete:()=>{
+        $('.firstFri.tabulator-col').tooltip({title:'First friday of the month ('+getFirstFri(bookingWeek).format("DD/MM/YYYY")+') - no hours allowed after 5pm'})
+      }
+    })
+  })
+  function addBooking(cell){
+    let data=cell.getData()
+    data.bookingWeek=cell.getData().bookingWeek
+    data.fixedHours=cell.getData().fixedHours
+    data.table="<table><th>Date</th><th>Day</th><th>Shift start</th><th>Shift end</th>"
+    data.weeks=cell.getData().weeks
+    let shiftChanged=[]
+    for (var w = 0; w < data.weeks; w++) {
+      for (var i = 0; i < 7; i++) {
+        let st=data['shift_'+i].st?moment.utc(data['shift_'+i].st,"hh:mm:ss").format("HH:mm"):''
+        let en=data['shift_'+i].en?moment.utc(data['shift_'+i].en,"hh:mm:ss").format("HH:mm"):''
+        let stReq=data['shift_'+i+"_req"].st?moment.utc(data['shift_'+i+"_req"].st,"hh:mm:ss").format("HH:mm"):''
+        let enReq=data['shift_'+i+"_req"].en?moment.utc(data['shift_'+i+"_req"].en,"hh:mm:ss").format("HH:mm"):''
+        data.table=data.table+"<tr><td>"+moment(data.bookingWeek).add(w,'weeks').add(i,'d').format("DD/MM/YYYY")+"</td><td>"+moment(data.bookingWeek).add(w,'weeks').add(i,'d').format("ddd")+"</td>"
+          +"<td>"+st+"</td>"
+          +"<td>"+en+"</td>"
+          +"</tr>"
+        if (st!=stReq || en!=enReq) {
+          shiftChanged.push(moment(data.bookingWeek).add(i,'d').format("ddd")+" "+stReq+"-"+enReq)
+        }
+      }
+    }
+    data.table=data.table+"</table>"+(shiftChanged.length>0?"You also requested the following shifts but they were rejected:<br><br><div style='color:red;font-weight:bold'>"+shiftChanged.join("<br>"):'')+"</div>"
+      +"<br>If you have any queries, please contact your Team Leader."
+    return $.ajax({
+      url: '/confirm-booking-request',
+      type: 'POST',
+      global:false,
+      data: data,
+      success: function (response) {
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception));
+      },
+    });
+  }
+  function changeTeam(){
+    window.location.href="/booking-requests/"+$('#teamID').val()+"/"+($('#bookingWeek').val()?$('#bookingWeek').val():'0')
+  }
+</script>
+</body>
+</html>

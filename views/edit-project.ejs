@@ -1,0 +1,2160 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  #groupingSection {
+    margin: auto;
+  }
+  .tabulator-cell.nonEditable {
+    filter: opacity(0.6) brightness(0.93) contrast(0.5);
+  }
+  .groupingSpacer{
+    width:2%
+  }
+  .groupingTD{
+    width:45%
+  }
+  .groupingTables>.tabulator-header{
+    display:none;
+  }
+  .w55p{
+    width: 55%!important;
+    display: inline-block!important;
+  }
+  .form-row{
+    padding:10px;
+  }
+  .add-project-form {
+    border:1px solid #ced4da;
+    border-radius:5px;
+    padding-left:25px;
+    padding-right:25px;
+    padding-bottom:0px;
+    padding-top:0px;
+  }
+  .displaytable{
+    width:100%;
+  }
+  .label{
+    width:15%;
+    padding: 3px 10px 0px 10px;
+  }
+  label{
+    margin-bottom:0px;
+  }
+  .input{
+    width:30%;
+    padding: 7px 0px 7px 0px;
+  }
+  textarea {
+    width: 95%;
+  }
+  .trumbowyg-box, .trumbowyg-editor {
+    margin: 0 auto;
+    text-align: left;
+    border-radius:5px;
+  }
+  .trumbowyg-button-pane {
+    background: unset;
+  }
+  .trumbowyg-button-pane .trumbowyg-button-group::after {
+    content: unset;
+  }
+  .staffMentions {
+    color: #2727d5;
+    background: #e4e4e4;
+  }
+  .actionCheckboxes label{
+    padding-left:20px;
+  }
+  .actionCheckboxes input{
+    transform:scale(2)
+  }
+  .actionCheckboxes {
+    display: block;
+    margin-left:10px
+  }
+  .actionButtons {
+    margin: auto;
+  }
+  .btn-visited{
+    background-color: #81b5bd;
+    border-color: #81b5bd;
+  }
+  .commissionActions{
+    display: inline-flex;
+    margin: auto;
+    width: 100%;
+  }
+  label.required::after {
+    content: "*";
+    color: red;
+    font-weight: bold;
+  }
+  label.required {
+    display: inline-flex;
+  }
+  div.required::before {
+    content: "*";
+    color: red;
+    font-weight: bold;
+    font-size: xx-large;
+    /* padding: 0px; */
+    line-height: 0.8;
+    margin-bottom: -10px;
+    display: block;
+  }
+  .is-invalid{
+    border-color: #dc3545;
+    background: #d7000014;
+    box-shadow: 0px 0px 5px #ff0000;
+  }
+  .is-invalid:focus-within{
+    border-color: inherit;
+    background: inherit;
+    box-shadow: none;
+  }
+
+  .modal-dialog{
+    max-width:950px;
+    height: 400px;
+  }
+  #modal-body{
+    max-height:70vh;
+    overflow-y:scroll;
+  }
+  .moveRight{
+    float:right;
+  }
+  .chartTitle {
+    text-align: center;
+  }
+  .chartTitle.title {
+    font-weight: 600;
+    font-size: large;
+  }
+  .chartTitle.subTitle {
+    font-size: smaller;
+    font-weight: 500;
+    padding: 6px;
+    color: #9e9e9e;
+  }
+  .pmSugg{
+    border: 4px solid white;
+    border-radius: 20px;
+    padding: 1px 6px;
+  }
+  .btn-outline-primary{
+    vertical-align: initial;
+  }
+  #plannerForm td{
+    padding: 4px;
+    vertical-align: middle;
+  }
+  #plannerForm input[type=checkbox]{
+    transform:scale(1.5);
+    width: 15px;
+    margin: auto;
+  }
+  .inbNote {
+    font-variant: all-petite-caps;
+    font-size: small;
+    vertical-align: text-top;
+    margin: 6px;
+  }
+  .tabulator-tableHolder {
+    width: 101%!important;
+  }
+  .resourceChild .tabulator-cell{
+    pointer-events:none;
+    filter: opacity(0.5);
+  }
+</style>
+<script src="/js/JA2charts.js" type="text/javascript"></script>
+
+<script>
+  window.projectID=<%=projectID%>
+  var quoteName='<%=project[0].quoteName%>'
+  var teamupIDs=<%-JSON.stringify(staff.map(el=>{
+    var obj={}
+    obj.staffID=el.staffID
+    obj.teamupID=el.teamupID
+    return obj
+  }))%>
+  var quoteID=<%=project[0].quoteID%>
+  var allJobsData=[
+  <%
+  function findNote(table,page,otherID){
+    var found=[]
+    if (page) {
+      found=notes.find(el=>el.tableName==table && el.page==page && el.otherID==otherID)
+    }else {
+      found=notes.find(el=>el.tableName==table && el.otherID==otherID)
+    }
+    var ret=''
+    if (found) {
+      ret=found.note
+    }
+    return ret
+  }
+  const dateIf = (inDate, seperator, order) => {
+    let day =''
+    if (new Date(inDate).getDate() < 10) {
+      day = '0' + new Date(inDate).getDate()
+    } else {
+      day = new Date(inDate).getDate()
+    }
+    let month =''
+    if (new Date(inDate).getMonth()+1 < 10) {
+      month = '0' + (new Date(inDate).getMonth()+1)
+    } else {
+      month = (new Date(inDate).getMonth()+1)
+    }
+    let year = new Date(inDate).getFullYear()
+    if(order=="f"){
+    return(day+seperator+month+seperator+year)
+    }
+    if(order=="r"){
+    return(year+seperator+month+seperator+day)
+    }
+  }
+  var jobTypeVals=['CATI','Online','Face','DP','Recruitment','Validation','Recontacts','International','Confirmit']
+  jobs.forEach((job,i) => {
+    var typArrSel=[]
+    jobTypeVals.forEach((item, i) => {
+      if (job['isJob'+item]==1) {
+        typArrSel.push("'"+item+"'")
+      }
+    });
+    var audVal=[]
+    if (job.isJobConsumer==1) {
+      audVal.push('"Consumer"')
+    }
+    if (job.isJobBusiness==1) {
+      audVal.push('"Business"')
+    }%>
+    {projectID:projectID,resourceParent:'<%=job.resourceParent%>', hourlyTarget:'<%=job.hourlyTarget%>',isJobHourlyResource:"<%=job.isJobHourlyResource===true || job.isJobHourlyResource===1?'1':(job.isJobHourlyResource===false || job.isJobHourly===0?'0':'')%>",isJobHourly:"<%=job.isJobHourly===true || job.isJobHourly===1?'1':(job.isJobHourly===false || job.isJobHourly===0?'0':'')%>", jobID:<%=job.jobID%>, isJobDeskResearch:<%=job.isJobDeskResearch==1%>, isJobInHouse:<%=job.isJobInHouse==1%>, jobName:`<%-job.jobName%>`,startDate:'<%=dateIf(job.startDate,"-","r")%>', endDate:'<%=dateIf(job.endDate,"-","r")%>', dataDate:'<%=dateIf(job.dataDate,"-","r")%>', tablesDate:'<%=job.tablesDate?dateIf(job.tablesDate,"-","r"):''%>', interviewsTarget:<%=job.isJobHourly?job.interviewsTarget*job.hourlyTarget:job.interviewsTarget%>, hoursTarget:<%=job.isJobHourly?job.interviewsTarget:job.interviewsTarget/job.hourlyTarget%>, jobCPI:'<%=job.jobCPI%>', sponsorJobID:'<%=job.sponsorJobID%>', jobCPIselect:[<%-cpis.filter(el=>el.jobID==job.jobID).map(el=>el.costID[0])%>], expectedLOI:<%=job.expectedLOI%>,shiftSelect:'<%=job.isJobDay==1?'Day':(job.isJobEve==1?'Eve':'')%>',audienceSelect:[<%-audVal%>],typeSelect:[<%-typArrSel%>],CPIreduction:'<%=job.CPIreduction%>',excludeFromDials:'<%=job.excludeFromDials%>'},
+  <%})%>
+  ]
+  var jobsData=allJobsData.filter(el=>!el.isJobDeskResearch)
+  var drJobsData=allJobsData.filter(el=>el.isJobDeskResearch)
+  var costsData = [
+    {projectID:<%=projectID%>, costID:0, sqlCol: 'setupCost', costName:'Setup & PM & data', costType:1, costTypeCat:'', costValue:'<%=project[0].setupCost%>', costUnits:1, costUnitValue:'<%=project[0].setupCost%>',note:'<%=findNote('costsTable','',0)%>'},
+    {projectID:<%=projectID%>, costID:1, sqlCol: 'dataCost', costName:'Tables', costType:1, costTypeCat:'', costValue:'<%=project[0].dataCost%>', costUnits:1, costUnitValue:'<%=project[0].dataCost%>',note:'<%=findNote('costsTable','',1)%>'},
+    {projectID:<%=projectID%>, costID:2, sqlCol: 'sampleCost', costName:'Sample', costType:4, costTypeCat:'', costValue:'<%=project[0].sampleCost%>', costUnits:1, costUnitValue:'<%=project[0].sampleCost%>',note:'<%=findNote('costsTable','',2)%>'},
+    {projectID:<%=projectID%>, costID:3, sqlCol: 'codingCost', costName:'Coding', costType:1, costTypeCat:'', costValue:'<%=project[0].codingCost%>', costUnits:1, costUnitValue:'<%=project[0].codingCost%>',note:'<%=findNote('costsTable','',3)%>'},
+    <%costs.forEach((cost, i) => {%>
+      {projectID:<%=project[0].projectID%>, costID:<%=cost.costID%>, sqlCol: '', costName:'<%=cost.costName%>', costType:<%=cost.costTypeID%>, costTypeCat:'<%=cost.costTypeCategory%>', costValue:<%=cost.units*cost.unitValue%>, costUnits:<%=cost.units%>, costUnitValue:<%=cost.unitValue%>,note:'<%=findNote('costsTable','',cost.costID)%>'},
+    <%});%>
+  ];
+  var staffData=[
+  <%staff.forEach((staff, i) => {%>
+    {login:'<%=(staff.staffEmail.split("@")[0].charAt(0).toUpperCase() + staff.staffEmail.split("@")[0].slice(1))%>', name:'<%=staff.staffName%>', email:'<%=staff.staffEmail%>', staffID:<%=staff.staffID%>},
+  <%});%>
+    {login:'PM', name:'PM team', email:'PM@teamsearchmr.co.uk', staffID:0},
+    {login:'CM', name:'CM team', email:'CM@teamsearchmr.co.uk', staffID:0},
+    {login:'Call Centre Team', name:'Call Centre Team', email:'telunit@teamsearchmr.co.uk', staffID:0},
+    {login:'Teamsearch Core Staff', name:'Teamsearch Core Staff', email:'teamsearchmr@teamsearchmr.co.uk', staffID:0},
+    {login:'Accounts', name:'Accounts', email:'accounts@teamsearchmr.co.uk', staffID:0},
+  ]
+  var projectDatesData=[
+  <%dates.forEach((date, i) => {%>
+    {dateID:'<%=date.dateID%>', projectID:projectID, dateName: "<%-date.dateName%>", dateValue: "<%=date.dateValue?dateIf(date.dateValue,"-","r"):''%>", note: '<%=findNote('projectDatesTable','edit',date.dateID)%>', datePos:<%=date.datePos%>},
+  <%});%>
+  ]
+
+
+  $(document).ready(function () {
+    $('.notesEditor').trumbowyg({
+      btns: [
+        ['undo', 'redo'],
+        ['strong', 'em', 'del'],
+        ['link'],
+        // ['insertImage'],
+        ['unorderedList', 'orderedList'],
+        ['indent', 'outdent'],
+        ['removeformat'],
+        // ['mention'],
+        ['fullscreen'],
+      ],
+      resetCss: true,
+      removeformatPasted: true,
+      plugins: {
+        mention: {
+          source: staffData,
+          formatDropdownItem: function (item) {
+            return item.name + ' (' + item.email + ')';
+          },
+          formatResult: function (item) {
+            return '@' + item.login;
+          }
+        }
+      }
+    }).on('tbwfocus', function(){
+      if ($(this).trumbowyg('html')=="") {
+        $(this).trumbowyg('html','<ul><li></li></ul>');
+      }
+    }).on('tbwblur', function(){
+      $(this).trumbowyg('html',cleanString($(this).trumbowyg('html')))
+      $(this).text($(this).trumbowyg('html'))
+      onNoteEdit(this)
+    })
+    $('.notesEditor').parent().on('keydown', function (e) {
+    	if (event.keyCode === 9) { // tab key
+    		event.preventDefault(); // prevent the tab key event from bubbling up
+    		if(event.shiftKey){
+    			$(this).find('.notesEditor').trumbowyg('execCmd', {
+    				cmd: 'outdent',
+    				param: null,
+    				forceCss: false,
+    			});
+    		}
+    		else{
+    			$(this).find('.notesEditor').trumbowyg('execCmd', {
+    				cmd: 'indent',
+    				param: null,
+    				forceCss: false,
+    			});
+    		}
+    	}
+    })
+    $('.notesEditor').each(function(i){
+      if ($(this).trumbowyg('html')=="") {
+        $(this).trumbowyg('empty')
+      }
+    })
+    $('.tabulator').each(function(e){
+      $("<div id='"+this.id+"Alert'></div>").insertAfter(this)
+    })
+    var bankHolAPI
+    $.ajax({
+      url: '/get-bank-hols',
+      type: 'GET',
+      contentType: 'application/json',
+      success: function (response) {
+        bankHolAPI=response
+      },
+      error: function (jqXHR, exception) {
+        console.log(jqXHR)
+      },
+    });
+    window.addEventListener("jobsChanged", function(e) {
+      var jobsTable = Tabulator.prototype.findTable('#jobsTable')[0];
+      var jobsData = jobsTable.getData()
+      var fieldDates={}
+      fieldDates.startDate=moment.min(jobsData.map(el=>moment.utc(el.startDate).startOf('day'))).subtract(5,'days')
+      fieldDates.endDate=moment.max(jobsData.map(el=>moment.utc(el.endDate).startOf('day'))).add(5,'days')
+      var bankHols=bankHolAPI['england-and-wales'].events.filter(el=>moment.utc(el.date).valueOf()>=fieldDates.startDate.valueOf() && moment.utc(el.date).valueOf()<=fieldDates.endDate.valueOf())
+      if (bankHols.length>0) {
+        $('#jobsTableAlert').show()
+        $('#jobsTableAlert .message').html("Note: There are "+bankHols.length+" bank holidays during this field period:<hr><ul><li>"+bankHols.map(el=>el.title+" "+moment.utc(el.date).format("DD/MM/YY")).join("</li><li>")+"</li></ul>")
+      }else {
+        $('#jobsTableAlert').hide()
+        $('#jobsTableAlert .message').html()
+      }
+    });
+  })
+  function isLive(){
+    if ($('#projectStatus').val()=='isProjectLive') {
+      return true
+    }else {
+      $('#projectStatus').closest('.bootstrap-select').addClass("is-invalid")
+      window.location.href='#projectStatus'
+      window.scrollBy(0, -50);
+      alert("Give the project a 'Live' status to run commissioning actions")
+      return false
+    }
+
+  }
+  $(document).on('mousedown', '#createJobFolder', function(evt) {
+    if(verify(true) && isLive()){
+      createPCform(true)
+      $(this).addClass('btn-visited')
+    }
+  })
+  $(document).on('mousedown', '#removeFromPlanner', function(evt) {
+    removeFromPlanner(false)
+  })
+  $(document).on('mousedown', '#updateInPlanner', function(evt) {
+    var plannerGroupingTable = Tabulator.prototype.findTable('#plannerGrouping')[0];
+    $.ajax({
+      url: '/get-sql-planner-tasks',
+      type: 'GET',
+      contentType: 'application/json',
+      success: function (response) {
+        var plannerTasks=getPlannerTasks()
+        if (jQuery.isEmptyObject(plannerTasks)) {
+          alert("Could not find any tasks in the planner for this project. Try using 'Add tasks to planner' instead")
+        }else {
+          var tasks=getPlannerTasks()
+          buildPlannerModal(response,Object.keys(tasks),tasks,"Update")
+        }
+      },
+      error: function (jqXHR, exception) {
+        console.log(jqXHR)
+      }
+    })
+  })
+  function getPlannerTasks(){
+    var jobsTable = Tabulator.prototype.findTable('#jobsTable')[0];
+    var fieldDates={}
+    var groupedTasks={}
+    fieldDates.startDate=moment.min(jobsData.map(el=>moment.utc(el.startDate).startOf('day'))).subtract(90,'days').format("YYYY-MM-DD")
+    fieldDates.endDate=moment.max(jobsData.map(el=>moment.utc(el.endDate).startOf('day'))).add(10,'days').format("YYYY-MM-DD")
+    var req=fieldDates
+    req.quoteID=quoteID
+    // console.log(fieldDates)
+    $.ajax({
+      url: '/get-teamup-tasks/',
+      type: 'POST',
+      data:JSON.stringify(req),
+      contentType: 'application/json',
+      async:false,
+      success: function (response) {
+        // console.log(response)
+        var thisProject=response.filter(el=>el.remote_id).map(el=>{
+          el.include=true
+          el.fwStart=fieldDates.startDate
+          el.start_dt=moment(el.start_dt, 'YYYYMMDDTHHmmssZ').toISOString().replace(".000","")
+          el.end_dt=moment(el.end_dt, 'YYYYMMDDTHHmmssZ').toISOString().replace(".000","")
+          return el
+        })
+        // console.log(thisProject)
+        var groups=thisProject.map(el=>JSON.parse(el.remote_id).group).filter((el,i,self)=>self.indexOf(el)==i)
+        groups.forEach((group, i) => {
+          groupedTasks[group]=thisProject.filter(el=>JSON.parse(el.remote_id).group==group)
+        });
+      },
+      error: function (jqXHR, exception) {
+        console.log(jqXHR)
+      }
+    })
+    return groupedTasks
+  }
+  function addToPlanner(){
+    $.ajax({
+      url: '/get-sql-planner-tasks',
+      type: 'GET',
+      contentType: 'application/json',
+      success: function (response) {
+        var jobsTable = Tabulator.prototype.findTable('#jobsTable')[0];
+        var plannerGroupingTable = Tabulator.prototype.findTable('#plannerGrouping')[0];
+        var allCalEvents={}
+        var errCount=0
+        var errMsg=""
+        plannerGroupingTable.getGroups().forEach((group, i) => {
+          allCalEvents[group.getKey()]=[]
+          var rows=group.getRows()
+          var jobsData=jobsTable.getData().filter(el=>rows.map(row=>row.getData().jobID).includes(el.jobID))
+          var fieldDates={}
+          fieldDates.startDate=moment.min(jobsData.map(el=>moment.utc(el.startDate).startOf('day')))
+          fieldDates.endDate=moment.max(jobsData.map(el=>moment.utc(el.endDate).startOf('day')))
+          response.forEach((task, i) => {
+            function isGroup(method){
+              return jobsData.filter(el=>el.typeSelect.includes(method) || el[method]).length>0
+            }
+            var dte=""
+            var occ=1
+            var notes={}
+            var rrule=""
+            var interval=""
+            var calIDobj=(task.isTaskCM?teamupIDs.find(el=>el.staffID==$('#projectCM').val()):teamupIDs.find(el=>el.staffID==$('#projectDP').val()))
+            var calID=0
+            if (!calIDobj) {
+              errCount++
+              errMsg="No PM has been selected. PM tasks will be excluded"
+            }else if(!calIDobj.teamupID) {
+              errCount++
+              errMsg=(task.isTaskCM?$('#projectCM option:selected').text():$('#projectDP option:selected').text())+" is not linked to Teamup. Their planner tasks will not be added"
+            }else {
+              calID=calIDobj.teamupID
+            }
+            notes.quoteID=quoteID
+            notes.taskID=task.taskID
+            notes.group=group.getKey()
+            var groupFWdays=countBusinessDays(fieldDates.startDate,fieldDates.endDate)
+            var groupInts=jobsData.reduce((a,b)=>a+Number(b.interviewsTarget),0)
+            if (task.fieldworkInterval) {
+              dte=addBusinessDays(fieldDates[task.dateRelation],Math.ceil(groupFWdays*task.fieldworkInterval))
+            }else if (task.completesInterval) {
+              // console.log(task.taskName,groupFWdays,groupInts,task.completesInterval,fieldDates[task.dateRelation],interval,occ)
+              occ=Math.min(groupFWdays,Math.ceil(groupInts/task.completesInterval))
+              interval=Math.ceil(groupFWdays/occ)
+              dte=addBusinessDays(fieldDates[task.dateRelation],interval)
+              rrule="FREQ=DAILY;INTERVAL="+interval+";UNTIL="+moment.utc(addBusinessDays(fieldDates.endDate,1)).format("YYYYMMDDTHHmmssZ")+";BYDAY=MO,TU,WE,TH,FR"
+            }else {
+              dte=addBusinessDays(fieldDates[task.dateRelation],task.dateOffset)
+            }
+            var taskStart=moment.utc(dte)
+            taskStart.set('hour',task.hourStart)
+            var taskEnd=moment.utc(taskStart)
+            taskEnd.add(task.duration,'minutes')
+            calData={
+              subcalendar_id:Number(calID),
+              title: group.getKey()+" "+task.taskName,
+              start_dt:taskStart.toISOString().replace(".000",""),
+              end_dt:taskEnd.toISOString().replace(".000",""),
+              notes:"<a target='_self' href='http://job-analysis:8080/"+(notes.taskID==1?'add-task-info':'task-done')+"/"+notes.quoteID+"/"+notes.group+"/"+notes.taskID+"'>Mark as done</a>",
+              remote_id:JSON.stringify(notes),
+              all_day: false,
+              rrule:rrule,
+              include:false,
+              fwStart:fieldDates[task.dateRelation],
+            }
+            if (Number(calID)>0 && taskStart>=moment.utc().startOf('day') && (task.isTaskCM || (task.isTaskPM && $('#projectDP').val())) && (task.isTaskAll==1 || (task.isTaskTabs && isGroup('tablesDate')) || (task.isTaskCATI && isGroup('CATI')) || (task.isTaskOnline && isGroup('Online')) || (task.isTaskF2F && isGroup('Face')) || (task.isTaskinHouse && isGroup('isJobInHouse')) || (task.isTaskTranslations && $('#isProjectTranslated').is(':checked')))) {
+              calData.include=true
+            }
+            allCalEvents[group.getKey()].push(calData)
+          });
+        });
+        if (errCount>0) {
+          alert(errMsg)
+        }
+        buildPlannerModal(response,plannerGroupingTable.getGroups().map(group=>group.getKey()),allCalEvents,"Add to")
+      },
+      error: function (jqXHR, exception) {
+        console.log(jqXHR)
+      }
+    })
+  }
+  function buildPlannerModal(response,groups,allCalEvents,source){
+    var html=''
+    html=html+'<form id="plannerForm" action="">'
+    html=html+'<table class="table table striped"><thead><tr><th>Task</th>'
+    for (const [key, value] of Object.entries(allCalEvents)) {
+      html=html+'<th colspan="2" style="text-align:center">'+key+'<br>'
+      +`<button type='button' class='btn btn-secondary btn-sm clientSystemPreset' style="margin-top: 7px;" data-group='`+key+`'>Recruitment/Client's system <span class="infoHover">This button will remove any data checks, spellchecking, and reduce scripting to just the setup and 1st check</span></button></th>`
+    }
+    html=html+'</tr></thead>'
+    response.forEach((task, i) => {
+      html=html+'<tr><td>'+task.taskName+' ('+(task.isTaskCM?'CM':'PM')+')</td>'
+      for (var i = 0; i < groups.length; i++) {
+        var thisGroup=groups[i]
+        var thisEvent=allCalEvents[thisGroup].find(el=>JSON.parse(el.remote_id).taskID==task.taskID)
+        var thisInterval=''
+        var isValid=false
+        if (thisEvent) {
+          thisInterval=thisEvent.rrule?thisEvent.rrule.split(";").find(el=>el.split("=")[0]=="INTERVAL").split("=")[1]:''
+          isValid=(moment.utc(thisEvent.start_dt)>moment.utc().startOf('day') || thisEvent.rrule!="") && thisEvent.include
+        }
+        html=html+'<td style="text-align:center" width="55px">'
+        html=html+'<input type="checkbox" data-taskID="'+task.taskID+'" data-group="'+thisGroup+'" data-field="include" '+(isValid?'checked':'')+' class="form-control plannerGroupField"/></td>'
+        if (task.completesInterval) {
+          html=html+'<td>Every <input type="number" style="width:30px;padding:2px;display:inline-block;" data-taskID="'+task.taskID+'" data-group="'+thisGroup+'" '+(isValid?'':'readonly')+' data-field="interval" value="'+(thisEvent?thisInterval:'')+'" class="form-control plannerGroupField"/> day(s)'
+          html=html+'<span class="infoHover">By default, this number is calculated assuming that we want this task to occur after every '+task.completesInterval+' interviews. If the overall target is less than '+task.completesInterval+', this number is the full fieldwork period, therefore will only occur once, at the end of field.</span></td>'
+        }else {
+          html=html+'<td><input type="date" style="width: 170px;padding:2px;" data-taskID="'+task.taskID+'" data-group="'+thisGroup+'" '+(isValid?'':'readonly')+' data-field="start_dt" value="'+(thisEvent?thisEvent.start_dt.split("T")[0]:'')+'" class="form-control plannerGroupField"/>'
+          html=html+'</td>'
+        }
+      }
+      html=html+'</tr>'
+    });
+    html=html+'</table></form>'
+    html=html+'<div style="width:100%;text-align:right;"><button style="" type="button" class="btn btn-primary" id="calEventsEdited">'+source+' planner</button></div>'
+    $("#modal-body").html(html)
+    var modalTitle='Review planner tasks<span class="infoHover">Use this dialog to review and amend the inclusion and scheduled dates of tasks, before sending to the planner.<br><br>Tasks are included or excluded depending on the type of target groups included in the planner group (e.g. CATI, online). Tasks which, by default, would fall on a date before today are also excluded by default.<br><br>You can include or exclude any task using the checkboxes.<br><br>Once you are finished reviewing, click the button at the bottom right of this dialog to update the planner.<br><br>Note: if you are seeing this dialog after clicking "Amend planner tasks", you are seeing the tasks currently on the planner. You can include, exclude or change any task as required.</span>'
+    $("#Modal-title").html(modalTitle)
+    $("#Modal").attr('id','plannerModal')
+
+    $('.plannerGroupField').on('change',function(e){
+      var taskID=$(this).attr('data-taskID')
+      var group=$(this).attr('data-group')
+      var field=$(this).attr('data-field')
+      var calEvent=allCalEvents[group].find(el=>JSON.parse(el.remote_id).taskID==taskID)
+      var tskStH=moment.utc(calEvent.start_dt).hour()
+      var tskStM=moment.utc(calEvent.start_dt).minute()
+      var tskEnH=moment.utc(calEvent.end_dt).hour()
+      var tskEnM=moment.utc(calEvent.end_dt).minute()
+      var newStDate=moment.utc($('input[data-group="'+group+'"][data-taskID="'+taskID+'"][data-field="start_dt"]').val()).startOf('day').hour(tskStH).minute(tskStM)
+      var newEnDate=moment.utc($('input[data-group="'+group+'"][data-taskID="'+taskID+'"][data-field="start_dt"]').val()).startOf('day').hour(tskEnH).minute(tskEnM)
+      var newInterval=$('input[data-group="'+group+'"][data-taskID="'+taskID+'"][data-field="interval"]').val()
+      var isIncluded=$('input[data-group="'+group+'"][data-taskID="'+taskID+'"][data-field="include"]').prop('checked')
+      if (isIncluded) {
+        calEvent.include=true
+        if (newInterval) {
+          var until=calEvent.rrule.split(";").find(el=>el.split("=")[0]=="UNTIL").split("=")[1]
+          calEvent.start_dt=moment.utc(addBusinessDays(calEvent.fwStart,newInterval)).hour(tskStH).minute(tskStM).toISOString().replace(".000","")
+          calEvent.end_dt=moment.utc(addBusinessDays(calEvent.fwStart,newInterval)).hour(tskEnH).minute(tskEnM).toISOString().replace(".000","")
+          calEvent.rrule="FREQ=DAILY;INTERVAL="+newInterval+";UNTIL="+until+";BYDAY=MO,TU,WE,TH,FR"
+        }else {
+          calEvent.start_dt=newStDate.toISOString().replace(".000","")
+          calEvent.end_dt=newEnDate.toISOString().replace(".000","")
+        }
+      }else {
+        calEvent.include=false
+      }
+    })
+    $('#plannerModal .infoHover').each(function(i) {
+      $(this).tooltip({
+        html:true,
+        placement:'right',
+        title:$(this).html()
+      })
+      $(this).html(' <i class="fas fa-info-circle"></i>')
+    })
+    $("#plannerModal").modal("show")
+    $('input[data-field="include"]').on('change',function(e){
+      var taskID=$(this).attr('data-taskID')
+      var group=$(this).attr('data-group')
+      $('input[data-group="'+group+'"][data-taskID="'+taskID+'"][data-field="start_dt"]').prop('readonly',!$(this).prop('checked'))
+      $('input[data-group="'+group+'"][data-taskID="'+taskID+'"][data-field="interval"]').prop('readonly',!$(this).prop('checked'))
+    })
+    $('.clientSystemPreset').on('mousedown',function(e){
+      var group=$(this).attr('data-group')
+      $('input[data-group="'+group+'"][data-field="include"]').each(function(e){
+        var taskID=Number($(this).attr('data-taskID'))
+        if ([5,6,7,15,16,17,18,20,21,22,24,25,26,27,28].includes(taskID)) {
+          $(this).prop('checked',false)
+          $(this).trigger('change')
+        }
+      })
+    })
+    $("#calEventsEdited").on('mousedown',function(e){
+      // console.log(allCalEvents)
+      removeFromPlanner(allCalEvents)
+      $('#plannerModal').modal("hide")
+    })
+  }
+  function removeFromPlanner(replaceWith){
+    var jobsTable = Tabulator.prototype.findTable('#jobsTable')[0];
+    var fieldDates={}
+    fieldDates.startDate=moment.min(jobsData.map(el=>moment.utc(el.startDate).startOf('day'))).subtract(90,'days').format("YYYY-MM-DD")
+    fieldDates.endDate=moment.max(jobsData.map(el=>moment.utc(el.endDate).startOf('day'))).add(10,'days').format("YYYY-MM-DD")
+    var req=fieldDates
+    req.quoteID=quoteID
+    $.ajax({
+      url: '/get-teamup-tasks/',
+      type: 'POST',
+      data: JSON.stringify(req),
+      contentType: 'application/json',
+      success: function (response) {
+        var data={}
+        data.tasks=response
+        // console.log("detected to remove",data.tasks)
+        $.ajax({
+          url: '/remove-tasks-from-teamup',
+          type: 'POST',
+          data: JSON.stringify(data),
+          async: false,
+          contentType: 'application/json',
+          success: function (response) {
+            if (replaceWith) {
+              for (var key in replaceWith) {
+                var data={}
+                // let cmID=(teamupIDs.find(el=>el.staffID==$('#projectCM').val()) || {})
+                // let pmID=(teamupIDs.find(el=>el.staffID==$('#projectDP').val()) || {})
+                // data.tasks=replaceWith[key].filter(task=>task.include).map(t=>({...t,subcalendar_id:(t.isTaskCM?teamupID.teamupID:pmID.teamupID)}))
+                data.tasks=replaceWith[key].filter(task=>task.include)
+                // console.log("to add",data.tasks)
+                $.ajax({
+                  url: '/post-tasks-to-teamup',
+                  type: 'POST',
+                  data: JSON.stringify(data),
+                  contentType: 'application/json',
+                  success: function (response) {
+                    if (response.length>0) {
+                      alert("Failed to add "+response.length+" tasks:\n"+response.map(el=>"\t"+el.title+"\n").join(""))
+                    }else {
+                      alert("All tasks added successfully")
+                    }
+                  },
+                  error: function (jqXHR, exception) {
+                    console.log(jqXHR)
+                    alert(jqXHR.responseJSON.message)
+                  }
+                })
+              }
+            }
+          },
+          error: function (jqXHR, exception) {
+            console.log(jqXHR)
+            alert(jqXHR.responseJSON.message)
+          }
+        })
+      },
+      error: function (jqXHR, exception) {
+        console.log(jqXHR)
+        alert(jqXHR.responseJSON.message)
+      }
+    })
+  }
+  $(document).on('mousedown', '#addToPlanner', function(evt) {
+    if(verify(true) && isLive()){
+      var tasks=getPlannerTasks()
+      if (jQuery.isEmptyObject(tasks)) {
+        addToPlanner()
+      }else {
+        if (confirm("There are already tasks in the planner for this project. If you continue, the current ones will be removed and replaced. You may want to 'Amend planner tasks' instead. Do you want to continue and replace all tasks?")) {
+          addToPlanner()
+        }
+      }
+      $(this).addClass('btn-visited')
+    }
+  })
+  function createJobFolder(pcForm){
+    var data={}
+    data.quoteNo=$('#quoteNo').val()
+    data.quoteName=$('#quoteName').val()
+    data.pcForm=pcForm
+    if (!data.quoteNo || !data.quoteName) {
+      alert('Must enter a project number and name')
+    }else {
+      $.ajax({
+        url: '/get-job-folder',
+        type: 'POST',
+        data: JSON.stringify(data),
+        contentType: 'application/json',
+        success: function (response) {
+          downloadFile(response)
+        },
+        error: function (jqXHR, exception) {
+          console.log(jqXHR)
+        }
+      })
+    }
+  }
+  $(document).on('mousedown', '#generateDates', function(evt) {
+    if (confirm("This will overwrite any schedule already present in this table. Do you want to proceed?") && verify(true,'jobsTable')) {
+      var jobsTable = Tabulator.prototype.findTable('#jobsTable')[0];
+      var stArr=jobsTable.getColumn('startDate').getCells().filter(cell=>cell.getValue()!=="").map(cell=>new Date(cell.getValue()))
+      var enArr=jobsTable.getColumn('endDate').getCells().filter(cell=>cell.getValue()!=="").map(cell=>new Date(cell.getValue()))
+      var fwStart=new Date(Math.min.apply(null,stArr))
+      var fwEnd=new Date(Math.max.apply(null,enArr))
+      var dates={
+        "Final signed off q'aire to TS":addBusinessDays(fwStart,-4),
+        "Scripting":addBusinessDays(fwStart,-3),
+        "Sample purchased or sample delivered from client":addBusinessDays(fwStart,-2),
+        "Project briefing conference call":"",
+        "Test links to client":addBusinessDays(fwStart,-2),
+        "Client to sign off script":addBusinessDays(fwStart,-1),
+        "Translations":"",
+        "Translated links provided to client":"",
+        "Client to sign off translated links":"",
+        "Pilot start":fwStart,
+        "Pilot end":addBusinessDays(fwStart,1),
+        "Pilot analysis & q'aire script changes":addBusinessDays(fwStart,2),
+        "Post pilot sign off":addBusinessDays(fwStart,2),
+        "Field start":addBusinessDays(fwStart,2),
+        "Interim data/tabs":"",
+        "Field end":fwEnd,
+        "Back translation of verbatims":"",
+        "Coding of verbatims":""
+      }
+      dates["Data"]=addBusinessDays(fwEnd,1)
+      var tabDates=[]
+      jobsTable.getColumn('tablesDate').getCells().forEach((cell, i) => {
+        if (cell.getValue()!="" && !tabDates.map(el=>el.dateValue).includes(cell.getValue())) {
+          tabDates.push({
+            jobName:jobsTable.getColumn('jobName').getCells()[i].getValue(),
+            dateValue:cell.getValue()
+          })
+        }
+      });
+      if (tabDates.length==1) {
+        dates["Tab spec required by Teamsearch"]=addBusinessDays(new Date(tabDates[0].dateValue),-3)
+        dates["Tabs"]=new Date(tabDates[0].dateValue)
+      }else if(tabDates.length>0){
+        tabDates.forEach((tabdate, i) => {
+          dates["Tab spec required by Teamsearch ("+tabdate.jobName+")"]=addBusinessDays(new Date(tabdate.dateValue),-3)
+          dates["Tabs ("+tabdate.jobName+")"]=new Date(tabdate.dateValue)
+        });
+      }else {
+        dates["Tab spec required by Teamsearch"]=''
+        dates["Tabs"]=''
+      }
+      var notes={
+        "Project briefing conference call":"CM will arrange",
+        "Back translation of verbatims":"Throughout",
+      }
+      let gantt=Tabulator.prototype.findTable('#projectDatesGantt')[0]
+      updateJob('delete','ProjectDates',[],[],'projectID',projectID).then(e=>{
+        let i=0
+        var datePos=0
+        let keys=Object.keys(dates)
+        function addDate(){
+          if (i<keys.length) {
+            addProjectDate(keys[i],dates[keys[i]]?dateIf(dates[keys[i]],"-","r"):'',projectID,datePos).then(e=>{
+              if (notes[keys[i]]!=="") {
+                updateNote('edit',e.id,notes[keys[i]],'projectDatesTable',projectID)
+              }
+              i++
+              datePos++
+              addDate()
+            })
+          }else {
+            gantt.setData()
+          }
+        }
+        addDate()
+      })
+    }
+  })
+  function downloadFile(url){
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download="";
+    document.body.appendChild(a);
+    console.log(url)
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+  $(document).on('mousedown', '#createPCform', function(evt) {
+    if (verify(true) && isLive()) {
+      createPCform(false)
+      $(this).addClass('btn-visited')
+    }
+  })
+  function createPCform(andJobFolder){
+    var url=""
+    var data={}
+    data['XProject_number_XProject_name']=$('#quoteNo').val()+" "+$('#quoteName').val()
+    data.XPM=$('#projectCM').val()
+    data.XClient_PM=$('#Client').val().split("-")[1]
+    var ints=0
+    $('.jobInts').each(function(i){
+      if(Number($(this).text())>0){
+        ints=ints+Number($(this).text())
+      }
+    })
+    var jobsData = Tabulator.prototype.findTable('#jobsTable')[0].getData().filter(el=>el.jobID>-1)
+    let hourlyJobs=jobsData.filter(el=>el.typeSelect.includes("Hourly"))
+    data.XNumber_of_interviews=(hourlyJobs.length==jobsData.length?'n/a ('+ints+' hours)':ints)
+    data.XSample_Supplier=$('#sampleSupplier').val()
+    data.XSample_ratio_req=$('#sampleRatio').val()?$('#sampleRatio').val()+":1 required":'TBC'
+    data.XExpected_incidence=$('#quotedIR').val()>0?$('#quotedIR').val()+"% expected":"TBC"
+    data.XincType="TBC"
+    var loi=[]
+    $('.jobLOI').each(function(i){
+      if(Number($(this).text())>0 && !loi.includes($(this).text()+" mins")){
+        loi.push($(this).text()+" mins")
+      }
+    })
+    data.XInt_length=loi.join(" / ")
+    var methods=[]
+    $('.methods').each(function(i){
+      if($(this).find('input').prop('checked')){
+        methods.push($(this).text().trim())
+      }
+    })
+    data.Xmethodology=methods.join(" / ")
+    data.Xblind=$('#isProjectIdentified').prop('checked')?"Identified":"Blind"
+    data.XdataFormat=$('#dataFormats option:selected').toArray().map(item => item.text).join(", ");
+    data.XtabsReq=$('#tabsRequired').prop('checked')?"Y":"N"
+    data.XcodingReq=$('#codingRequired').prop('checked')?"Y":"N"
+    var costs=[]
+    var costsTable = Tabulator.prototype.findTable('#costsTable')[0];
+    costsTable.getRows().forEach((row, i) => {
+      if (row.getData().costID>-1) {
+        var costRow={}
+        var costName=row.getData().costName
+        if (row.getData().sqlCol=="") {
+          costName=costTypeVals[row.getData().costType].split(" [")[0]+" - "+row.getData().costName
+        }
+        costRow.name=costName
+        costRow.units=row.getData().costUnits
+        costRow.unitValue=row.getData().costUnitValue
+        costs.push(costRow)
+      }
+    });
+
+    costs=costs.map(el=>{
+      return [
+      el.name,
+      '',
+      el.units,
+      'X',
+      el.unitValue
+      ]
+    })
+    for (var i = 0; i < costs.length; i++) {
+      if (i==0) {
+        costs[i][1]={
+          formula: 'C20*E20',
+          result: 10,
+          shareType: 'shared',
+          ref: 'B20:B'+(costs.length+19)
+        };
+      }else {
+        costs[i][1]={ sharedFormula: 'B20', result: 10 }
+      }
+    }
+    data.XTotal_Costs={
+      formula: 'SUM(B20:B'+(costs.length+19)+')',
+      result: 0
+    }
+    var postData={}
+    postData.data=data
+    postData.costs=costs
+    let cData={}
+    cData.data=postData.data
+    cData.data.dateToday=moment.utc().format("DD/MM/YYYY")
+    cData.data.client=$('#Client option:selected').text().split(' @ ')[1]
+    cData.data.cmID=$('#projectCM').val()
+    cData.data.totalCosts="£"+separators(postData.costs.reduce((a,b)=>a+Number(Number(b[2])*Number(b[4])),0).toFixed(2))
+    cData.data.costs=postData.costs.filter(el=>(el[2]*el[4])>0).map(el=>{
+      return {costName:el[0],costValue:"£"+separators((el[2]*el[4]).toFixed(2)),costUnits:separators(el[2]),costUnitValue:"£"+separators(Number(el[4]).toFixed(2))}
+    })
+    var datesGantt = Tabulator.prototype.findTable('#projectDatesGantt')[0];
+    cData.data.dates=[]
+    datesGantt.getData().filter(el=>el.dateID>-1).forEach((date, i) => {
+      if (date.startDate==date.endDate || !date.endDate) {
+        cData.data.dates.push({dateName:date.dateName,dateValue:date.startDate?moment(date.startDate).format("DD/MM/YYYY"):'TBC',dateNote:''})
+      }else {
+        cData.data.dates.push({dateName:date.dateName+" start",dateValue:date.startDate?moment(date.startDate).format("DD/MM/YYYY"):'TBC',dateNote:''})
+        cData.data.dates.push({dateName:date.dateName+" end",dateValue:date.endDate?moment(date.endDate).format("DD/MM/YYYY"):'TBC',dateNote:''})
+      }
+    });
+    $.ajax({
+      url: '/create-contract',
+      type: 'POST',
+      data: JSON.stringify(cData),
+      contentType: 'application/json',
+      success: function (response) {
+        if (andJobFolder) {
+          createJobFolder(response)
+        }else {
+          downloadFile(response)
+        }
+      },
+      error: function (jqXHR, exception) {
+        console.log(jqXHR)
+        alert("Must create the job folder first")
+      }
+    })
+    return url
+  }
+  $(document).on('mousedown', '#groupPDbyShift', function(evt) {
+    var pdGroupingTable = Tabulator.prototype.findTable('#pdGrouping')[0];
+    var jobsTable = Tabulator.prototype.findTable('#jobsTable')[0];
+    var jobData=jobsTable.getData()
+    var pdData={}
+    pdData.Business=jobData.filter(row=>row.audienceSelect=="Business" && row.isJobInHouse && row.typeSelect.includes("CATI"))
+    pdData.Consumer=jobData.filter(row=>row.audienceSelect=="Consumer" && row.isJobInHouse && row.typeSelect.includes("CATI"))
+    pdData.Online=jobData.filter(row=>row.typeSelect.includes("Online") && !row.typeSelect.includes("CATI"))
+    pdData.F2F=jobData.filter(row=>row.typeSelect.includes("Face") && !row.typeSelect.includes("CATI"))
+    pdData.Outsourced=jobData.filter(row=>row.isJobInHouse==false && row.typeSelect.includes("CATI"))
+    pdData.DP=jobData.filter(row=>row.typeSelect.includes("DP") && !row.typeSelect.includes("CATI"))
+    for (const [key, value] of Object.entries(pdData)) {
+      if (value) {
+        pdGroupingTable.getRows().forEach((row, i) => {
+          if (value.map(el=>el.jobID).includes(row.getData().jobID)) {
+            row.getCell('pdGroup').setValue(quoteName+" - "+value[0].jobName)
+          }
+        })
+      }
+    }
+  })
+  $(document).on('mousedown', '#groupPDbyJob', function(evt) {
+    var pdGroupingTable = Tabulator.prototype.findTable('#pdGrouping')[0];
+    var jobsTable = Tabulator.prototype.findTable('#jobsTable')[0];
+    var jobData=jobsTable.getData()
+    pdGroupingTable.getRows().forEach((row, i) => {
+      row.getCell('pdGroup').setValue(quoteName+" - "+row.getData().jobName)
+    })
+  })
+  $(document).on('mousedown', '#addToPD', function(evt) {
+    if (verify(true) && isLive()) {
+      var jobsTable = Tabulator.prototype.findTable('#jobsTable')[0];
+      var pdGroupingTable = Tabulator.prototype.findTable('#pdGrouping')[0];
+      var jobData=jobsTable.getData()
+      var pdData={}
+      pdGroupingTable.getGroups().forEach((group, i) => {
+        pdData[group.getKey()]=jobData.filter(el=>group.getRows().map(row=>row.getData().jobID).includes(el.jobID))
+      });
+      var entries={}
+      for (const [key, value] of Object.entries(pdData)) {
+        if (value.length>0) {
+          entries[key]={}
+          entries[key]['entry.1525883519']=$('#quoteNo').val()
+          entries[key]['entry.1525711187']=key
+          entries[key]['entry.874459565']=$('#Client option:selected').text().split(' @ ')[1]
+          var cmName=$('#projectCM option:selected').text()
+          var cmNameArr=cmName.split(" ")
+          var cmInitials=""
+          for (var i = 0; i < cmNameArr.length; i++) {
+            cmInitials=cmInitials+cmNameArr[i].charAt(0).toUpperCase()
+          }
+          entries[key]['entry.1858063408']=cmInitials
+          entries[key]['entry.982291543']=""
+          entries[key]['entry.1497925636']=dateIf(new Date(Math.min.apply(null,value.map(el=>new Date(el.startDate)))),"/","f")
+          entries[key]['entry.681016673']=dateIf(new Date(Math.max.apply(null,value.map(el=>new Date(el.endDate)))),"/","f")
+          entries[key]['entry.1749763520']=dateIf(new Date(Math.max.apply(null,value.map(el=>new Date(el.dataDate)))),"/","f")
+          entries[key]['entry.1154517228']=value.filter(el=>el.tablesDate!=="").length>0?dateIf(new Date(Math.max.apply(null,value.filter(el=>el.tablesDate!=="").map(el=>new Date(el.tablesDate)))),"/","f"):'n/a'
+          entries[key]['entry.1566161769']=value.reduce((a,b)=>a+Number(b.interviewsTarget),0)
+          entries[key]['entry.1003569507']=Math.round(value.reduce((a,b)=>a+Number(b.expectedLOI),0)/value.length)
+          var shift
+          if (value[0].typeSelect.includes("CATI") && value[0].isJobInHouse) {
+            if (value[0].shiftSelect=="Day") {
+              shift="d"
+            }else {
+              shift="e"
+            }
+          }else if (value[0].typeSelect.includes("Online")) {
+            shift="o"
+          }else if (value[0].typeSelect.includes("Face")) {
+            shift="f2f"
+          }else if (value[0].typeSelect.includes("DP")) {
+            shift="dp"
+          }else if (value[0].typeSelect.includes("CATI") && !value[0].isJobInHouse) {
+            shift="out"
+          }
+          entries[key]['entry.1464276556']=shift
+          entries[key]['entry.62992757']=value.reduce((a,b)=>a+Number(b.hourlyTarget),0)>0?(value.reduce((a,b)=>a+Number(b.hourlyTarget),0)/value.length).toFixed(2):'n/a'
+          var pmName=$('#projectDP option:selected').text()
+          var pmNameArr=pmName.split(" ")
+          var pmInitials=""
+          for (var i = 0; i < pmNameArr.length; i++) {
+            pmInitials=pmInitials+pmNameArr[i].charAt(0).toUpperCase()
+          }
+          entries[key]['entry.1603143475']=pmInitials?pmInitials:'n/a'
+          entries[key]['entry.2034600497']=0
+          entries[key]['entry.1918961545']=$('#csatID').val()
+        }
+      }
+      $.ajax({
+        url: '/add-project-to-pd',
+        type: 'POST',
+        data: JSON.stringify(entries),
+        contentType: 'application/json',
+        success: function (response) {
+          $('#addToPD').addClass('btn-visited')
+        },
+        error: function (jqXHR, exception) {
+          console.log(jqXHR)
+        }
+      })
+    }
+  })
+  $(document).on('mousedown', '#regenCsatID', function(evt) {
+    if (confirm("If this project has already been added to PD, you will need to manually update PD with the new ID. Do you want to continue?")) {
+      $('#csatID').val(makeid(7))
+      $('#csatID').trigger('change')
+    }
+  })
+  function separators(num){
+    var num_parts = num.toString().split(".");
+    num_parts[0] = num_parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return num_parts.join(".");
+  }
+  $(document).on('change', '#projectStatus', function(evt) {
+    var update=false
+    if ($(this).val()=="isProjectLive") {
+      if ($('#commissionDate').attr('value')) {
+        if (confirm("This project currently has a commission date of "+moment.utc($('#commissionDate').attr('value')).format("DD/MM/YYYY")+". Do you want to change the commission date to today?")) {
+          update=true
+        }
+      }else {
+        update=true
+      }
+      if (update) {
+        updateJob('update','Quotes',['commissionDate'],[moment.utc().format("YYYY-MM-DD")],'quoteID',quoteID,false)
+      }
+    }
+  })
+  $(document).on('mousedown', '#createEmail', function(evt) {
+    if (verify(true) && isLive()) {
+      var email = 'teamsearchmr@teamsearchmr.co.uk;rob@teamsearchmr.co.uk';
+      var subject = 'New Project Commissioned - '+$('#quoteNo').val()+" "+$('#quoteName').val();
+      var data={}
+      data['XProject_number_XProject_name']=$('#quoteNo').val()+" "+$('#quoteName').val()
+      data.XPm=$('#projectCM option:selected').text().split(" ")[0]
+      data.XDp=$('#projectDP option:selected').text().split(" ")[0]
+      data.XInfo_Notes=$('#projectNotes-0').text()
+      data.XScreener_Notes=$('#projectNotes-1').text()
+      data.XQnaire_Notes=$('#projectNotes-2').text()
+      data.XQuota_Notes=$('#projectNotes-3').text()
+      data.XSample_Notes=$('#projectNotes-4').text()
+      data.XDeliverables_Notes=$('#projectNotes-5').text()
+      data.XSchedule_Notes=$('#projectNotes-6').text()
+      data.XLastWave_Notes=$('#projectNotes-7').text()
+      data.Xclient=$('#Client option:selected').text().split(' @ ')[1]
+      var jobsData=Tabulator.prototype.findTable('#jobsTable')[0].getData().filter(el=>el.jobID>-1)
+      data.XInt_length=jobsData.map(el=>el.jobName+': '+el.expectedLOI).join(", ")
+      data.XMethodology=jobsData.map(el=>el.jobName+': '+el.typeSelect.join('/')).join(", ")
+      data.Xblind=$('#isProjectIdentified').prop('checked')?"Identified":"Blind"
+      data.Xaudience=jobsData.map(el=>el.jobName+': '+el.audienceSelect).join(", ")
+      data.Xtarget=jobsData.filter(el=>el.typeSelect.includes("CATI")).map(el=>el.jobName+': '+el.hourlyTarget).join(", ")
+      data.XResource=data.Xtarget
+      var costs=[]
+      var costsTable = Tabulator.prototype.findTable('#costsTable')[0];
+      costsTable.getRows().forEach((row, i) => {
+        if (row.getData().costID>-1) {
+          var costRow={}
+          var costName=row.getData().costName
+          if (row.getData().sqlCol=="") {
+            costName=costTypeVals[row.getData().costType].split(" [")[0]+" - "+row.getData().costName
+          }
+          costRow.costName=costName
+          costRow.costValue=(Number(row.getData().costUnits)*Number(row.getData().costUnitValue))
+          costRow.units=row.getData().costUnits
+          costRow.unitValue=+Number(row.getData().costUnitValue)
+          costs.push(costRow)
+        }
+      });
+      data.XtotalCost=costs.reduce((a,b)=>a+(Number(b.units)*Number(b.unitValue)),0)
+      data.costRows=costs
+      var ints=0
+      $('.jobInts').each(function(i){
+        if(Number($(this).text())>0){
+          ints=ints+Number($(this).text())
+        }
+      })
+      data.XNumber_of_interviews=ints
+      data.XStart_date=dateIf(new Date(Math.min.apply(null,jobsData.map(el=>new Date(el.startDate)))),"/","f")
+      data.XEnd_date=dateIf(new Date(Math.max.apply(null,jobsData.map(el=>new Date(el.endDate)))),"/","f")
+      for (const [key, value] of Object.entries(data)) {
+        if (typeof value === "string") {
+          data[key]=escape(value)
+        }
+      }
+      var source="<ul>"
+      source=source+"<li>"+data.XPm+"'s project</li>"
+      source=source+"<li>"+data.XDp+" managing production</li>"
+      source=source+"<li>Background:"+data.XInfo_Notes+"</li>"
+      if ($('#repeatOf').val()) {
+        source=source+"<li>Notes from last wave:<ul><li>"+data.XLastWave_Notes+"</li></ul></li>"
+      }
+      source=source+"<li>Questionnaire:"+data.XQnaire_Notes+"</li>"
+      source=source+"<li>Screeners:"+data.XScreener_Notes+"</li>"
+      source=source+"<li>Quotas:"+data.XQuota_Notes+"</li>"
+      source=source+"<li>Sample:"+data.XSample_Notes+"</li>"
+      source=source+"<li>Deliverables:"+data.XDeliverables_Notes+"</li>"
+      source=source+"<li>Schedule:"+data.XSchedule_Notes+"</li>"
+      source=source+"<li>Quality control:<ul><li>Usual protocols</li></ul></li>"
+      source=source+"</ul>"
+      source=source+"<br><br><b>JA2 link:</b> <a href='http://job-analysis:8080/edit/"+quoteID+"'>http://job-analysis:8080/edit/"+quoteID+"</a>"
+      source=source+"<br><br><b>Client: </b>"+data.Xclient
+      source=source+"<br><br><b>LOI: </b>"+data.XInt_length
+      source=source+"<br><br><b>Type: </b>"+data.XMethodology
+      source=source+"<br><br><b>Reporting link needed?: </b>Y"
+      source=source+"<br><br><b>Reveal client in intro?: </b>"+data.Xblind
+      source=source+"<br><br><b>Audience: </b>"+data.Xaudience
+      source=source+"<br><br><b>Target: </b>"+data.Xtarget
+      source=source+"<br><br><b>Resource planner: </b>"+data.XResource
+      source=source+"<br><br><b>Interviews: </b>"+data.XNumber_of_interviews
+      source=source+"<br><br><b>Deadlines: </b>"+data.XStart_date+" to "+data.XEnd_date
+      source=source+"<br><br><b>Costs: </b>"
+      source=source+"<table style='border:2px solid black'>"
+      source=source+"<tr>"
+      var tdStyle='border-collapse:collapse'
+      source=source+"<td style='"+tdStyle+";width:500px'><b>Total costs</b></td>"
+      source=source+"<td style='"+tdStyle+";'>£"+separators(data.costRows.reduce((a,b)=>a+Number(b.costValue),0).toFixed(2))+"</td>"
+      source=source+"<td colspan='3' style='"+tdStyle+";color:white;background-color:red'>Notes (break out any info/costs below)</td>"
+      source=source+"</tr>"
+      source=source+"<tr><td colspan='5' style='"+tdStyle+";'><b> (including all sample, coding & tabs - if relevant)</b></td></tr>"
+      data.costRows.forEach((costRow, i) => {
+        source=source+"<tr>"
+        source=source+"<td style='"+tdStyle+";'>"+costRow.costName+"</td>"
+        source=source+"<td style='"+tdStyle+";text-align:right'>£"+separators(costRow.costValue.toFixed(2))+"</td>"
+        source=source+"<td style='"+tdStyle+";text-align:right'>"+costRow.units+"</td>"
+        source=source+"<td style='"+tdStyle+";text-align:center;width:10px'>X</td>"
+        source=source+"<td style='"+tdStyle+";text-align:left'>£"+separators(costRow.unitValue.toFixed(2))+"</td>"
+        source=source+"</tr>"
+      });
+      // var encodedUri="mailto:"+email+"?subject="+subject+"&body="+source
+      var emlContent = "data:message/rfc822 eml,";
+      emlContent += 'To: '+email+'\n';
+      emlContent += 'Subject: '+subject+'\n';
+      emlContent += 'X-Unsent: 1'+'\n';
+      emlContent += 'Content-Type: text/html;charset="UTF-8"'+'\n';
+      emlContent += ''+'\n';
+      emlContent += source;
+      var encodedUri = emlContent; //encode spaces etc like a url
+      var a = document.createElement('a'); //make a link in document
+      var linkText = document.createTextNode("fileLink");
+      a.appendChild(linkText);
+      a.href = encodedUri;
+      a.id = 'fileLink';
+      a.download = subject+'.eml';
+      a.style = "display:none;"; //hidden link
+      document.body.appendChild(a);
+      document.getElementById('fileLink').click(); //click the link
+      document.getElementById('fileLink').remove()
+      $('#createEmail').addClass('btn-visited')
+    }
+  })
+  $(document).on('mousedown', '#reviewPM,#reviewCM', function(evt) {
+    var html='<button type="button" class="btn moveLeft btn-light"><i class="fas fa-arrow-left"></i></button>'
+    html=html+'<button type="button" class="btn moveRight btn-light"><i class="fas fa-arrow-right"></i></button>'
+    html=html+'<div id="pmJobsTitle" class="chartTitle title">Projects in field</div><div id="pmJobsSubTitle" class="chartTitle subTitle">Suggested: <span id="pmJobsSugg" class="pmSugg"></span></div>'
+    html=html+'<canvas id="pmJobsChart" height="90"></canvas>'
+    html=html+'<div id="pmTeamupTitle" class="chartTitle title">Planner tasks</div><div id="pmTeamupSubTitle" class="chartTitle subTitle">Suggested: <span id="pmTeamupSugg" class="pmSugg"></span></div>'
+    html=html+'<canvas id="pmTeamupChart" height="90"></canvas>'
+    $("#modal-body").html(html)
+    var role=this.id.replace("review","")
+    $("#Modal-title").text(role+' Workloads')
+    $("#Modal").attr('id',this.id+'modal')
+    $("#"+this.id+"modal").modal("show")
+  })
+  $(document).on('mousedown', '#viewGuide', function(evt) {
+    var html='<div style="max-width: 640px;margin: auto;"><div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;""><iframe width="640" height="360" src="https://web.microsoftstream.com/embed/video/78057bbd-d8c6-43f4-9e0a-1b11bc1d7b4d?autoplay=false&amp;showinfo=false" allowfullscreen style="border:none; position: absolute; top: 0; left: 0; right: 0; bottom: 0; height: 100%; max-width: 100%;"></iframe></div></div>'
+    $("#modal-body").html(html)
+    $("#Modal-title").text('Commissioning a project')
+    $("#Modal").attr('id','guideModal')
+    $("#guideModal").modal("show")
+  })
+  function getDateArr(stdate,endate){
+    var checkDate=moment(stdate)
+    var arr=[]
+    for (var i = 0; i <= endate.diff(stdate,'days'); i++) {
+      var insDate=moment(checkDate)
+      arr.push(insDate)
+      checkDate.add(1,'d')
+    }
+    return arr
+  }
+  $(document).on('shown.bs.modal', '#reviewCMmodal,#reviewPMmodal', function(evt) {
+    var fromDate=moment.utc().startOf('day')
+    var toDate=moment.utc().startOf('day').add('month',2)
+    var ctxL = document.getElementById("pmJobsChart").getContext('2d');
+    var ctxL2 = document.getElementById("pmTeamupChart").getContext('2d');
+    var jobChartSetup = JSON.parse(JSON.stringify(lineChartSetup))
+    var teamupChartSetup = JSON.parse(JSON.stringify(lineChartSetup))
+    var pmJobsChart = new Chart(ctxL, jobChartSetup)
+    var pmTeamupChart = new Chart(ctxL2, teamupChartSetup)
+    var jobTitleID=this.id=='reviewCMmodal'?5:6
+    $('.moveLeft').on('mousedown',function(e){
+      fromDate.subtract(1,'week')
+      toDate.subtract(1,'week')
+      drawPMchart(fromDate,toDate,pmJobsChart,pmTeamupChart,jobTitleID)
+    })
+    $('.moveRight').on('mousedown',function(e){
+      fromDate.add(1,'week')
+      toDate.add(1,'week')
+      drawPMchart(fromDate,toDate,pmJobsChart,pmTeamupChart,jobTitleID)
+    })
+    drawPMchart(fromDate,toDate,pmJobsChart,pmTeamupChart,jobTitleID)
+  })
+  function drawPMchart(fromDate,toDate,pmJobsChart,pmTeamupChart,jobTitleID){
+    $.ajax({
+      url: '/get-pm-workloads/'+fromDate.format("YYYY-MM-DD")+'/'+toDate.format("YYYY-MM-DD")+'/'+jobTitleID,
+      type: 'GET',
+      contentType: 'application/json',
+      // global:false,
+      success: function (response) {
+        var dateLabels=getDateArr(fromDate,toDate)
+        pmJobsChart.data.labels=dateLabels.map(el=>el.format("DD-MMM"))
+        pmTeamupChart.data.labels=dateLabels.map(el=>el.format("DD-MMM"))
+        pmJobsChart.data.datasets=[]
+        pmTeamupChart.data.datasets=[]
+        var pmTotals={}
+        pmTotals.jobs={}
+        pmTotals.teamup={}
+        var jobsCountMin=9999999
+        var teamupCountMin=9999999
+        var jobsData=Tabulator.prototype.findTable('#jobsTable')[0].getData().filter(el=>el.jobID>-1)
+        var projStart=moment.utc(Math.min.apply(null,jobsData.map(el=>moment.utc(el.startDate))))
+        var projEnd=moment.utc(Math.max.apply(null,jobsData.map(el=>moment.utc(el.tablesDate?el.tablesDate:el.dataDate))))
+        var tasksStart=moment.utc(addBusinessDays(projStart,-4))
+        var tasksEnd=moment.utc(projEnd)
+        var absenceAnnotations=[]
+        // console.log(tasksStart,tasksEnd)
+        response.jobs[0].filter(pmRow=>isSqlGroup(pmRow,['grpstaff']) && response.teamupCals.find(el=>el.id==pmRow.teamupID)).forEach((pmRow, i) => {
+          var pm=pmRow.staffName
+          pmTotals.teamup[pm]=0
+          pmTotals.jobs[pm]=0
+          var pmColourRef=response.teamupCals.find(el=>el.id==pmRow.teamupID)
+          var pmColour=response.teamupColors.find(el=>el.id==pmColourRef.color).hex
+          var jobCounts=response.jobs.map(day=>{
+            let jobDayPm=day.find(staff=>isSqlGroup(staff,['grpstaff']) && staff.staffName==pm)
+            if (jobDayPm) {
+              return jobDayPm.jobCount
+            }else {
+              console.log("Couldn't find PM "+pm+" in day:",day.filter(staff=>isSqlGroup(staff,['grpstaff'])))
+              return 0
+            }
+          })
+          pmJobsChart.data.datasets.push({
+            data:jobCounts,
+            spanGaps:true,
+            pointRadius:1,
+            pointHitRadius:5,
+            borderColor:hexToRGB(pmColour, 0.7),
+            pointBorderColor:hexToRGB(pmColour, 0.7),
+            pointBackgroundColor:hexToRGB(pmColour, 0.3),
+            borderWidth:4,
+            backgroundColor:'rgba(0,0,0,0)',
+            label:pm
+          })
+          var teamupCounts=[]
+          var pmEvents=response.teamup.filter(el=>{
+            return el.subcalendar_ids.includes(Number(pmRow.teamupID)) && el.all_day==false
+          })
+          dateLabels.forEach((dte, i) => {
+            if (dte.format('e')==0 || dte.format('e')==6) {
+              teamupCounts.push(NaN)
+            }else {
+              var thisDay=pmEvents.filter(el=>moment.utc(el.start_dt).format("YYYY-MM-DD")==dte.format("YYYY-MM-DD"))
+              var thisDayMins=thisDay.map(el=>{
+                var start=moment.utc(el.start_dt)
+                var end=moment.utc(el.end_dt)
+                return end.diff(start,'minutes')>480?0:end.diff(start,'minutes')
+              }).reduce((a,b)=>a+b,0)
+              teamupCounts.push(thisDayMins)
+              if (jobsData.length>0 && dte.valueOf()>=tasksStart.valueOf() && dte.valueOf()<=tasksEnd.valueOf()) {
+                var absences=response.absences.filter(el=>el.cancelled==false && el.employee.id==pmRow.breatheID && moment.utc(el.start_date).startOf('day').valueOf()<=dte.valueOf() && moment.utc(el.end_date).startOf('day').valueOf()>=dte.valueOf())
+                var absenceMutiplier=1
+                if (dte.valueOf()>=projEnd.valueOf() || dte.valueOf()<=projStart.valueOf()) {
+                  absenceMutiplier=2
+                }
+                var shiftMutiplier=1
+                if (pmRow.breatheID.toString()=='659582') {
+                  shiftMutiplier=2
+                }
+                pmTotals.jobs[pm]=pmTotals.jobs[pm]+(absences.length>0?(10*absenceMutiplier):jobCounts[i])
+                pmTotals.teamup[pm]=pmTotals.teamup[pm]+(absences.length>0?(600*absenceMutiplier):teamupCounts[i])
+              }
+            }
+          });
+          var teamUpRolling=[]
+          for (var i = 0; i < teamupCounts.length; i++) {
+            var val=(i==0?teamupCounts[i]:(teamupCounts[i]+teamupCounts[i-1])/2)
+            if (i>1) {
+              val=(teamupCounts[i]+teamupCounts[i-1]+teamupCounts[i-2])/3
+            }
+            teamUpRolling.push(val)
+          }
+          pmTeamupChart.data.datasets.push({
+            data:teamUpRolling,
+            spanGaps:true,
+            pointRadius:1,
+            pointHitRadius:5,
+            borderColor:hexToRGB(pmColour, 0.7),
+            pointBorderColor:hexToRGB(pmColour, 0.7),
+            pointBackgroundColor:hexToRGB(pmColour, 0.3),
+            borderWidth:4,
+            backgroundColor:'rgba(0,0,0,0)',
+            label:pm
+          })
+          var dateLabelsVals=dateLabels.map(el=>el.valueOf())
+          var shiftMutiplier=1
+          if (pmRow.breatheID.toString()=='659582') {
+            shiftMutiplier=2
+          }
+          var pmAbsences=response.absences.filter(el=>el.cancelled==false && el.employee.id==pmRow.breatheID && moment.utc(el.start_date).startOf('day').valueOf()<Math.max.apply(null,dateLabelsVals) && moment.utc(el.end_date).startOf('day').valueOf()>Math.min.apply(null,dateLabelsVals))
+          if (pmTotals.jobs[pm]*shiftMutiplier<jobsCountMin) {
+            jobsCountMin=pmTotals.jobs[pm]*shiftMutiplier
+            $('#pmJobsSugg').text(pm)
+            $('#pmJobsSugg').css("border-color",hexToRGB(pmColour, 0.7))
+          }
+          if (pmTotals.teamup[pm]*shiftMutiplier<teamupCountMin) {
+            teamupCountMin=pmTotals.teamup[pm]*shiftMutiplier
+            $('#pmTeamupSugg').text(pm)
+            $('#pmTeamupSugg').css("border-color",hexToRGB(pmColour, 0.7))
+          }
+          if (pmAbsences) {
+            function xOfDateVal(dateVal){
+              return dateLabels.map(el=>el.valueOf()).indexOf(moment.utc(dateVal).startOf('day').valueOf())
+            }
+            pmAbsences.forEach((absence, i) => {
+              var barData=[]
+              barData.push(xOfDateVal(absence.start_date))
+              barData.push(xOfDateVal(absence.end_date)+1)
+              var abs={
+                type:'horizontalBar',
+                label:pm,
+                data: [barData],
+                yAxisID: 'bar',
+                borderColor:hexToRGB(pmColour, 0.3),
+                borderWidth:1,
+                categoryPercentage: 1,
+                barPercentage: 1,
+                backgroundColor:hexToRGB(pmColour, 0.3)
+              }
+              pmJobsChart.data.datasets.push(abs)
+              pmTeamupChart.data.datasets.push(abs)
+            });
+          }
+        });
+        pmJobsChart.options.tooltips={
+          callbacks: {
+            label: function(tooltipItem, data) {
+              var label = data.datasets[tooltipItem.datasetIndex].label || '';
+              if (label) {
+                  label += ': ';
+              }
+              if (tooltipItem.yLabel=="Holiday") {
+                label += tooltipItem.xLabel.map(el=>dateLabels[el].format("DD-MMM")).join(" - ");
+              }else {
+                label += Math.floor(tooltipItem.yLabel);
+              }
+              return label;
+            }
+          }
+        }
+        pmJobsChart.options.legend.labels.filter=function(item, chart) {
+          return item.lineWidth>1;
+        }
+        var holYaxis={
+          id:'bar',
+          type: "category",
+          stacked: true,
+          display:false,
+          labels: ["Holiday"],
+          offset: true
+        }
+        pmJobsChart.options.scales.yAxes.push(holYaxis)
+        pmTeamupChart.options.scales.yAxes.push(holYaxis)
+        pmJobsChart.options.legend.onClick=function (e, legendItem) {
+          var thisPM=legendItem.text
+          this.chart.data.datasets.forEach((dataset,i)=>{
+            if (dataset.label==thisPM) {
+              var meta=this.chart.getDatasetMeta(i)
+              meta.hidden=(meta.hidden===null?true:null)
+            }
+          });
+          this.chart.update()
+        }
+        pmTeamupChart.options.legend.onClick=pmJobsChart.options.legend.onClick
+        pmTeamupChart.options.legend.labels.filter=pmJobsChart.options.legend.labels.filter
+        pmTeamupChart.options.tooltips=pmJobsChart.options.tooltips
+        pmJobsChart.update()
+        pmTeamupChart.update()
+        var dateLabelsVals=dateLabels.map(el=>el.valueOf())
+        // console.log(jobsData.length,projStart,Math.max.apply(null,dateLabelsVals),projEnd,Math.min.apply(null,dateLabelsVals))
+        if (jobsData.length>0 && projStart.valueOf()<Math.max.apply(null,dateLabelsVals) && projEnd.valueOf()>Math.min.apply(null,dateLabelsVals)) {
+          pmJobsChart.annotation.elements['box1'].options.xMin = dateLabelsVals.includes(projStart.valueOf())?projStart.format("DD-MMM"):dateLabels[0].format("DD-MMM")
+          pmJobsChart.annotation.elements['box1'].options.xMax = dateLabelsVals.includes(projEnd.valueOf())?projEnd.format("DD-MMM"):dateLabels[dateLabels.length-1].format("DD-MMM")
+          pmJobsChart.annotation.elements['box1'].options.yMin = 0
+          pmJobsChart.annotation.elements['box1'].options.yMax = 9999
+          pmJobsChart.annotation.elements['box1'].options.backgroundColor = 'rgba(55, 55, 55, 0.1)'
+          pmTeamupChart.annotation.elements['box1'].options.xMin = dateLabelsVals.includes(projStart.valueOf())?projStart.format("DD-MMM"):dateLabels[0].format("DD-MMM")
+          pmTeamupChart.annotation.elements['box1'].options.xMax = dateLabelsVals.includes(projEnd.valueOf())?projEnd.format("DD-MMM"):dateLabels[dateLabels.length-1].format("DD-MMM")
+          pmTeamupChart.annotation.elements['box1'].options.yMin = 0
+          pmTeamupChart.annotation.elements['box1'].options.yMax = 9999
+          pmTeamupChart.annotation.elements['box1'].options.backgroundColor = 'rgba(55, 55, 55, 0.1)'
+        }else {
+          $('.pmSugg').html('<i>N/A - Add a target group to see suggestion</i>')
+          $('.pmSugg').css("border-color",'white')
+          pmJobsChart.annotation.elements['box1'].options.backgroundColor = 'rgba(55, 55, 55, 0)'
+          pmTeamupChart.annotation.elements['box1'].options.backgroundColor = 'rgba(55, 55, 55, 0)'
+        }
+        pmJobsChart.update()
+        pmTeamupChart.update()
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  $(document).on('mousedown', '#suggSampleRatio', function(evt) {
+    var jobsTable = Tabulator.prototype.findTable('#jobsTable')[0];
+    var jobData=jobsTable.getData()
+    var pdData={}
+    var data={}
+    var sample={}
+    var shifts=['e','d']
+    var ints={}
+    pdData.d=jobData.filter(row=>row.shiftSelect=="Day" && row.isJobInHouse && row.typeSelect.includes("CATI"))
+    pdData.e=jobData.filter(row=>row.shiftSelect=="Eve" && row.isJobInHouse && row.typeSelect.includes("CATI"))
+    for (var i = 0; i < shifts.length; i++) {
+      sample[shifts[i]]=0
+      data[shifts[i]]={}
+      data[shifts[i]].ints=0
+      if (pdData[shifts[i]].length>0) {
+        data[shifts[i]].startDate=moment.utc(Math.min.apply(null,pdData[shifts[i]].map(el=>moment.utc(el.startDate).valueOf())))
+        data[shifts[i]].endDate=moment.utc(Math.max.apply(null,pdData[shifts[i]].map(el=>moment.utc(el.endDate).valueOf())))
+        data[shifts[i]].AHR=pdData[shifts[i]].reduce((a,b)=>a+Number(b.hourlyTarget),0)/pdData[shifts[i]].length
+        data[shifts[i]].ints=pdData[shifts[i]].reduce((a,b)=>a+Number(b.interviewsTarget),0)
+        data[shifts[i]].fwDays=data[shifts[i]].endDate.diff(data[shifts[i]].startDate,"days")
+        sample[shifts[i]]=Math.round((((data[shifts[i]].ints / data[shifts[i]].AHR) * 60) / Math.min(data[shifts[i]].fwDays, 4)) * 1.35, 0)
+      }
+    }
+    sample[shifts[i]]=Math.round(sample[shifts[i]]/5)*5
+    var ratio=Math.round((sample.e+sample.d)/(data.e.ints+data.d.ints))
+    $('#sampleRatio').val(Math.round(ratio/5)*5)
+    $('#sampleRatio').trigger('change')
+  })
+  $(document).on('mousedown', '#pullDates', function(evt) {
+    let days=$('#pullDatesBy').val()
+    if (confirm('Are you sure you want to edit all dates?')) {
+      moveDates(days-(days*2))
+    }
+  })
+  $(document).on('mousedown', '#pushDates', function(evt) {
+    let days=$('#pushDatesBy').val()
+    if (confirm('Are you sure you want to edit all dates?')) {
+      moveDates(days)
+    }
+  })
+  function moveDates(days){
+    var jobsTable = Tabulator.prototype.findTable('#jobsTable')[0];
+    jobsTable.getRows().forEach((row, i) => {
+      if (row.getData().jobID>-1) {
+        let newDates={
+          startDate:moment.utc(addBusinessDays(row.getData().startDate,days)).format("YYYY-MM-DD"),
+          endDate:moment.utc(addBusinessDays(row.getData().endDate,days)).format("YYYY-MM-DD"),
+          dataDate:moment.utc(addBusinessDays(row.getData().dataDate,days)).format("YYYY-MM-DD"),
+          tablesDate:row.getData().tablesDate?moment.utc(addBusinessDays(row.getData().tablesDate,days)).format("YYYY-MM-DD"):'',
+        }
+        row.update(newDates)
+        updateJob('update','Jobs',Object.keys(newDates),Object.values(newDates),'jobID',row.getData().jobID)
+        if (days>0) {
+          changeDate("endDate",row.getData().endDate,newDates.endDate,row.getData().jobID)
+        }
+      }
+    });
+    var projectDatesTable=Tabulator.prototype.findTable('#projectDatesTable')[0];
+    let datesRows=projectDatesTable.getRows()
+    let i=0
+    function addDate(){
+      if (i<datesRows.length) {
+        let drow=datesRows[i]
+        // console.log(drow.getData())
+        if (drow.getData().dateValue) {
+          updateJob('update','ProjectDates',['dateValue'],[moment.utc(addBusinessDays(drow.getData().dateValue,days)).format("YYYY-MM-DD")],'dateID',drow.getData().dateID).then(e=>{
+            i++
+            addDate()
+          })
+        }else {
+          i++
+          addDate()
+        }
+      }else {
+        let gantt=Tabulator.prototype.findTable('#projectDatesGantt')[0];
+        gantt.setData().then(e=>{
+          projectDatesTable.replaceData()
+        })
+      }
+    }
+    addDate()
+  }
+  $(document).on('hidden.bs.modal', '.modal', function(evt) {
+    $("#modal-body").html('')
+    $(this).attr('id','Modal')
+  })
+  function makeid(length) {
+    var result           = '';
+    var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    var charactersLength = characters.length;
+    for ( var i = 0; i < length; i++ ) {
+      result += characters.charAt(Math.floor(Math.random() * charactersLength));
+    }
+    return result;
+  }
+  function verify(scroll,id){
+    var valid=true
+    var invalidIDs=[]
+    $('label.required').each(function(i){
+      var elem=$('#'+$(this).attr('for'))
+      if (elem[0].id==id || !id) {
+        if (!elem.val()) {
+          if (elem.prop("tagName")=="SELECT") {
+            elem.closest('.bootstrap-select').addClass('is-invalid')
+          }else {
+            elem.addClass('is-invalid')
+          }
+          valid=false
+          invalidIDs.push('#'+$(this).attr('for'))
+        }else {
+          if (elem.prop("tagName")=="SELECT") {
+            elem.closest('.bootstrap-select').removeClass('is-invalid')
+          }else {
+            elem.removeClass('is-invalid')
+          }
+
+        }
+      }
+    })
+    $('.notesEditor').each(function(i){
+      var elem=$(this)
+      if (elem[0].id==id || !id) {
+        if (!elem.trumbowyg('html')) {
+          valid=false
+          elem.closest('.trumbowyg-box').addClass('is-invalid')
+          invalidIDs.push('#'+elem.closest('.groupheader')[0].id)
+        }else {
+          elem.closest('.trumbowyg-box').removeClass('is-invalid')
+        }
+      }
+    })
+    function validateTable(tid,sumField){
+      if (tid==id || !id) {
+        var table = Tabulator.prototype.findTable('#'+tid)[0];
+        if(table.getData().reduce((a,b)=>a+Number(b[sumField]),0)>0){
+          $('#'+tid).removeClass('is-invalid')
+        }else {
+          $('#'+tid).addClass('is-invalid')
+          valid=false
+          invalidIDs.push('#'+tid)
+        }
+      }
+    }
+    validateTable('costsTable','costValue')
+    validateTable('jobsTable','interviewsTarget')
+    validateTable('projectDatesGantt','dateID')
+    if (!valid && scroll) {
+      window.location.href=invalidIDs[0]
+      window.scrollBy(0, -50);
+    }
+    return valid
+  }
+  function getTableID(table){
+    switch (table) {
+      case 'Quotes':
+        return 'quoteID'
+        break;
+      case 'Projects':
+        return 'projectID'
+        break;
+      case 'Jobs':
+        return 'jobID'
+        break;
+      default:
+    }
+  }
+  $(document).on('change', '#repeatOf', function(evt) {
+    if (confirm("Do you want to copy over all details into this project? It will overwrite any existing details on this page.")) {
+      $('body').addClass('loading')
+      $.ajax({
+        url: '/repeat-project/',
+        type: 'POST',
+        data:JSON.stringify({projectID:projectID,repeatOf:$('#repeatOf').val()}),
+        contentType: 'application/json',
+        global:false,
+        success: function (response) {
+          window.location.reload();
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+      });
+    }
+  })
+  $(document).on('change', 'input[type="checkbox"].update', function(evt) {
+    var id=this.id
+    var val=$(this).is(':checked')?'1':'0'
+    updateJob('update',$(this).attr("data-table"),[id],[val],getTableID($(this).attr("data-table")),window[getTableID($(this).attr("data-table"))])
+    verify(false,id)
+  })
+  $(document).on('change', 'input[type="text"].update, input[type="number"].update, textarea.update, select.update', function(evt) {
+    var id=this.id
+    var val=$(this).val()
+    updateJob('update',$(this).attr("data-table"),[id],[val],getTableID($(this).attr("data-table")),window[getTableID($(this).attr("data-table"))])
+    verify(false,id)
+  })
+  $(document).on('change', 'select.updateMulti', function(evt) {
+    var table=$(this).attr("data-table")
+    $(this).closest(".bootstrap-select").removeClass("is-invalid")
+    $(this).find('option').each(function() {
+      var id=$(this).attr("value")
+      var val=$(this).is(':selected')?'1':'0'
+      updateJob('update',table,[id],[val],getTableID(table),window[getTableID(table)])
+      verify(false,id)
+    })
+  })
+  $(document).on('change', '#Client', function(evt) {
+    updateJob('update',$(this).attr("data-table"),["clientID","contactID"],$(this).val().split("-"),'quoteID',quoteID)
+    verify(false,'Client')
+  })
+  $(document).on('change', '#inboundLineID', function(evt) {
+    let el=this
+    let quoteNo=$('#quoteNo').val()
+    let quoteName=$('#quoteName').val()
+    let clientName="<%=clients.find(el=>el.clientID==project[0].clientID).clientName%>"
+    let extID=$(el).find("option:selected").attr("data-extID")
+    let extName=$(el).find("option:selected").attr("data-extName")
+    let phoneNumber=$(el).find("option:selected").attr("data-phoneNumber")
+    let data={}
+    if ($(el).val()) {
+      let cont=false
+      if ($(el).find("option:selected").attr("data-inUse")) {
+        if (confirm("Are you sure you want to overwrite this inbound line?")) {
+          cont=true
+        }
+      }else {
+        cont=true
+      }
+      if (cont) {
+        $('#newLineDisplayName').val(quoteNo+" "+quoteName)
+        $('#newLineCallingFrom').val(clientName.substring(0,15))
+        $('#inbound-modal').modal("show")
+        $('#cancelAddLine').one('click',function(e){
+          $(el).val($(el).attr("data-val"))
+          $(el).selectpicker("refresh")
+          $('#inbound-modal').modal("hide")
+        })
+        $('#addLine').one('click',function(e){
+          data.extensionID=extID
+          data.lineID=$(el).val()
+          data.extensionName=$('#newLineDisplayName').val()
+          data.label=$('#newLineCallingFrom').val()
+          data.projectID=projectID
+          $.ajax({
+            url: '/update-inbound-line/',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success:function(response){
+              if ($(el).attr("data-val")) {
+                $(el).find("option[value='"+$(el).attr("data-val")+"']").attr("data-content",phoneNumber)
+                $(el).selectpicker("refresh")
+                let data2={}
+                data2.lineID=$(el).attr("data-val")
+                data2.extensionID=extID
+                data2.extensionName='UNUSED'
+                data2.label=''
+                data2.projectID=''
+                $.ajax({
+                  url: '/update-inbound-line/',
+                  type: 'POST',
+                  contentType: 'application/json',
+                  data: JSON.stringify(data2),
+                  success:function(response){
+                    $(el).find("option:selected").attr("data-extName",data.extensionName)
+                    $(el).find("option:selected").attr("data-content",phoneNumber+'<span class="inbNote">In use for this project</span>')
+                    $(el).attr("data-val",$(el).val())
+                    $('#inbound-modal').modal("hide")
+                    $(el).selectpicker("refresh")
+                  },
+                  error: function (jqXHR, exception) {
+                    alert(jqXHR)
+                  },
+                });
+              }else {
+                $(el).find("option:selected").attr("data-extName",data.extensionName)
+                $(el).find("option:selected").attr("data-content",phoneNumber+'<span class="inbNote">In use for this project</span>')
+                $(el).attr("data-val",$(el).val())
+                $('#inbound-modal').modal("hide")
+                $(el).selectpicker("refresh")
+              }
+            },
+            error: function (jqXHR, exception) {
+              alert(jqXHR)
+            },
+          });
+        })
+      }
+    }else {
+      data.projectID=projectID
+      data.lineID=$(el).attr("data-val")
+      data.extensionName='UNUSED'
+      data.extensionID=extID
+      data.label=''
+      $.ajax({
+        url: '/update-inbound-line/',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success:function(response){
+          console.log("removed inb line")
+          $(el).val($(el).attr("data-val"))
+          $(el).selectpicker("refresh")
+        },
+        error: function (jqXHR, exception) {
+          alert(jqXHR)
+        },
+      });
+    }
+  })
+  $(document).on('change', '#dataFormats', function(evt) {
+    var id=this.id
+    var val=[]
+    $(this).find('option:selected').each(function() {
+      val.push($(this).attr("value"))
+    });
+    var jsonData={};
+    jsonData.projectID=projectID
+    jsonData.dataFormats=val
+    $.ajax({
+        url: '/update-data-formats',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(jsonData),
+        success: function (response) {
+          verify(false,id)
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  })
+  function onNoteEdit(elem){
+    var id=elem.id
+    var val=$(elem).val()
+    updateNote('edit',id.split("-")[1],val,'Projects',projectID)
+    verify(false,id)
+  }
+
+</script>
+
+<script src="/js/JA2tableFuncs.js" type="text/javascript"></script>
+<script src="/js/JA2costsTable.js" type="text/javascript"></script>
+<script src="/js/JA2jobsTable.js" type="text/javascript"></script>
+<script src="/js/JA2projectDatesTable.js" type="text/javascript"></script>
+<script src="/js/JA2groupingTables.js" type="text/javascript"></script>
+<link rel='stylesheet' href='/css/JA2tables.css'>
+<div class="container" style="padding-top:70px;max-width: 95%;">
+  <% if (message) { %>
+    <p class="text-center text-danger"><%= message %></p>
+    <% } %>
+    <% if (project) { %>
+      <%  project.forEach((project , index) => { %>
+        <div class="card viewerHeight">
+        <form class="add-project-form" action="" method="post" enctype="multipart/form-data">
+          <span class="guideHover" id="viewGuide"></span>
+          <h4 class="card-title text-center py-3"><%= project.quoteNo %> <%= project.quoteName %></h4>
+          <input type="text" name="user" id="user" style="display:none;">
+          <input type="text" name="projectID" id="projectID" style="display:none;" value="<%=projectID%>">
+          <input type="date" name="commissionDate" id="commissionDate" style="display:none;" value="<%=moment.utc(project.commissionDate).format("YYYY-MM-DD")%>">
+          <textarea id="projectNotes-7" style="display:none;" data-table='Projects' name="projectNotes" required placeholder="Closing notes from previous wave..."><%=findNote('Projects','edit',7)%></textarea>
+          <h2>Project Details</h2>
+            <table class="displaytable groupheader" id="projectDetails">
+              <tr>
+                <td class="label">
+                <label for="quoteNo" class="required update" data-table='Quotes'><h6>Project Number:</h6></label>
+                </td>
+                <td class="input">
+                  <input type="number" class="form-control update" readonly data-table='Quotes' name="quoteNo" id="quoteNo" value="<%= project.quoteNo %>" required>
+                </td>
+                <td rowspan="10" style="text-align:center;padding: 10px 50px;">
+                  <textarea class="notesEditor update" id="projectNotes-0" data-table='Projects' name="projectNotes" required placeholder="Add general project/background notes here..."><%=findNote('Projects','edit',0)%></textarea>
+                </td>
+              </tr>
+              <tr>
+                <td class="label">
+                  <label for="quoteName" class="required"><h6>Project Name:</h6></label>
+                </td>
+                <td class="input">
+                  <input type="text" class="form-control update" readonly data-table='Quotes' name="quoteName" id="quoteName" value="<%= project.quoteName %>" required>
+                </td>
+              </tr>
+              <tr>
+              <tr>
+                <td class="label">
+                  <label for="clientPO" class=""><h6>Client PO:</h6></label>
+                </td>
+                <td class="input">
+                  <input type="text" class="form-control update" data-table='Projects' name="clientPO" id="clientPO" value="<%= project.clientPO %>" >
+                </td>
+              </tr>
+              <tr>
+                <td class="label">
+                  <label for="projectStatus" class="required"><h6>Status:</h6></label>
+                </td>
+                <td class="input" >
+                  <select class="selectpicker form-control updateMulti" data-table='Projects' data-style="btn-light" required name="projectStatus" id="projectStatus">
+                    <option value="isProjectCommissioned" <% if (project.isProjectCommissioned == 1 ) {%> selected <%}%> >Quoted</option>
+                    <option value="isProjectLive" <% if (project.isProjectLive == 1 ) {%> selected <%}%> >Live</option>
+                    <option value="isProjectClosed" <% if (project.isProjectClosed == 1) {%> selected <%}%> >Closed</option>
+                    <option value="isProjectCancelled" <% if (project.isProjectCancelled == 1) {%> selected <%}%> >Cancelled</option>
+                  </select>
+                </td>
+              </tr>
+              <tr>
+                <td class="label">
+                  <label for="Client" class="required"><h6>Client:</h6></label>
+                </td>
+                <td class="input" >
+                  <select class="selectpicker form-control" data-table='Quotes' data-live-search="true" required data-showSubtext="true" data-style="btn-light" name="Client" id="Client">
+                    <%
+                    clients.forEach((client , index) => { %>
+                    <optgroup label="<%=client.clientName%>">
+                      <option value="<%=client.clientID%>-0" <% if (project.clientID==client.clientID && !project.contactID){%> selected<%}%>>Unknown contact @ <%=client.clientName%></option>
+                      <%contacts.filter(el=>el.clientID==client.clientID).forEach((contact, i) => {
+                        %>
+                        <option value="<%=client.clientID%>-<%=contact.contactID%>" <% if (project.contactID==contact.contactID){%> selected<%}%>><%=contact.contactName%> @ <%=client.clientName%></option>
+                      <%});%>
+                    </optgroup>
+                    <%})%>
+                  </select>
+                </td>
+              </tr>
+              <tr>
+                <td class="label">
+                  <label for="repeatOf" class=""><h6>Repeat of:</h6></label>
+                </td>
+                <td class="input">
+                  <select class="selectpicker form-control update" data-table='Projects' data-live-search="true" required data-style="btn-light" name="repeatOf" id="repeatOf">
+                    <option value=""></option>
+                    <%allProjects.forEach((repeatOfProj, index) => { %>
+                      <option value="<%=repeatOfProj.projectID%>" <% if (repeatOfProj.projectID==project.repeatOf){%>selected<%}%>><%=repeatOfProj.quoteNo%> <%=repeatOfProj.quoteName%></option>
+                    <%})%>
+                  </select>
+                </td>
+              </tr>
+              <tr>
+                <td class="label">
+                  <label for="projectCM" class="required"><h6>CM:</h6></label>
+                </td>
+                <td class="input">
+                  <select class="selectpicker form-control update w55p" data-table='Projects' data-style="btn-light" name="projectCM" id="projectCM" required>
+                    <option value=""></option>
+                    <% ClientManagers.forEach((ClientManager , index) => { %>
+                      <option value="<%= ClientManager.staffID %>" <% if (project.projectCM == ClientManager.staffID) {%> selected <%}%> ><%= ClientManager.staffName %></option>
+                    <% }) %>
+                  </select>
+                  <button type="button" class="btn btn-sm btn-secondary" style="width: 43%;display: inline-block;" id="reviewCM">Show workloads</button>
+                </td>
+              </tr>
+              <tr>
+                <td class="label">
+                  <label for="projectDP"><h6>PM:</h6></label>
+                </td>
+                <td class="input">
+                  <select class="selectpicker form-control update w55p" data-table='Projects' data-style="btn-light" name="projectDP" id="projectDP" required>
+                    <option value=""></option>
+                    <% ProductionManagers.forEach((ProductionManager , index) => { %>
+                      <option value="<%= ProductionManager.staffID %>" <% if (project.projectDP == ProductionManager.staffID) {%> selected <%}%>><%= ProductionManager.staffName %></option>
+                    <% }) %>
+                  </select>
+                  <button type="button" class="btn btn-sm btn-secondary" style="width: 43%;display: inline-block;" id="reviewPM">Show workloads</button>
+                </td>
+              </tr>
+              <tr style="display:none;">
+                <td class="label">
+                  <label for="leadTL">Lead Team Leader</label>
+                </td>
+                <td class="input">
+                  <select class="selectpicker" data-style="btn-light" name="leadTL" id="leadTL" required>
+                    <optgroup label="Select Table">
+                      <option value="">Select</option>
+                      <% TeamLeaders.forEach((TeamLeader , index) => { %>
+                        <option value="<%= TeamLeader.staffID %>" <% if (project.projectTL == TeamLeader.staffID) {%> selected <%}%>><%= TeamLeader.staffName %></option>
+                      <% }) %>
+                    </optgroup>
+                  </select>
+                </td>
+              </tr>
+              <tr style="display:none;">
+                <td class="label">
+                  <label for="Audience" class="required"><h6>Audience:</h6></label>
+                </td>
+                <td class="input">
+                  <select class="selectpicker form-control updateMulti" multiple data-table="Quotes" data-style="btn-light" name="Audience" id="Audience">
+                      <option value="isQuoteAsBusiness" <% if (project.isQuoteAsBusiness == 1) {%> selected<%}%>>Business</option>
+                      <option value="isQuoteAsConsumer" <% if (project.isQuoteAsConsumer == 1) {%> selected<%}%>>Consumer</option>
+                  </select>
+                </td>
+              </tr>
+              <tr style="display:none;">
+                <td class="label" class="required">
+                  <h6>Methods:</h6>
+                </td>
+                <td class="input">
+                  <label id="CATI-Clicker" class="methods btn btn-outline-secondary">
+                    <input type="checkbox" class="update" data-table="Quotes" name="isQuoteAsCATI" id="isQuoteAsCATI" <% if (project.isQuoteAsCATI == 1) {%>checked<% } %>> CATI
+                  </label>
+                  <label id="Recruit-Clicker" class="methods btn btn-outline-secondary">
+                    <input type="checkbox" class="update" data-table="Quotes" name="isQuoteAsRecruitment" id="isQuoteAsRecruitment" <% if (project.isQuoteAsRecruitment == 1) {%>checked<% } %>> Recruit
+                  </label>
+                  <label id="F2F-Clicker" class="methods btn btn-outline-secondary" >
+                    <input type="checkbox" class="update" data-table="Quotes" name="isQuoteAsFace" id="isQuoteAsFace" <% if (project.isQuoteAsFace == 1) {%>checked<% } %>> F2F
+                  </label>
+                  <label id="Online-Clicker" class="methods btn btn-outline-secondary">
+                    <input type="checkbox" class="update" data-table="Quotes" name="isQuoteAsOnline" id="isQuoteAsOnline" <% if (project.isQuoteAsOnline == 1) {%>checked<% } %>> Online
+                  </label>
+                  <label id="International-Clicker" class="methods btn btn-outline-secondary">
+                    <input type="checkbox" class="update" data-table="Quotes" name="isQuoteAsInternational" id="isQuoteAsInternational" <% if (project.isQuoteAsInternational == 1) {%>checked<% } %>> International
+                  </label>
+                  <label id="DP-Clicker" class="methods btn btn-outline-secondary">
+                    <input type="checkbox" class="update" data-table="Quotes" name="isQuoteAsDP" id="isQuoteAsDP" <% if (project.isQuoteAsDP == 1) {%>checked<% } %>> DP
+                  </label>
+                </td>
+              </tr>
+              <tr>
+                <td class="label">
+                  <label for="csatID" class="required"><h6>Client sat ID:</h6></label>
+                </td>
+                <td class="input">
+                  <input type="text" class="form-control update" data-table="Projects" style="width: 55%;display: inline-block;" name="csatID" readonly id="csatID" value="<%= project.csatID %>" required>
+                  <button type="button" class="btn btn-secondary btn-sm" style="width: 40%;display: inline-block;" id="regenCsatID">Generate</button>
+                </td>
+              </tr>
+              <tr>
+                <td class="label">
+                  <label for="inboundLineID" class=""><h6>Inbound line:</h6></label>
+                </td>
+                <td class="input">
+                  <select class="selectpicker" <%-lines?'':'disabled title="RingCentral error"'%> data-val="<%=project.inboundLineID%>" data-style="btn-light" name="inboundLineID" id="inboundLineID">
+                    <option value=""></option>
+                    <% if (lines) {
+                        lines.forEach((line,i) => { %>
+                        <option value="<%= line.id %>" data-extID="<%= line.extension.id %>" data-inUse="<%= (line.extension.name!="UNUSED") %>" data-phoneNumber="<%= line.phoneNumber.replace("+44","0") %>" data-extName="<%= line.extension.name %>" <% if (line.id == project.inboundLineID) {%> selected <%}%> data-content='<%= line.phoneNumber.replace("+44","0") %><%if(line.extension.name!="UNUSED"){%><span class="inbNote">In use for <%=line.id == project.inboundLineID?'this project':line.extension.name%></span><%}%>'></option>
+                    <% })} %>
+                  </select>
+                </td>
+              </tr>
+          </table>
+          <h2 id="budget">Budget</h2>
+          <div id="costsTable" class="required"></div>
+          <div class="form-row" style="display:none">
+              <input type="number" class="form-control update" data-table="Projects" name="setupCost" id="setupCost" value="<%= project.setupCost %>" step="0.01" min="0" required>
+              <input type="number" class="form-control update" data-table="Projects" name="dataCost" id="dataCost" value="<%= project.dataCost %>" step="0.01" min="0" required>
+              <input type="number" class="form-control update" data-table="Projects" name="sampleCost" id="sampleCost" value="<%if(project.sampleCost > 0){%><%= project.sampleCost %><%}else{%>0<%}%>" step="0.01" min="0" required>
+              <input type="number" class="form-control update" data-table="Projects" name="codingCost" id="codingCost" value="<%if(project.codingCost > 0){%><%= project.codingCost %><%}else{%>0<%}%>" step="0.01" min="0" required>
+          </div>
+          <h2 id="groups">Target Groups</h2>
+          <button type="button" id="pullDates" class="btn btn-secondary btn-sm" style="margin: 5px 0px;" name="pullDates">Pull all dates forward (sooner) by:</button> <input type="number" style="width: 2em;" id="pullDatesBy"/> days<span class="infoHover">This will adjust dates in the target groups and the full date schedule, moving them by the number of days you specify here.<br><br>Note that these are business days, so it will ignore weekends entirely. If you pull a Monday start forward by 1 day, it will move to a Friday start.</span><br>
+          <button type="button" id="pushDates" class="btn btn-secondary btn-sm" style="margin: 5px 0px;" name="pushDates">Push all dates back (later) by:</button> <input type="number" style="width: 2em;" id="pushDatesBy"/> days<span class="infoHover">This will adjust dates in the target groups and the full date schedule, moving them by the number of days you specify here.<br><br>Note that these are business days, so it will ignore weekends entirely. If you push a Friday start back by 1 day, it will move to a Monday start.</span><br>
+          <div id="jobsTable" class="required"></div>
+          <div id="jobsTableAlert" style="display:none" class="alert tableAlert alert-warning alert-dismissible fade show" role="alert">
+            <span class="message"></span>
+            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <h2 id="groups">Desk Research Groups</h2>
+          <div id="drJobsTable"></div>
+          <h2>Screeners</h2>
+          <div class="form-row">
+            <div class="form-group col-md-3">
+              <label for="quotedIR" class="required"><h6>Expected Incidence (%):</h6></label>
+              <input type="number" class="form-control update" data-table="Projects" name="quotedIR" id="quotedIR" value="<%=project.quotedIR%>" step="0" max="100" min="0">
+            </div>
+            <div class="form-group col-md-3">
+              <label for="finalIR"><h6>Closing Incidence (%):</h6></label>
+              <input type="number" class="form-control update" data-table="Projects" name="finalIR" id="finalIR" value="<%= project.finalIR %>" step="0" max="100" min="0">
+            </div>
+          </div>
+          <div class="form-group col-md-12 groupheader" id="screeners">
+          <textarea class="notesEditor" id="projectNotes-1" required name="projectNotes" placeholder="Add notes about screeners here... What is the criteria? Any difficulties expected? How do we ensure we don't lose anyone needlessly?"><%=findNote('Projects','edit',1)%></textarea>
+          </div>
+          ><h2>Questionnaire</h2>
+          <div class="form-row actionCheckboxes">
+            <input type="checkbox" class="update" name="isProjectIdentified" data-table="Projects" id="isProjectIdentified" <%if(project.isProjectIdentified==1){%>checked<%}%>> <label for="isProjectIdentified">Client identified in intro</label>
+          </div>
+          <div class="form-row actionCheckboxes">
+            <input type="checkbox" class="update" name="isProjectTranslated" data-table="Projects" id="isProjectTranslated" <%if(project.isProjectTranslated==1){%>checked<%}%>> <label for="isProjectTranslated">Requires translations</label>
+          </div>
+          <div class="form-group col-md-12 groupheader" id="questionnaire">
+            <textarea class="notesEditor" id="projectNotes-2" required name="projectNotes" placeholder="Add notes about the questionnaire here... What should the call centre, the PM, or CM be prepared for?"><%=findNote('Projects','edit',2)%></textarea>
+          </div>
+          <h2>Quotas</h2>
+          <div class="form-group col-md-12 groupheader" id="quotas">
+            <textarea class="notesEditor" id="projectNotes-3" required name="projectNotes" placeholder="Add notes about quotas here... What are the quotas? Any difficulties expected? How will quotas be managed to ensure the project runs smoothly?"><%=findNote('Projects','edit',3)%></textarea>
+          </div>
+          <h2>Sample</h2>
+          <div class="form-row" >
+            <div class="form-group col-md-4">
+              <label for="sampleSupplier" class="required"><h6>Supplier:</h6></label>
+              <select class="selectpicker form-control update" data-table="Projects" required data-style="btn-light" name="sampleSupplier" id="sampleSupplier">
+                <option value=""></option>
+                <option value="Teamsearch" <% if (project.sampleSupplier=="Teamsearch") {%> selected<%}%>>Teamsearch</option>
+                <option value="Client" <% if (project.sampleSupplier=="Client") {%> selected<%}%>>Client</option>
+                <option value="Mixed" <% if (project.sampleSupplier=="Mixed") {%> selected<%}%>>Mixed</option>
+              </select>
+            </div>
+            <div class="form-group col-md-6">
+              <label for="sampleRatio" style="display:inline-block"><h6>Sample volume required:</h6></label> <button type="button" class="btn btn-secondary btn-sm" style="display: inline-block;width: 100px;padding: 0px;" id="suggSampleRatio">Calculate</button><span class="infoHover">This is calculated by adding together the total hours needed to complete all CATI interviews (based on the <i>Target Groups</i> table), then assuming agents will dial 60 records per hour, calculating how many records are needed to support that resource. The assumption is then made that records can be called up to 4 times, and that 35% of records will be 'failed' (not available for further calls) each day.<br>The total sample required is then divided by the number of interviews, and rounded to the nearest 5, in order to get the ratio.<br><br>The basic calculation is:<br>( ( ( ( ints / AHR ) * 60 ) / 4 ) * 1.35 )</span><br>
+              <input type="number" class="form-control col-md-1 update" data-table="Projects" style="display:inline-block;padding-left:3px;padding-right:3px;" name="sampleRatio" id="sampleRatio" value="<%= project.sampleRatio %>" step="0.01" min="0">
+              <span class="col-md-6" style="display:inline-block;padding: 0px;">:1 in relation to quotas</span>
+            </div>
+          </div>
+          <div class="form-group col-md-12 groupheader" id="sample">
+            <textarea class="notesEditor" id="projectNotes-4" required name="projectNotes" placeholder="Add notes about sample here... Where will sample come from? How will it be profiled? What can be done to ensure the sample performs well?"><%=findNote('Projects','edit',4)%></textarea>
+          </div>
+          <h2>Deliverables</h2>
+          <div class="form-row actionCheckboxes">
+            <input type="checkbox" name="tabsRequired" id="tabsRequired" data-table="Projects" class="update" <%if(project.tabsRequired==1){%>checked<%}%>> <label for="tabsRequired">Tables required</label>
+          </div>
+          <div class="form-row actionCheckboxes">
+            <input type="checkbox" name="codingRequired" id="codingRequired" data-table="Projects" class="update" <%if(project.codingRequired==1){%>checked<%}%>> <label for="codingRequired">Coding required</label>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-md-4">
+              <label for="dataFormats" class="required"><h6>Data formats:</h6></label>
+              <select class="selectpicker form-control" multiple required data-style="btn-light" name="dataFormats" id="dataFormats">
+                <%dataFormats.forEach((data, i) => {%>
+                  <option value="<%=data.dataFormatID[0]%>" <%if(data.projectID==projectID){%> selected<%}%>><%=data.dataFormat%></option>
+                <%});%>
+              </select>
+            </div>
+          </div>
+          <div class="form-row groupheader" id="deliverables">
+            <div class="form-group col-md-12">
+              <textarea class="notesEditor" id="projectNotes-5" required name="projectNotes" placeholder="Add notes about deliverables here... Any special requirements? Learnings from similar projects? Is there a client protocols document? Is interim required?"><%=findNote('Projects','edit',5)%></textarea>
+            </div>
+          </div>
+          <h2>Schedule</h2>
+          <div class="form-row groupheader" id="schedule">
+            <div class="form-group col-md-12">
+              <textarea class="notesEditor" id="projectNotes-6" required name="projectNotes" placeholder="Add notes about the schedule here... Any difficulties expected? Special requirements for the timeline of the project?"><%=findNote('Projects','edit',6)%></textarea>
+            </div>
+          </div>
+          <button type="button" class="btn btn-secondary btn-sm" id="generateDates">Generate schedule using target group dates</button>
+          <div id="projectDatesTable" class="required" style="display:none;"></div>
+          <div id="projectDatesGantt" class="required"></div>
+          <div class="card-header text-center py-2 groupingHeaders" ><strong>PD Grouping</strong><span class="infoHover">Use this table to define the rows on PD. Each group in the table below will be one row on PD. You will usually want to group your Target Groups based on their shift type (day/eve/online/f2f), and possibly if they have distinct fieldwork periods. You can group them, however, in any way you think is best.<br><br>By default, all Target Groups will be in one PD row (labelled using the name of the project). Use the right hand column to assign that Target Group to a PD row. Click 'Add...' to create a seperate row for that Target Group. Right click the group header to rename the PD row.</span></div>
+          <div class="form-row">
+            <button type="button" class="btn btn-sm btn-secondary" name="groupPDbyShift" id="groupPDbyShift">Group by shift</button>
+            <button type="button" class="btn btn-sm btn-secondary" name="groupPDbyJob" id="groupPDbyJob">One row per TG</button>
+            <div id="pdGrouping" data-group="PD" class="groupingTables"></div>
+          </div>
+          <div class="card-header text-center py-2 groupingHeaders" ><strong>Planner Grouping</strong><span class="infoHover">Use this table to define how tasks are added to the planner. Each group in the table below will be assigned its own scripting/setup, data checks and deliverables (a 'task plan'). If a Target Group is in a seperate task plan, that essentially implies that it has its own questionnaire & sample.<br><br>By default, all Target Groups will be in one task plan (labelled using the name of the project). Use the right hand column to assign a Target Group to a different task plan. Click 'Add...' to move that Target Group to it's own new task plan. Right click the group header to rename the task plan.</span></div>
+          <div class="form-row">
+            <div id="plannerGrouping" data-group="Planner" class="groupingTables"></div>
+          </div>
+          <h2>Commission</h2>
+          <div class="form-row commissionActions">
+            <div class="btn-group actionButtons">
+              <button type="button" class="btn btn-primary" name="createJobFolder" id="createJobFolder">Create job folder</button>
+              <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <span class="sr-only">Toggle Dropdown</span>
+              </button>
+              <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                <a class="dropdown-item" id="createPCform" href="#">Commission contract only</a>
+              </div>
+            </div>
+            <button type="button" class="btn btn-primary actionButtons" name="addToPD" id="addToPD">Add to PD</button>
+            <button type="button" class="btn btn-primary actionButtons" name="createEmail" id="createEmail">Create commission email</button>
+            <div class="btn-group actionButtons">
+              <button type="button" class="btn btn-primary" name="addToPlanner" id="addToPlanner">Add tasks to planner</button>
+              <button type="button" class="btn btn-primary dropdown-toggle dropdown-toggle-split" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                <span class="sr-only">Toggle Dropdown</span>
+              </button>
+              <div class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                <a class="dropdown-item" id="removeFromPlanner" href="#">Remove tasks from planner</a>
+                <a class="dropdown-item" id="updateInPlanner" href="#">Amend planner tasks</a>
+              </div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-md-12">
+              <a href="/overview/<%= project.quoteID %>" class="btn btn-sm btn-info" style="width:100%;">Back to project overview</a>
+            </div>
+          </div>
+        </form>
+        <% }) %>
+        <% } else { %>
+          <p class="text-center">Project Not Found. Go <a href="/add">here</a> to add Projects.</p>
+          <% } %>
+          </div>
+        </div>
+      </div>
+      <div class='modal fade' role='dialog' id='Modal'>
+        <div class='modal-dialog modal-dialog-centered' role='document'>
+          <div class='modal-content'>
+            <div class='modal-header'>
+              <h5 class='modal-title' id='Modal-title'></h5>
+              <button type='button' class='close modalClose' data-dismiss='modal' aria-label='Close'>
+                <span aria-hidden='true'>&times;</span>
+              </button>
+            </div>
+            <div class='modal-body' id='modal-body'>
+
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class='modal fade' role='dialog' id='inbound-modal'>
+        <div class='modal-dialog modal-dialog-centered' role='document'>
+          <div class='modal-content'>
+            <div class='modal-body' id='modal-body'>
+              <div class="form-row">
+                <label for="newLineDisplayName">Display name:</label>
+                <input type="text" id="newLineDisplayName" class="form-control">
+              </div>
+              <div class="form-row">
+                <label for="newLineCallingFrom">Calling from:</label>
+                <input type="text" id="newLineCallingFrom" maxlength="15" class="form-control">
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-primary" id="addLine">Add</button>
+              <button type="button" class="btn btn-secondary" id="cancelAddLine">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>

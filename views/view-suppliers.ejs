@@ -1,0 +1,105 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .tabulator-tableHolder {
+    overflow: hidden!important;
+  }
+  input[type="checkbox"] {
+    transform: scale(1.8);
+    margin: 7px;
+  }
+  .checkCont {
+    padding: 4px;
+  }
+  .selectFilters {
+    display: flex;
+    justify-content: center;
+    flex-wrap: wrap;
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .btnCell{
+    position:relative;
+  }
+  .tableBtn{
+    position: absolute;
+    transition: all 0.2s;
+    opacity: 0;
+    height: 100%;
+    width: 100%;
+    top: 0px;
+    left: 0px;
+  }
+  .tableBtn:hover{
+    opacity:1;
+  }
+</style>
+<div class="container" style="padding-top:70px;">
+  <div class="card viewerHeight ext-dark bg-light text-center">
+    <div class="card-body">
+      <h5 class="card-title">Suppliers</h5>
+      <div class="selectFilters">
+        <select class="selectpicker filters" name="supplierTypeFilter" multiple id="supplierTypeFilter" data-container="body" title="Filter by product...">
+          <option value="isOnlineCons">Online consumer panel</option>
+          <option value="isOnlineB2B">Online B2B panel</option>
+          <option value="isConsSample">Consumer CATI sample</option>
+          <option value="isB2bSample">B2B CATI sample</option>
+          <option value="isUkFieldwork">UK CATI fieldwork</option>
+          <option value="isIntFieldwork">International CATI fieldwork</option>
+          <option value="isIncentives">Incentives</option>
+          <option value="isF2fFieldwork">F2F fieldwork</option>
+          <option value="isAdmin">Admin/Other</option>
+        </select>
+        <div class="checkCont"><input type="checkbox" class="filters" value="1" id="isSupplierActive" name="isSupplierActive"/><label for="isSupplierActive">Currently active</label></div>
+        <div class="checkCont"><input type="checkbox" class="filters" value="1" id="isSupplierPreferred" name="isSupplierPreferred"/><label for="isSupplierPreferred">Preferred suppliers</label></div>
+      </div>
+      <div id="suppliersTable"></div>
+      <a href="/add-supplier/" class="btn btn-primary btn-block"><i class="fas fa-plus"></i> Add supplier</a>
+    </div>
+  </div>
+</div>
+<script>
+  $(document).ready(function(e){
+    var table=new Tabulator("#suppliersTable",{
+      layout:"fitColumns",
+      data:<%- JSON.stringify(suppliers) %>,
+      pagination:'local',
+      paginationSize:14,
+      columns:[
+        {field:"supplierID",visible:false},
+        {field:"isOnlineCons",visible:false},
+        {field:"supplierName",title:"Supplier",cssClass:"btnCell",formatter:cell=>{
+          let val=cell.getValue()
+          return val+'<a href="/edit-supplier/'+cell.getData().supplierID+'" class="btn btn-light tableBtn">Edit</a>'
+        }},
+        {field:"onboardedDate",title:"Onboarded",formatter:cell=>cell.getValue()?moment(cell.getValue()).format("DD/MM/YYYY"):'',width:200},
+        {field:"lastReview",cssClass:"btnCell",title:"Last review",formatter:cell=>{
+          let val=cell.getValue()?moment(cell.getValue()).format("DD/MM/YYYY"):''
+          return val+'<a href="/review-supplier/'+cell.getData().supplierID+'" class="btn btn-light tableBtn">Review now</a>'
+        },width:200},
+        {field:"isSupplierActive",title:"Active",formatter:'tickCross',width:120},
+        {field:"isSupplierPreferred",title:"Preferred",formatter:'tickCross',width:120},
+      ],
+      rowClick:(e,row)=>{
+        window.location.href="/edit-supplier/"+row.getData().supplierID
+      }
+    })
+    $('.filters').on('change',e=>{
+      table.clearFilter(true);
+      let filts=[]
+      let or=[]
+      if ($('#isSupplierActive').prop('checked')) {
+        filts.push({field:'isSupplierActive', type:"=", value:true})
+      }
+      if ($('#isSupplierPreferred').prop('checked')) {
+        filts.push({field:'isSupplierPreferred', type:"=", value:true})
+      }
+      $('#supplierTypeFilter').val().forEach((el, i) => {
+        or.push({field:el, type:"=", value:true})
+      });
+      filts.push(or)
+      table.setFilter(filts)
+    })
+  })
+</script>
+</body>
+</html>

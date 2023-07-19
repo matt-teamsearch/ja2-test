@@ -1,0 +1,241 @@
+<%- include('partials/'+versionPages.header) %>
+<%
+
+%>
+<style>
+.inlinerow{
+  display:inline-block;
+  width:100%;
+  padding:20px;
+  margin-bottom:20px;
+  text-align:left;
+}
+.rowHeader{
+  text-align: left;
+  display: inline-block;
+  margin-right: 8px;
+}
+.card-title {
+  margin-bottom: 2.75rem;
+}
+.dates{
+  width:170px;
+  display:inline-block;
+}
+div#checkVistaCont {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.danger{
+  color:var(--danger);
+}
+.success{
+  color:var(--success);
+}
+</style>
+<script type="text/javascript" src="https://survey.teamsearchsurvey.co.uk/AskiaVistaReader.Net4/Scripts/askiavista.js"></script>
+<script>
+  $(document).ready(function() {
+    askiaVista.config({
+        url: "https://survey.teamsearchsurvey.co.uk/AskiaVistaReader.Net4/AjaxEmbedHandler.aspx",
+    });
+    askiaVista.login({
+      login : 'joe.black',
+      password : 'TSYngzYMc',
+      success : function () {
+        console.log("vista logged in")
+      },
+      error : function (message, query) {
+        console.log(message);
+      }
+    })
+    $('.inputs').on('change',function(e){
+      if ($(this).val()) {
+        $(this).removeClass("is-invalid")
+        $(this).closest('.bootstrap-select').removeClass("is-invalid")
+      }
+    })
+    $('#ccfuGo').on('click',function(e){
+      $('.ccfu:not(.bootstrap-select)').each(function(e){
+        if ($(this).val()) {
+          $(this).removeClass("is-invalid")
+          $(this).closest('.bootstrap-select').removeClass("is-invalid")
+        }else {
+          $(this).addClass("is-invalid")
+          $(this).closest('.bootstrap-select').addClass("is-invalid")
+        }
+      })
+      if ($('.ccfu.is-invalid:not(.bootstrap-select)').length==0 && confirm("Are you sure you want to clear all coaching follow-ups for this time period & team(s)/agent(s)?")) {
+        $.ajax({
+          url: '/clear-coaching-followups',
+          data: JSON.stringify({teamID:$('#ccfuTeam').val(),agentID:$('#ccfuAgent').val(),stDate:$('#ccfuStDate').val(),enDate:$('#ccfuEnDate').val()}),
+          type: 'POST',
+          contentType: 'application/json',
+          success: function (e) {
+          },
+          error: function (jqXHR, exception) {
+            console.log(jqXHR)
+            alert("An error occured")
+          },
+        })
+      }
+    })
+    $('#cpdpGo').on('click',function(e){
+      $('.cpdp').each(function(e){
+        if ($(this).val()) {
+          $(this).removeClass("is-invalid")
+          $(this).closest('.bootstrap-select').removeClass("is-invalid")
+        }else {
+          $(this).addClass("is-invalid")
+          $(this).closest('.bootstrap-select').addClass("is-invalid")
+        }
+      })
+      if ($('.cpdp.is-invalid:not(.bootstrap-select)').length==0 && confirm("Are you sure you want to clear all PDPs for this time period & team(s)/agent(s)?")) {
+        $.ajax({
+          url: '/clear-pdps',
+          data: JSON.stringify({teamID:$('#cpdpTeam').val(),agentID:$('#cpdpAgent').val(),stDate:$('#cpdpStDate').val(),enDate:$('#cpdpEnDate').val()}),
+          type: 'POST',
+          contentType: 'application/json',
+          success: function (e) {
+          },
+          error: function (jqXHR, exception) {
+            console.log(jqXHR)
+          },
+        })
+      }
+    })
+    $('.selectpicker:last').on('loaded.bs.select',function(e){
+      $('.ccfu.inputs.level.bootstrap-select, .cpdp.inputs.level.bootstrap-select').hide()
+    })
+    $('#checkVistaBtn').on('click',function(e){
+      checkVistaJobs().then(function(e){
+        let html=e.map(survey=>{
+          return "<div class='vistaCheckJob "+(survey.missingQs.length>0?"danger":"success")+"'><b>"+survey.name+"</b>"+(survey.missingQs.length==0?" OK!":" missing questions: "+survey.missingQs.map(q=>"<span class='badge badge-danger'>"+q+"</span>").join(""))+"</div>"
+        })
+        $('#checkVistaCont').html(html)
+      })
+    })
+  })
+  function checkVistaJobs(){
+    let requiredQs=["E2","FINALNAME","IntStart","IntEnd","OnlineOutcome",'IntLength','IntLength_NoExclusion',"Agent"]
+    return new Promise((resolve,reject)=>{
+      $.ajax({
+        url: '/live-jobs-raw',
+        type: 'GET',
+        contentType: 'application/json',
+        success: function (jobs) {
+          let missing=[]
+          let vistaNames=jobs.map(el=>el.vistaName).filter((el,i,self)=>self.indexOf(el)==i).filter(el=>el)
+          let v=0
+          function getQs(){
+            if (v<vistaNames.length) {
+              let vistaName=vistaNames[v]
+              let survey={name:vistaName}
+              askiaVista.getQuestions({
+                survey:survey,
+                success : function (data, query) {
+                  var vistaData=JSON.parse(data)
+                  function flattenChildren(d){
+                    var ret=[]
+                    function loop(d){
+                      var childCount=0
+                      var newData=[]
+                      d.forEach((item, i2) => {
+                        if (item.children) {
+                          item.children.forEach((child, i) => {
+                            childCount++
+                            newData.push(child)
+                          });
+                          delete item.children
+                          newData.push(item)
+                        }else {
+                          newData.push(item)
+                        }
+                      })
+                      if (childCount>0) {
+                        loop(newData)
+                      }else {
+                        ret=newData.filter(el=>el.type>0)
+                      }
+                    }
+                    loop(d)
+                    return ret
+                  }
+                  vistaData=flattenChildren(vistaData)
+                  survey.missingQs=requiredQs.filter(q=>!vistaData.map(el2=>el2.shortcut).includes(q))
+                  missing.push(survey)
+                  v++
+                  getQs()
+                },
+                error:function(message,query){
+                  console.log(message)
+                }
+              })
+            }else {
+              resolve(missing)
+            }
+          }
+          getQs()
+        },
+        error: function (jqXHR, exception) {
+          console.log(jqXHR)
+          alert("An error occured")
+        },
+      })
+    })
+  }
+</script>
+<div class="container" style="padding-top:70px;">
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body">
+        <h5 class="card-title">Admin tools</h5>
+        <div class="card inlinerow ">
+          <h6 class="rowHeader">Clear coaching follow-ups</h6>between <input type="date" class="form-control ccfu dates inputs" id="ccfuStDate" name="ccfuStDate" value=""> and <input type="date" class="inputs form-control dates ccfu" id="ccfuEnDate" name="ccfuEnDate" value=""> for
+          <select class="selectpicker" name="ccfuType" id="ccfuType" title="Select agent or team..." onchange="$('.ccfu.inputs.level').val(''); $('.ccfu.inputs.level.bootstrap-select').hide(); $('#'+$(this).val()).closest('.bootstrap-select').show()">
+            <option value="ccfuTeam">Team</option>
+            <option value="ccfuAgent">Agent</option>
+          </select>
+          <select class="selectpicker ccfu inputs level" data-live-search="true" multiple title="Agent(s)..." data-actions-box="true" name="ccfuAgent" id="ccfuAgent">
+            <% agents.forEach((agent, i) => { %>
+            <option value="<%=agent.agentID%>"><%=agent.agentName%></option>
+            <%})%>
+          </select>
+          <select class="selectpicker ccfu inputs level" multiple title="Team(s)..." data-actions-box="true" name="ccfuTeam" id="ccfuTeam">
+            <% teams.forEach((team, i) => { %>
+            <option value="<%=team.agentTeamID%>"><%=team.teamName%></option>
+            <%})%>
+          </select>
+          <button type="button" class="btn btn-primary" name="ccfuGo" id="ccfuGo">Go</button>
+        </div>
+        <div class="card inlinerow">
+          <h6 class="rowHeader">Clear PDPs</h6>between <input type="date" class="form-control dates inputs cpdp" id="cpdpStDate" name="cpdpStDate" value=""> and <input type="date" class="inputs form-control dates cpdp" id="cpdpEnDate" name="cpdpEnDate" value=""> for
+          <select class="selectpicker" name="cpdpType" id="cpdpType" title="Select agent or team..." onchange="$('.cpdp.inputs.level').val(''); $('.cpdp.inputs.level.bootstrap-select').hide(); $('#'+$(this).val()).closest('.bootstrap-select').show()">
+            <option value="cpdpTeam">Team</option>
+            <option value="cpdpAgent">Agent</option>
+          </select>
+          <select class="selectpicker cpdp inputs level" data-live-search="true" multiple title="Agent(s)..." data-actions-box="true" name="cpdpAgent" id="cpdpAgent">
+            <% agents.forEach((agent, i) => { %>
+            <option value="<%=agent.agentID%>"><%=agent.agentName%></option>
+            <%})%>
+          </select>
+          <select class="selectpicker inputs cpdp level" multiple title="Team(s)..." data-actions-box="true" name="cpdpTeam" id="cpdpTeam">
+            <% teams.forEach((team, i) => { %>
+            <option value="<%=team.agentTeamID%>"><%=team.teamName%></option>
+            <%})%>
+          </select>
+          <button type="button" class="btn btn-primary" name="cpdpGo" id="cpdpGo">Go</button>
+        </div>
+        <div class="card inlinerow">
+          <h6 class="rowHeader">Check live Vista jobs</h6>
+          <button type="button" class="btn btn-primary" name="checkVistaBtn" id="checkVistaBtn">Check</button>
+          <div id="checkVistaCont">
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

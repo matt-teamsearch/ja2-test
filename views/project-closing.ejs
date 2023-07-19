@@ -1,0 +1,395 @@
+<%- include('partials/'+versionPages.header) %>
+<script type="text/javascript" src="/js/jstelnumbers.js"></script>
+<script type="text/javascript">
+  $(document).on("keypress", 'form', function (e) {
+    var code = e.keyCode || e.which;
+    if (code == 13) {
+        e.preventDefault();
+        return false;
+    }
+  });
+  function maxLen(str,max){
+    let ret=str
+    if (str && (typeof str === 'string' || str instanceof String)) {
+      ret=str.substring(0,max)
+    }
+    return ret
+  }
+  var costsData = [
+    {projectID:<%=project.projectID%>, costID:0, sqlCol: 'setupCost', costName:'Setup', costType:1, costTypeCat:'', costValue:<%=project.setupCost%>, costUnits:1, costUnitValue:<%=project.setupCost%>,note:'<%=notes.find(el=>el.table=='costsTable' && el.costID==0)%>'},
+    {projectID:<%=project.projectID%>, costID:1, sqlCol: 'dataCost', costName:'Tables', costType:1, costTypeCat:'', costValue:<%=project.dataCost%>, costUnits:1, costUnitValue:<%=project.dataCost%>,note:'<%=notes.find(el=>el.table=='costsTable' && el.costID==1)%>'},
+    {projectID:<%=project.projectID%>, costID:2, sqlCol: 'sampleCost', costName:'Sample', costType:4, costTypeCat:'', costValue:<%=project.sampleCost%>, costUnits:1, costUnitValue:<%=project.sampleCost%>,note:'<%=notes.find(el=>el.table=='costsTable' && el.costID==2)%>'},
+    {projectID:<%=project.projectID%>, costID:3, sqlCol: 'codingCost', costName:'Coding', costType:1, costTypeCat:'', costValue:<%=project.codingCost%>, costUnits:1, costUnitValue:<%=project.codingCost%>,note:'<%=notes.find(el=>el.table=='costsTable' && el.costID==3)%>'},
+    <%costs.forEach((cost, i) => {%>
+      {projectID:<%=project.projectID%>, costID:<%=cost.costID%>, sqlCol: '', costName:'<%=cost.costName%>', costType:<%=cost.costTypeID%>, costTypeCat:'<%=cost.costTypeCategory%>', costValue:<%=cost.units*cost.unitValue%>, costUnits:<%=cost.units%>, costUnitValue:<%=cost.unitValue%>,note:'<%=notes.find(el=>el.table=='costsTable' && el.costID==0)%>'},
+    <%});%>
+  ];
+  var isAccountsAdmin=<%=user.isAccountsAdmin%>
+  var projectID=<%=project.projectID%>
+  function finalIRcalc(){
+    var closingIRs=[]
+    $('.closingIR').each(function( index ) {
+      if ($(this).val()) {
+        closingIRs.push(Number($(this).val()))
+      }
+    });
+    var sum=closingIRs.reduce((a, b) => a + b, 0)
+    $('#finalIR').val(sum/closingIRs.length)
+  }
+  function shorten(str,len){
+    return str.length>len+3?str.substring(0,len)+"...":str
+  }
+  function validateEmail(email) {
+    const re = /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
+    return re.test(String(email).toLowerCase());
+  }
+  $(document).ready(function () {
+    finalIRcalc()
+    $(window).on('budgetChanged',function(){
+      checkBudget()
+    })
+    checkBudget()
+  })
+  var nfMoney=(val)=>{
+    let ret='-'
+    if (val) {
+      var num_parts = val.toFixed(2).split(".")
+      num_parts[0] = num_parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+      ret=num_parts.join(".")
+    }
+    return "£"+ret
+  }
+  function checkBudget(){
+    $('#budgetCheck').html('')
+    $('#budgetCheck').alertBanner('spin')
+    $.ajax({
+      url: '/closing-budget-check/',
+      type: 'GET',
+      data:{projectID:projectID},
+      global:false,
+      success: function (check) {
+        if (Math.abs(check.diff)>0) {
+          let ja2Ints=[]
+          if (check.JA2hours) {
+            ja2Ints.push(check.JA2hours+" hours")
+          }
+          if (check.JA2ints) {
+            ja2Ints.push(check.JA2ints+" interviews")
+          }
+          if (check.JA2shifts) {
+            ja2Ints.push(check.JA2shifts+" F2F shifts")
+          }
+          let info=`According to the above, fieldwork sales should be <b>`+nfMoney(check.clientSales)+`</b> (`+check.clientInts+` units + PM fee), but sales from JA2's tally sheet/trackers amount to <b>`+nfMoney(check.JA2sales)+`</b> (`+ja2Ints.join(" + ")+` + PM fee). You may need to add online/F2F interviews to the tracker and/or amend the budget above to match the number of interviews in JA2.`
+          $('#budgetCheck').alertBanner({
+            class:Math.abs(check.diff)>check.clientSales*0.1?'danger':'warning',
+            info:info
+          })
+        }else {
+          $('#budgetCheck').alertBanner({
+            class:'success',
+            info:"The client costs match what's been achieved on JA2"
+          })
+        }
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  function separators(num){
+    var num_parts = num.toString().split(".");
+    num_parts[0] = num_parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return num_parts.join(".");
+  }
+</script>
+<script src="/js/JA2tableFuncs.js" type="text/javascript"></script>
+<script src="/js/JA2costsTable.js" type="text/javascript"></script>
+<script src="/js/JA2spendTable.js" type="text/javascript"></script>
+<script>
+  function submitForm(){
+    let form=$('form')
+    if (form[0].checkValidity()) {
+      createEmail()
+      form.submit()
+    }else {
+      form[0].reportValidity()
+    }
+  }
+  function createEmail(){
+    var costs=Tabulator.prototype.findTable('#costsTable')[0].getData()
+    var grayCell="background-color:#D9D9D9; font-weight:bold;"
+    var topBorder="border-top:2px solid black;"
+    var leftBorder="border-left:2px solid black;"
+    var rightBorder="border-right:2px solid black;"
+    var noBorder="border:none;"
+    var rAlign="text-align:right;"
+    var lAlign="text-align:left;"
+    var cAlign="text-align:center;"
+    var source=""
+      +`[INSERT EMAIL BODY]<br><br>
+        <table style='border:2px solid black'>
+        <tr><td style="`+grayCell+topBorder+leftBorder+`">Project number & name</td><td colspan="4" style="`+cAlign+topBorder+rightBorder+`"><%=project.quoteNo+" "+project.quoteName%></td></tr>
+        <tr><td style="`+grayCell+leftBorder+`">Client PO</td><td colspan="4" style="`+cAlign+rightBorder+`"><%=project.clientPO%></td></tr>
+        <tr><td style="`+grayCell+leftBorder+`">Accounts contact name, email and address</td><td colspan="4" style="`+cAlign+rightBorder+`"></td></tr>
+        <tr><td style="`+grayCell+leftBorder+`">Teamsearch Project Manager contact details</td><td colspan="4" style="`+cAlign+rightBorder+`"><%=project.staffName+", "+project.staffEmail%>, 01422 360 371</td></tr>
+        <tr><td style="`+grayCell+leftBorder+`">Client Project Manager contact details</td><td colspan="4" style="`+cAlign+rightBorder+`"><%=project.contactName+", "+project.contactEmail%></td></tr>
+        <tr style="font-weight:bold"><td style="`+leftBorder+topBorder+leftBorder+`"><b>Total costs</b></td><td style="`+topBorder+rAlign+`">£`+separators(costs.reduce((a,b)=>a+Number(b.costValue),0).toFixed(2))+`</td><td colspan="3" style="`+topBorder+rightBorder+`"></td></tr>
+        `
+    costs=costs.filter(el=>el.costID>-1)
+    costs.forEach((cost, i) => {
+      var costName=cost.costName
+      if (cost.sqlCol=="") {
+        costName=costTypeVals[cost.costType].split(" [")[0]+" - "+cost.costName
+      }
+      source=source+`
+      <tr><td style="`+leftBorder+`">`+costName+`</td><td style="`+rAlign+`">£`+separators(cost.costValue.toFixed(2))+`</td><td style="`+rAlign+`border-left:none;border-right:none;">`+separators(cost.costUnits)+`</td><td style="`+cAlign+`border-left:none;border-right:none;">X</td><td style="border-left:none;`+rightBorder+`">£`+separators(cost.costUnitValue.toFixed(2))+`</td></tr>
+      `
+    });
+    source=source+`
+    <tr><td style="`+grayCell+leftBorder+topBorder+`">Project completed & data/tabs sent</td><td colspan="4" style="`+rightBorder+topBorder+cAlign+`"><%=moment.max(dates.map(el=>moment.utc(el.dateValue))).format('DD/MM/YYYY')%></td></tr>
+    <tr><td style="`+grayCell+leftBorder+`">By whom at Teamsearch</td><td colspan="4" style="`+rightBorder+cAlign+`"><%=project.staffName%></td></tr>
+    <tr><td style="`+grayCell+leftBorder+`">Received at client by (name)</td><td colspan="4" style="`+rightBorder+cAlign+`background-color:#92D050;"></td></tr>
+    <tr><td style="`+grayCell+leftBorder+`">Date received by client:</td><td colspan="4" style="`+rightBorder+cAlign+`background-color:#92D050;"></td></tr>
+    </table>
+    <br><br>
+    <table style="color:#4472C4; font-style:italic; font-size:16px; text-align:center; border:none;">
+      <tr><td colspan="10" style="`+cAlign+noBorder+`font-size:22px;font-weight:bold;">How did we do?</td></tr>
+      <tr><td colspan="10" style="`+cAlign+noBorder+`">Tell us how satisfied you were with this project. Every month we draw a winner to win either a <b>case of wine</b> or <b>£50 Amazon Voucher</b> so be in it to win it!</td></tr>
+      <tr style="`+grayCell+`color:black;font-size:14px;font-weight:normal;`+noBorder+`"><td colspan="4" style="`+lAlign+noBorder+`">Dissatisfied</td><td colspan="2" style="`+noBorder+`"></td><td colspan="4" style="`+noBorder+rAlign+`">Satisfied</td></tr>
+      <tr>
+    `
+    for (var i = 1; i < 11; i++) {
+      source=source+"<td style='background-color:#4472C4; color:white; font-style:normal; border:2px solid white; font-size:20px; font-weight:bold;width:50px;"+cAlign+noBorder+"'><a style='color:white;text-decoration: none;' href='https://survey.euro.confirmit.com/wix/p572433433679.aspx?BrokerPanelId=<%=project.csatID%>&s5="+i+"'>"+i+"</a></td>"
+    }
+    source=source+`</tr>
+    <tr><td colspan="10" style="`+cAlign+noBorder+`">Too early to say? Don't worry, we'll contact you again in a few days so you'll have another chance to feed back</td></tr>
+    <tr><td colspan="10" style="`+cAlign+noBorder+`"></td></tr>
+    <tr><td colspan="10" style="`+cAlign+noBorder+`">Clicking the numbers not working? Try using the link below</td></tr>
+    <tr><td colspan="10" style="`+cAlign+noBorder+`">https://survey.euro.confirmit.com/wix/p572433433679.aspx?BrokerPanelId=<%=project.csatID%></td></tr>
+    </table>
+    `
+    var email="<%=user.staffID%>"
+    var subject="Project Completion - <%=project.quoteNo+" "+project.quoteName%>"
+    $.ajax({
+      url: '/send-email-ajax/',
+      type: 'POST',
+      data:JSON.stringify({emailTo:email,subject:subject,HTMLbody:source,priority:'normal'}),
+      contentType: 'application/json',
+      global:false,
+      success: function (response) {
+        console.log("Success",response)
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+</script>
+<style>
+  .closingIR, .closingLOI, .finalIR{
+    width:75px;
+  }
+  .subTitle{
+    font-size:small;
+    color:gray;
+    text-align:left;
+    font-weight:normal;
+  }
+  label{
+    font-size:large;
+    font-weight:bold;
+  }
+  .form-group{
+    width:90%;
+    margin:auto;
+    padding-top: 20px;
+    padding-bottom: 20px;
+  }
+  .checkboxes{
+    margin: auto;
+    transform: scale(1.5);
+  }
+  #costsTable.tabulator-header, #spendTable.tabulator-header{
+    display:none;
+  }
+  .remBtn, .addBtn{
+    padding: 3px;
+    height: 100%;
+    border: none;
+    width: 100%;
+  }
+  .noRightBorder{
+    border-right:none!important;
+  }
+  .addRemCol{
+    padding:0px!important
+  }
+  .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+    padding: 2px;
+    font-size: small;
+  }
+  tr {
+    border-bottom: 1px solid #d8d8d8;
+  }
+  .qSection{
+    display: flex;
+    flex-wrap: wrap;
+    border: 1px solid gainsboro;
+    padding: 12px;
+    width: 80%;
+    margin: 10px auto;
+    justify-content: space-evenly;
+  }
+  .qSectionLabels{
+    margin-top: -24px;
+    margin-left: -3px;
+    color: #c3c3c3;
+    background: #f2f6ff;
+    position: absolute;
+    z-index: 2;
+  }
+  .is-invalid{
+    border-color: #dc3545;
+    background: #d7000014;
+    box-shadow: 0px 0px 5px #ff0000;
+  }
+  .is-invalid:focus-within{
+    border-color: inherit;
+    background: inherit;
+    box-shadow: none;
+  }
+  #tabCont{
+    max-width: 1050px;
+    margin:auto;
+  }
+  .invalid-field::after{
+    content: "!";
+    color: red;
+    font-size: x-large;
+    line-height: 0.8em;
+    font-weight: 700;
+    position: absolute;
+    right: 4px;
+    text-shadow: 1px 1px 2px #000000a8;
+  }
+  .manualAdd, .manualUpload{
+    color:var(--primary);
+    font-weight:bold;
+  }
+  .addManualInput{
+    width:220px!important
+  }
+  .surveyQs, .addManualInput {
+    margin-top: 5px;
+    margin-bottom: 0px;
+    margin-left: 0px;
+  }
+  .required::before {
+    content: "*";
+    color: red;
+    font-weight: bold;
+    position: absolute;
+    left: 3px;
+    z-index: 2;
+  }
+  .required {
+    display: inline-flex;
+  }
+</style>
+
+
+<div class="container" style="padding-top:70px;max-width: 99%;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+        <h5 class="card-title"><%=project.quoteNo+" "+project.quoteName%></h5>
+        <h6 class="card-title">Please complete the below form to mark this project as complete</h6>
+        <div class="form-group row">
+          <h2>Budget (client costs)</h2>
+            <div id="costsTable"></div>
+            <div id="budgetCheck" class="alertBanner"></div>
+        </div>
+        <div class="form-group row">
+          <h2>Spend</h2>
+            <div id="spendTable"></div>
+        </div>
+        <form role="form" action="/close-project" method="post" id="closingForm">
+          <div id="hiddenFields" style="display:none">
+          <input type="text" name="jobName" value="<%=project.quoteNo+" "+project.quoteName%>">
+          <input type="number" name="projectID" id="projectID" value="<%=project.projectID%>">
+          <%jobs.forEach((job, i) => {%>
+            <input type="number" name="jobID" id="jobID-<%=job.jobID%>" value="<%=job.jobID%>">
+          <%});%>
+          </div>
+        <div class="form-group row">
+          <h2>Closing information</h2>
+          <label for="closingIR" class="col-sm-2 col-form-label">Closing incidence:</label>
+          <div class="col-sm-4">
+            <table id="irTable">
+              <%jobs.forEach((job, i) => {%>
+                <tr><td><%=job.jobName%>:</td><td><input type="number" onchange="finalIRcalc()" class="form-control closingIR" name="closingIR" id="closingIR-<%=job.jobID%>" value="<%=job.closingIR%>" step="0.01" max="100" min="0" required></td><td>%</td></tr>
+              <%});%>
+              <tr><td>Overall:</td><td><input type="number" readonly class="form-control finalIR" name="finalIR" id="finalIR" value="<%=project.finalIR%>" step="0.01" max="100" min="0" required></td><td>%</td></tr>
+            </table>
+          </div>
+          <label for="closingLOI" class="col-sm-2 col-form-label">Closing LOI:</label>
+          <div class="col-sm-4">
+            <table id="loiTable">
+              <%jobs.forEach((job, i) => {%>
+                <tr><td><%=job.jobName%>:</td><td><input type="number" class="form-control closingLOI" name="closingLOI" id="closingLOI-<%=job.jobID%>" value="<%=job.timedLOI%>" step="0.25" max="999" min="0" required></td><td>min</td></tr>
+              <%});%>
+            </table>
+          </div>
+        </div>
+        <div class="form-group row">
+          <label for="closingNotes" class="col-sm-12 col-form-label">Closing notes:
+            <div class="subTitle">
+              If you were to run this project again, what would you want to know? What worked? What didn't work? What did you wish you'd known/done at the start? Think about the following points:
+              <ul>
+                <li>Sample</li>
+                <li>Introduction</li>
+                <li>Interviewing</li>
+                <li>Deadlines</li>
+                <li>Quotas</li>
+                <li>Scripting/data/tables</li>
+              </ul>
+            </div>
+          </label>
+        <div class=" row" style="text-align:center; margin:auto">
+          <div class="col-sm-12">
+            <textarea class="form-control" name="closingNotes" id="closingNotes" rows="15" cols="100" required><%=project.closingNotes%></textarea>
+          </div>
+        </div>
+        <div class="jobNotesWrapper" style="width: 66%;margin: 10px auto;position: relative;">
+          <script type="text/javascript">
+            const quoteID=<%=project.quoteID[0]%>
+          </script>
+          <%- include('partials/project-notes.ejs') %>
+        </div>
+      </div>
+        <div class="form-group row">
+          <label for="informPM" class="col-sm-7 col-form-label">Email PM to close project on Askia?</label>
+          <div class="col-sm-1 checkboxes">
+            <input type="checkbox" id="informPM" name="informPM" class="" checked>
+          </div>
+        </div>
+        <!-- <div class="form-group row">
+          <label for="createCompletion" class="col-sm-7 col-form-label">Create completion email?</label>
+          <div class="col-sm-1 checkboxes">
+            <input type="checkbox" id="createCompletion" name="createCompletion" class="" checked>
+          </div>
+        </div> -->
+        <div style="display:none;">
+          <input type="text" name="inboundLineID" value="<%= project.inboundLineID %>">
+        </div>
+        <div class="form-row">
+        </div>
+      </form>
+      <div class="form-group col-md-5">
+        <button type="button" class="btn btn-primary submit" onclick="submitForm()">Close project</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

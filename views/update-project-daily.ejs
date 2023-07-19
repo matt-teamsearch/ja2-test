@@ -1,0 +1,37 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px;">
+  <% if (dailydata.length > 0) {%>
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body">
+        <h5 class="card-title">Review interviewer achievements for <%= message %></h5>
+      </div>
+      <div class="card-body">
+      <div style="border:1px solid #ced4da; padding:50px; background:#f2f6ff!important">
+        <table class="table table-sm table-striped table-bordered" id="Project-table">
+          <thead>
+            <th>Project Number</th>
+            <th>Project Name</th>
+            <th>Interviewer</th>
+            <th>Interviews</th>
+            <th>Hours</th>
+          </thead>
+          <% dailydata.forEach((daily, index) => { %>
+            <tr style="border:solid 1px grey; padding-left:10px;" id="">
+              <td><%= daily.quoteNo %></td>
+              <td><%= daily.quoteName %> <%= daily.jobName %></td>
+              <td><%= daily.agentName %></td>
+              <td><%= daily.inputInterviews %></td>
+              <td><%= daily.inputHours %></td>
+            </tr>
+            <% }) %>
+          </table>
+          <a href="/find-daily/<%= message %>" class="btn btn-success" id="Redirect" value="Update" style="width:100%;">Edit</a>
+        </div>
+        </div>
+      </div>
+      <% } else { %>
+        <p class="text-center text-danger">No interviews on selected date</p>
+        <% } %>
+      </div>
+    </body>
+    </html>

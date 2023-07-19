@@ -1,0 +1,602 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .card-title {
+    line-height: 40px;
+  }
+  .topTable{
+    position:relative;
+    margin: 30px auto;
+  }
+  .jqstooltip {
+    height: 23px!important;
+    width: 100px!important;
+    font-size: 12px;
+  }
+  #advisoryCont,#agentCont,#checksCont{
+    display:none;
+    position:absolute;
+    width:600px;
+    background: white;
+    padding: 5px;
+    border-radius: 5px;
+    box-shadow: 2px 2px 4px 1px #00000057;
+    z-index:3;
+  }
+  #advisory > .tabulator-tableHolder,#agent > .tabulator-tableHolder,#checks > .tabulator-tableHolder,.spotDetail > .tabulator-tableHolder{
+    overflow-x:hidden!important;
+  }
+  #checks .tabulator-col-content {
+    padding: 4px!important;
+  }
+  .refreshOverlay{
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    font-size: 150px;
+    background-color: #0f0f0f66;
+    mix-blend-mode: initial;
+    color: white;
+    top:0px;
+    cursor:pointer;
+    display:none;
+  }
+  .refreshOverlay:hover{
+    background:unset;
+    color:black;
+  }
+  .refreshOverlay.spin > i{
+    animation: spin 1s infinite;
+    background:unset;
+    color:black;
+  }
+  @keyframes spin {
+    0%   { transform: rotate(0deg);; }
+    100% { transform: rotate(720deg);; }
+  }
+  #advisoryHeader > h6,#agentHeader > h6,#checksHeader > h6 {
+    display: inline;
+    margin-left: 5px;
+    line-height: 37px;
+    margin-bottom: 0px;
+  }
+  .spotDetail .tabulator-row, .spotDetail .tabulator-table, .spotDetail .tabulator-col, .spotDetail .tabulator-header {
+    background: none!important;
+    border: none!important;
+  }
+  .spotDetail .tabulator-col-content{
+    font-weight:600!important;
+  }
+  .spotDetail {
+    border: 1px solid #0456ae;
+    padding: 5px;
+    padding-top: 14px;
+    margin-bottom: 6px;
+    border-radius: 19px;
+    z-index: 1;
+    position: relative;
+    background: none!important;
+  }
+  .spotBox h6 {
+    z-index: 2;
+    background: #daeafb;
+    position: absolute;
+    top: 5px;
+    left: 0;
+    right: 0;
+    width: fit-content;
+    padding: 0px 4px;
+    margin: auto;
+  }
+  .spotDetail .tabulator-cell,.spotDetail .tabulator-col-content {
+    padding: 3px!important;
+    font-weight: 400;
+  }
+  .spotBox {
+    width: 48%;
+    position: relative;
+  }
+  .spotlight {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-around;
+    background: linear-gradient(7deg, rgba(218,234,251,1) 0%, rgba(218,234,251,1) 86%, rgb(255 255 220) 100%);;
+    border-radius: 10px;
+    border: 1px solid #0053ad;
+    padding: 11px;
+    padding-top: 3px;
+    margin-top: 22px;
+    color: #0053ad;
+    box-shadow: 0px 0 11px 5px #0053ad52;
+  }
+  .spotlight h5{
+    width: 100%;
+    font-weight: 700;
+    letter-spacing: 4px;
+    font-size: 25px;
+  }
+</style>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5 class="card-title">
+        QC Advisories Report<br>
+      </h5>
+      <div id="oldFilters" style="display:none;">
+        <select class="selectpicker" id="teamFilter" multiple title="Filter by team...">
+          <% teams.forEach((team,i) => {%>
+            <option value="<%=team.agentTeamID%>"><%=team.teamName%></option>
+            <% }) %>
+          </select>
+          <br>
+          <input type="date" style="display:inline; width:auto;" max='<%=moment().subtract(1,'d').format("YYYY-MM-DD")%>' class="form-control inputdate" id="stdate" name="stdate" style="width:200px; margin:auto;" value="<%=stdate%>"> to <input type="date" max='<%=moment().format("YYYY-MM-DD")%>' style="display:inline; width:auto;" class="inputdate form-control" id="endate" name="endate" style="width:200px; margin:auto;" value="<%=endate%>">
+      </div>
+      <div class="spotlight">
+        <h5>Spotlight</h5><br>
+        <div class="spotBox">
+          <h6>Ignoring feedback</h6>
+          <div class="spotDetail" id="spot1">
+          </div>
+        </div>
+        <div class="spotBox">
+          <h6>Not getting told</h6>
+          <div class="spotDetail" id="spot2">
+          </div>
+        </div>
+        <div class="spotBox">
+          <h6>Repeat serious offenders</h6>
+          <div class="spotDetail" id="spot3">
+          </div>
+        </div>
+        <div class="spotBox">
+          <h6>Stuck in their ways</h6>
+          <div class="spotDetail" id="spot4">
+          </div>
+        </div>
+        <div class="spotBox">
+          <h6>Starting on the wrong foot</h6>
+          <div class="spotDetail" id="spot5">
+          </div>
+        </div>
+        <!-- <div class="spotBox">
+          <h6>Responding to feedback</h6>
+          <div class="spotDetail" id="spot6">
+          </div>
+        </div> -->
+      </div>
+      <div class="topTable">
+        <h6>Advisories</h6>
+        <a href="#" class="btn btn-sm btn-xlsx" onclick="downloadAdvisoriesTable()">Download to Excel</a>
+        <div id="advisories"></div>
+        <div id="advisoriesRefresh" class="refreshOverlay">
+          <i class="fas fa-sync-alt"></i>
+        </div>
+      </div>
+      <div class="topTable">
+        <h6>Agents</h6>
+        <a href="#" class="btn btn-sm btn-xlsx" onclick="downloadAgentsTable()">Download to Excel</a>
+        <div id="agents"></div>
+        <div id="agentRefresh" class="refreshOverlay">
+          <i class="fas fa-sync-alt"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div id="advisoryCont">
+  <div id="advisoryHeader">
+    <h6></h6>
+    <a href="#" data-advisory="" class="btn btn-sm btn-xlsx" onclick="downloadAdvisoryTable($(this).attr('data-advisory'))">Download to Excel</a>
+    <button type='button' class='close' onclick='$("#advisoryCont").hide()'>
+      <span aria-hidden='true'>&times;</span>
+    </button>
+  </div>
+  <div id="advisory"></div>
+</div>
+<div id="agentCont">
+  <div id="agentHeader">
+    <h6></h6>
+    <a href="#" data-agent="" class="btn btn-sm btn-xlsx" onclick="downloadAgentTable($(this).attr('data-agent'))">Download to Excel</a>
+    <button type='button' class='close' onclick='$("#agentCont").hide()'>
+      <span aria-hidden='true'>&times;</span>
+    </button>
+  </div>
+  <div id="agent"></div>
+</div>
+<div id="checksCont">
+  <div id="checksHeader">
+    <h6></h6>
+    <button type='button' class='close' onclick='$("#checksCont").hide()'>
+      <span aria-hidden='true'>&times;</span>
+    </button>
+  </div>
+  <div id="checks"></div>
+</div>
+<script>
+  $(document).ready(function(){
+    try{
+      $().reportFilter({
+        filters:{
+          stDate:'<%=stdate%>',
+          enDate:'<%=endate%>',
+          team:[]
+        },
+        onRefresh:(vals)=>{
+          $('#stdate').val(vals.stDate)
+          $('#endate').val(vals.enDate)
+          $('#teamFilter').val(vals.team.toString().split(","))
+          $('#advisories').loader()
+          $('#agents').loader()
+          advisories.setData("/get-advisories/", {stdate:vals.stDate, endate:vals.enDate,teamID:vals.team}).then(data=>{
+            $('#advisories').loader('done')
+          })
+          agents.setData("/get-agents-advisories/", {stdate:vals.stDate, endate:vals.enDate,teamID:vals.team}).then(data=>{
+            $('#agents').loader('done')
+          })
+          loadSpotlights(true)
+        }
+      })
+    }catch(err){
+      $('#oldFilters').show()
+    }
+    var checks=new Tabulator("#checks",{
+      layout:"fitColumns",
+      height:300,
+      columns:[
+        {field:'dateMonitored',title:'Monitored',formatter:cell=>moment(cell.getValue()).format("DD/MM/YYYY")},
+        {field:'issueCount',title:'Times observed'},
+        {field:'score',title:'Score'},
+        {field:'controller',title:'Controller'},
+        {field:'coachingDate',title:'Fed back',formatter:cell=>cell.getValue()?moment(cell.getValue()).format("DD/MM/YYYY"):''},
+        {field:'teamName',title:'Team'},
+      ],
+      rowClick:(e,row)=>{
+        window.open("/edit-qc-check/"+row.getData().qualityControlID)
+      }
+    })
+    var advisory=new Tabulator("#advisory",{
+      layout:"fitColumns",
+      height:300,
+      ajaxResponse:function(url, params, response){
+        return response.advisory.map(ag=>{
+          ag.dates=[]
+          let agDates=response.dates.filter(el=>el.agentID==ag.agentID)
+          var dates=moment.range(params.stdate,params.endate)
+          for (let day of dates.by('day')) {
+            var dayDate=agDates.filter(el=>moment(el.dateMonitored).isSame(day,'d'))
+            ag.dates.push({
+              date:day,
+              advisories:dayDate?dayDate.reduce((a,b)=>a+Number(b.issueCount),0):0
+            })
+            ag['date_'+day.format("YYYY-MM-DD")]=dayDate?dayDate.reduce((a,b)=>a+Number(b.issueCount),0):''
+          }
+          return ag
+        })
+      },
+      columns:[
+        {field:'agentName',title:'Agent'},
+        {field:'issueCount',title:'Total observed',width:100},
+        {field:'checkCount',title:'QCs observed within',width:100},
+        {field:'fedBack',title:'% fed back',width:100,formatter:cell=>cell.getValue()+'%'},
+        {field:'dates',title:'Timeline',cssClass:'graphCell',download:false},
+      ],
+      rowFormatter:row=>{
+        $(row.getCell("dates").getElement()).sparkline(row.getData().dates.map(el=>el.advisories), {
+          type: 'line',
+          width:'100%',
+          tooltipFormatter:(sparkline, options, fields)=>{
+            let html=row.getData().dates[fields.x].date.format("DD/MM/YYYY")+": "+row.getData().dates[fields.x].advisories
+            return html
+          },
+        });
+      },
+      rowClick:(e,row)=>{
+        checks.setData("/get-advisory-checks/", {agentID:row.getData().agentID,issueID:row.getData().issueID,stdate:$('#stdate').val(), endate:$('#endate').val()}).then(data=>{
+          $('#checksHeader > h6').text(row.getData().issue+" - "+row.getData().agentName)
+          $('#checksCont').show().css("left",e.pageX).css("top",e.pageY)
+        })
+      },
+      dataLoaded:(data)=>{
+        function addDates(){
+          advisory.addColumn({field:'datesDL',title:'Timeline',visible:false,download:true,columns:data[0].dates.map(el=>{
+            return {field:'date_'+el.date.format("YYYY-MM-DD"),title:el.date.format("DD/MM/YYYY"),visible:false,download:true}
+          })},false)
+        }
+        if (data.length>0) {
+          let addCol=true
+          advisory.getColumns(true).forEach((rCol, i) => {
+            if (rCol.getField()=='datesDL') {
+              rCol.delete().then(e=>{
+                addDates()
+              })
+              addCol=false
+            }
+          });
+          if (addCol) {
+            addDates()
+          }
+        }
+      }
+    })
+    let getCheck=function(e,row){
+      checks.setData("/get-advisory-checks/", {agentID:row.getData().agentID,issueID:row.getData().issueID,stdate:$('#stdate').val(), endate:$('#endate').val()}).then(data=>{
+        $('#checksHeader > h6').text(row.getData().issue+" - "+row.getData().agentName)
+        $('#checksCont').show().css("left",e.pageX).css("top",e.pageY)
+      })
+    }
+    function loadSpotlights(loader){
+      if (loader) {
+        $('.spotlight').loader()
+      }
+      $.ajax({
+          url: '/advisory-spotlights',
+          data:{stdate:$('#stdate').val(), endate:$('#endate').val(),teamID:$('#teamFilter').val()},
+          type: 'GET',
+          global:!loader,
+          contentType: 'application/json',
+          success: function (r) {
+            let spot1data=r.slice().filter(el=>el.fedBack>100/el.repScore && el.repScore>1).sort((a,b)=>b.repScore-a.repScore || b.fedBack-a.fedBack)
+            let spot2data=r.slice().filter(el=>el.fedBack<=100/el.repScore && el.repScore>1).sort((a,b)=>b.repScore-a.repScore || a.fedBack-b.fedBack)
+            let spot3data=r.slice().filter(el=>el.fatal==1 && el.repScore>1).sort((a,b)=>b.repScore-a.repScore)
+            let spot4raw=r.slice().filter(el=>moment().diff(moment(el.agentJoined),'d')>600 && el.repScore>1).sort((a,b)=>b.repScore-a.repScore)
+            let spot4data=spot4raw.map(el=>el.agentName).filter((el,i,self)=>self.indexOf(el)==i).map(agentName=>spot4raw.filter(el=>el.agentName==agentName)[0])
+            let spot5raw=r.slice().filter(el=>moment().diff(moment(el.agentJoined),'d')<60 && el.repScore>1).sort((a,b)=>b.repScore-a.repScore)
+            let spot5data=spot5raw.map(el=>el.agentName).filter((el,i,self)=>self.indexOf(el)==i).map(agentName=>spot5raw.filter(el=>el.agentName==agentName)[0])
+            let spot6data=r.slice().filter(el=>el.repScore<=1).sort((a,b)=>a.repScore-b.repScore || b.fedBack-a.fedBack)
+            var spot1=new Tabulator("#spot1",{
+              layout:"fitColumns",
+              data:spot1data.slice(0,6),
+              height:130,
+              headerSort:false,
+              columns:[
+                {field:'agentName',title:'Agent'},
+                {field:'issue',title:'Advisory'},
+                {field:'repScore',title:'Times raised'},
+                {field:'fedBack',title:'% fed back',formatter:cell=>cell.getValue()+'%'},
+              ],
+              rowClick:getCheck
+            })
+            var spot2=new Tabulator("#spot2",{
+              layout:"fitColumns",
+              height:130,
+              data:spot2data.slice(0,6),
+              headerSort:false,
+              columns:[
+                {field:'agentName',title:'Agent'},
+                {field:'issue',title:'Advisory'},
+                {field:'repScore',title:'Times raised'},
+                {field:'fedBack',title:'% fed back',formatter:cell=>cell.getValue()+'%'},
+              ],
+              rowClick:getCheck
+            })
+            var spot3=new Tabulator("#spot3",{
+              layout:"fitColumns",
+              height:130,
+              data:spot3data.slice(0,6),
+              headerSort:false,
+              columns:[
+                {field:'agentName',title:'Agent'},
+                {field:'issue',title:'Advisory'},
+                {field:'repScore',title:'Times raised'},
+              ],
+              rowClick:getCheck
+            })
+            var spot4=new Tabulator("#spot4",{
+              layout:"fitColumns",
+              height:130,
+              headerSort:false,
+              data:spot4data.slice(0,6).map(el=>{
+                el.timeEmployed=moment().diff(el.agentJoined, 'years') + ' years, ' + moment().diff(el.agentJoined, 'months') % 12 + ' months'
+                return el
+              }),
+              columns:[
+                {field:'agentName',title:'Agent'},
+                {field:'timeEmployed',title:'Time employed'},
+                {field:'issue',title:'Most repeated advisory'},
+                {field:'repScore',title:'Times raised'},
+              ],
+              rowClick:getCheck
+            })
+            var spot5=new Tabulator("#spot5",{
+              layout:"fitColumns",
+              height:130,
+              headerSort:false,
+              data:spot5data.slice(0,6).map(el=>{
+                el.timeEmployed=moment().diff(el.agentJoined, 'years') + ' years, ' + moment().diff(el.agentJoined, 'months') % 12 + ' months'
+                return el
+              }),
+              columns:[
+                {field:'agentName',title:'Agent'},
+                {field:'timeEmployed',title:'Time employed'},
+                {field:'issue',title:'Most repeated advisory'},
+                {field:'repScore',title:'Times raised'},
+              ],
+              rowClick:getCheck
+            })
+            // var spot6=new Tabulator("#spot6",{
+            //   layout:"fitColumns",
+            //   data:spot6data.slice(0,6),
+            //   height:130,
+            //   headerSort:false,
+            //   columns:[
+            //     {field:'agentName',title:'Agent'},
+            //     {field:'issue',title:'Advisory'},
+            //     {field:'repScore',title:'Times raised'},
+            //     {field:'fedBack',title:'% fed back',formatter:cell=>cell.getValue()+'%'},
+            //   ],
+            //   rowClick:getCheck
+            // })
+            if (loader) {
+              $('.spotlight').loader("done")
+            }
+          },
+          error: function (jqXHR, exception) {
+            alert(getErrorMessage(jqXHR, exception))
+            if (loader) {
+              $('.spotlight').loader("done")
+            }
+          },
+      });
+    }
+    var agent=new Tabulator("#agent",{
+      layout:"fitColumns",
+      height:300,
+      ajaxResponse:function(url, params, response){
+        return response.agent.map(ad=>{
+          ad.dates=[]
+          let adDates=response.dates.filter(el=>el.issueID==ad.issueID)
+          var dates=moment.range(params.stdate,params.endate)
+          for (let day of dates.by('day')) {
+            var dayDate=adDates.filter(el=>moment(el.dateMonitored).isSame(day,'d'))
+            ad.dates.push({
+              date:day,
+              advisories:dayDate?dayDate.reduce((a,b)=>a+Number(b.issueCount),0):0
+            })
+            ad['date_'+day.format("YYYY-MM-DD")]=dayDate?dayDate.reduce((a,b)=>a+Number(b.issueCount),0):''
+          }
+          return ad
+        })
+      },
+      columns:[
+        {field:'issue',title:'Advisory'},
+        {field:'issueCount',title:'Count',width:100},
+        {field:'fedBack',title:'% fed back',width:100,formatter:cell=>cell.getValue()+'%'},
+        {field:'dates',title:'Timeline',cssClass:'graphCell',download:false},
+      ],
+      rowFormatter:row=>{
+        $(row.getCell("dates").getElement()).sparkline(row.getData().dates.map(el=>el.advisories), {
+          type: 'line',
+          width:'100%',
+          tooltipFormatter:(sparkline, options, fields)=>{
+            let html=row.getData().dates[fields.x].date.format("DD/MM/YYYY")+": "+row.getData().dates[fields.x].advisories
+            return html
+          },
+        });
+      },
+      rowClick:(e,row)=>{
+        checks.setData("/get-advisory-checks/", {agentID:row.getData().agentID,issueID:row.getData().issueID,stdate:$('#stdate').val(), endate:$('#endate').val()}).then(data=>{
+          $('#checksHeader > h6').text(row.getData().issue+" - "+row.getData().agentName)
+          $('#checksCont').show().css("left",e.pageX).css("top",e.pageY)
+        })
+      },
+      dataLoaded:(data)=>{
+        if (data.length>0) {
+          function addDates(){
+            agent.addColumn({field:'datesDL',title:'Timeline',visible:false,download:true,columns:data[0].dates.map(el=>{
+              return {field:'date_'+el.date.format("YYYY-MM-DD"),title:el.date.format("DD/MM/YYYY"),visible:false,download:true}
+            })},false)
+          }
+          let addCol=true
+          agent.getColumns(true).forEach((rCol, i) => {
+            if (rCol.getField()=='datesDL') {
+              rCol.delete().then(e=>{
+                addDates()
+              })
+              addCol=false
+            }
+          });
+          if (addCol) {
+            addDates()
+          }
+        }
+      }
+    })
+    var advisories=new Tabulator("#advisories",{
+      layout:"fitColumns",
+      height:300,
+      ajaxURL:"/get-advisories/",
+      ajaxParams:{stdate:$('#stdate').val(), endate:$('#endate').val(),teamID:$('#teamFilter').val()},
+      ajaxConfig:"GET",
+      ajaxResponse:function(url, params, response){
+        return response.advisories.map(ad=>{
+          let detail=response.details.filter(el=>el.issueID==ad.issueID).sort((a,b)=>b.issueCount-a.issueCount)
+          for (var i = 0; i < 3; i++) {
+            ad['top'+(i+1)]=detail[i]?detail[i].agentName+" ("+detail[i].issueCount+")":''
+          }
+          return ad
+        })
+      },
+      columns:[
+        {field:'issueID',visible:false},
+        {field:'issue',title:"Advisory"},
+        {field:'issueCount',title:"# Observed",width:130},
+        {field:'repScore',title:"Avg repeat flags",width:200},
+        {field:'fedBack',title:'% fed back',width:130,formatter:cell=>cell.getValue()+'%'},
+        {field:'top1',title:"Most advised"},
+        {field:'top2',title:"2nd most advised"},
+        {field:'top3',title:"3rd most advised"},
+      ],
+      rowClick:(e,row)=>{
+        advisory.setData("/get-advisory/", {issueID:row.getData().issueID,stdate:$('#stdate').val(), endate:$('#endate').val(),teamID:$('#teamFilter').val()}).then(data=>{
+          $('#advisoryHeader > h6').text(row.getData().issue)
+          $('#advisoryHeader > a').attr('data-advisory',row.getData().issue)
+          $('#advisoryCont').show().css("left",e.pageX).css("top",e.pageY)
+        })
+      }
+    })
+    var agents=new Tabulator("#agents",{
+      layout:"fitColumns",
+      height:300,
+      ajaxURL:"/get-agents-advisories/",
+      ajaxParams:{stdate:$('#stdate').val(), endate:$('#endate').val(),teamID:$('#teamFilter').val()},
+      ajaxConfig:"GET",
+      ajaxResponse:function(url, params, response){
+        return response.agents.map(ag=>{
+          let observed=response.details.filter(el=>el.agentID==ag.agentID).sort((a,b)=>b.issueCount-a.issueCount)
+          ag.mostObserved=observed[0]?observed[0].issue+" ("+observed[0].issueCount+")":''
+          let repeated=observed.slice().sort((a,b)=>b.repScore-a.repScore)
+          ag.mostRepeated=repeated[0]?repeated[0].issue+" ("+repeated[0].repScore+")":''
+          return ag
+        })
+      },
+      columns:[
+        {field:'agentName',title:"Agent"},
+        {field:'issueCount',title:"Advisories",width:130},
+        {field:'avgIssues',title:"Avg per check",width:150},
+        {field:'fedBack',title:'% fed back',width:130,formatter:cell=>cell.getValue()+'%'},
+        {field:'mostObserved',title:"Most advised"},
+        {field:'mostRepeated',title:"Most repeated"},
+      ],
+      rowClick:(e,row)=>{
+        agent.setData("/get-agent-advisories/", {agentID:row.getData().agentID,stdate:$('#stdate').val(), endate:$('#endate').val()}).then(data=>{
+          $('#agentHeader > h6').text(row.getData().agentName)
+          $('#agentHeader > a').attr("data-agent",row.getData().agentName)
+          $('#agentCont').show().css("left",e.pageX).css("top",e.pageY)
+        })
+      }
+    })
+
+    $('.inputdate,#teamFilter').on('change',function(e){
+      $('.refreshOverlay').show()
+      loadSpotlights()
+    })
+    $('#advisoriesRefresh').on('click',function(e){
+      $('#advisoriesRefresh').addClass("spin")
+      advisories.setData("/get-advisories/", {stdate:$('#stdate').val(), endate:$('#endate').val(),teamID:$('#teamFilter').val()}).then(data=>{
+        $('#advisoriesRefresh').removeClass("spin")
+        $('#advisoriesRefresh').hide()
+      })
+    })
+    $('#agentRefresh').on('click',function(e){
+      $('#agentRefresh').addClass("spin")
+      agents.setData("/get-agents-advisories/", {stdate:$('#stdate').val(), endate:$('#endate').val(),teamID:$('#teamFilter').val()}).then(data=>{
+        $('#agentRefresh').removeClass("spin")
+        $('#agentRefresh').hide()
+      })
+    })
+    loadSpotlights()
+  })
+  function downloadAgentsTable(){
+    Tabulator.prototype.findTable('#agents')[0].download("xlsx", "Agent advisories report "+moment($('#stdate').val()).format("DD-MM-YYYY")+"-"+moment($('#endate').val()).format("DD-MM-YYYY")+($('#teamFilter').val()?' - '+$('#teamFilter option:selected').text():'')+".xlsx")
+  }
+  function downloadAdvisoriesTable(){
+    Tabulator.prototype.findTable('#advisories')[0].download("xlsx", "Advisories report "+moment($('#stdate').val()).format("DD-MM-YYYY")+"-"+moment($('#endate').val()).format("DD-MM-YYYY")+($('#teamFilter').val()?' - '+$('#teamFilter option:selected').text():'')+".xlsx")
+  }
+  function downloadAgentTable(agent){
+    Tabulator.prototype.findTable('#agent')[0].download("xlsx", "Agent advisories report "+moment($('#stdate').val()).format("DD-MM-YYYY")+"-"+moment($('#endate').val()).format("DD-MM-YYYY")+' - '+agent+".xlsx")
+  }
+  function downloadAdvisoryTable(adv){
+    Tabulator.prototype.findTable('#advisory')[0].download("xlsx", "Advisories report "+moment($('#stdate').val()).format("DD-MM-YYYY")+"-"+moment($('#endate').val()).format("DD-MM-YYYY")+' - '+adv+".xlsx")
+  }
+</script>
+</body>
+</html>

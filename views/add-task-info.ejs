@@ -1,0 +1,19 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <%if (params.taskID==1) {%>
+        Before marking this task as done, you'll need to enter the information below:
+        <form action="/add-Timed-LOI" method="post">
+          <input type="text" name="group" value="<%=params.group%>" style="display:none;">
+          <input type="text" name="quoteID" value="<%=params.quoteID%>" style="display:none;">
+          <label for="timedLOI">Timed LOI: </label>
+          <input type="number" class="form-control" name="timedLOI" style="display: inline;width: 95px;margin:10px auto" required> mins<br>
+          <button type="submit" class="btn btn-primary">Submit</button>
+        </form>
+      <%}%>
+    </div>
+  </div>
+</div>
+</body>
+</html>

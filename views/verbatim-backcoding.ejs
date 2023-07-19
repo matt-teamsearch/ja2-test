@@ -1,0 +1,197 @@
+<%- include('partials/'+versionPages.header) %>
+<style media="screen">
+  .tabulator-edit-list {
+    max-height: 40vh;
+  }
+  .tabulator-cell.tabulator-editable.loadingError {
+    background: #ffb4b4;
+  }
+  .input-row {
+    display: flex;
+    flex-wrap: nowrap;
+    width: 400px;
+    margin: 5px auto;
+    align-items: flex-end;
+    justify-content: space-between;
+    border-bottom: 1px solid gainsboro;
+  }
+  .headerBar{
+    display: flex;
+  }
+</style>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <div class="input-row">
+        <label for="forstaSurvey">Survey</label>
+        <select class="selectpicker" onchange="getOtherQuestions($(this).val())" id="forstaSurvey" title="Select a survey...">
+          <%forstaSurveys.forEach(survey=>{%>
+            <option value="<%=survey.id%>"><%=survey.name%></option>
+            <%})%>
+          </select>
+      </div>
+      <div class="input-row">
+        <label for="currentQuestion">Question</label>
+        <select class="selectpicker" onchange="getOthers()" id="currentQuestion" disabled title="Select a question...">
+        </select>
+      </div>
+      <div class="input-row">
+        <label for="targetQuestion">Target question <span class="infoHover">Save the back-coded responses to a different variable so as to not overwrite original values</span></label>
+        <select class="selectpicker" id="targetQuestion" onchange="checkTargetQuestion()" disabled title="Select a target question...">
+        </select>
+      </div>
+      <div class="headerBar">
+        <h5 id="questionTitle" style="text-align: left;"></h5>
+        <button type="button" class="btn btn-sm btn-flat" onclick="getOthers()"><i class="fas fa-sync-alt"></i></button>
+      </div>
+      <div id="othersTable">
+
+      </div>
+    </div>
+  </div>
+  <script type="text/javascript">
+    let optionEditor=(cell,onR,success,cancel,params)=>{
+      let editor=document.createElement("select")
+      params.values.forEach((opt, i) => {
+        editor.append(new Option((params.itemFormatter?params.itemFormatter(opt.label,opt.value):opt.label),opt.value))
+      });
+      $(editor).attr("data-container","body").attr("data-live-search","true").attr("multiple",params.multiple)
+      $(editor).addClass("selectpicker")
+      $(editor).val(cell.getValue())
+      onR(()=>{
+        $(editor).on("loaded.bs.select",function(e){
+          $(editor).selectpicker("toggle")
+        })
+        $(editor).on("hidden.bs.select",function(e){
+          $(editor).selectpicker("destroy")
+          success($(editor).val())
+        })
+        setTimeout(()=>{
+          $(editor).selectpicker()
+        },100)
+      })
+      return editor
+    }
+    let currentQuestionOptions
+    function getOtherQuestions(pid){
+      $("#othersTable").empty()
+      $.ajax("/get-forsta-survey-questions?pid="+pid).done(questions=>{
+        let otherQs=questions.filter(q=>['singleChoice','multiChoice'].includes(q.variableType)).filter(q=>q.options.find(o=>o.hasOtherField))
+        let allQs=questions.filter(q=>['singleChoice','multiChoice'].includes(q.variableType))
+        $('#currentQuestion').empty()
+        $('#targetQuestion').empty()
+        otherQs.forEach(q=>{
+          q.options.filter(o=>o.hasOtherField).forEach(o=>{
+            $('#currentQuestion').append(new Option(q.name+". "+_.truncate(q.titles[0].text)+" - "+_.truncate(o.texts[0].text),q.name+"$"+o.code))
+          })
+        })
+        allQs.forEach(q=> {
+          $('#targetQuestion').append(new Option(q.name+". "+_.truncate(q.titles[0].text),q.name))
+        });
+        currentQuestionInfo=(currentQ)=>otherQs.find(q=>q.name==currentQ)
+        $('#currentQuestion').prop("disabled",false)
+        $('#currentQuestion')[0].selectedIndex='0'
+        $('#currentQuestion').selectpicker("refresh")
+      })
+    }
+    function checkTargetQuestion(){
+      let pid=$("#forstaSurvey").val()
+      let currentQuestion=$('#currentQuestion').val().split("$")[0]
+      if ($('#targetQuestion').val()!=currentQuestion) {
+        $.ajax("/get-forsta-survey-questions?pid="+pid+"&variables="+$('#targetQuestion').val()).done(resp=>{
+          let question=resp[0]
+          let optEqual=currentQuestionInfo(currentQuestion).options.find(o=>{
+            let ret=false
+            let codematch=question.options.find(o2=>o2.code==o.code)
+            if (!codematch) {
+              return false
+            }else if(codematch.texts[0].text!=o.texts[0].text) {
+              return false
+            }else {
+              return true
+            }
+          })
+          if (question.variableType!=currentQuestionInfo(currentQuestion).variableType) {
+            if (!confirm("Target question is a "+question.variableType+" whereas the question you are backcoding is "+currentQuestionInfo(currentQuestion).variableType+". Continue?")) {
+              $('#targetQuestion').val(currentQuestion).selectpicker("refresh")
+            }else if (!optEqual) {
+              if (!confirm("Target question's responses are different to the question you are backcoding. Continue?")) {
+                $('#targetQuestion').val(currentQuestion).selectpicker("refresh")
+              }
+            }
+          }
+        })
+      }
+    }
+    let verbTable
+    function getOthers(){
+      $('#targetQuestion').prop("disabled",false).selectpicker("refresh")
+      let pid=$("#forstaSurvey").val()
+      let currentQuestion=$('#currentQuestion').val().split("$")[0]
+      $('#targetQuestion').val(currentQuestion).selectpicker("refresh")
+      let otherCode=$('#currentQuestion').val().split("$")[1]
+      $('#questionTitle').text(currentQuestionInfo(currentQuestion).titles[0].text)
+      $.ajax("/get-forsta-completes?pid="+pid).done(verbs=>{
+        let specifies=verbs.filter(v=>v[currentQuestion]==otherCode || ((v[currentQuestion] || {}).true || []).includes(otherCode))
+        let isMulti=currentQuestionInfo(currentQuestion).variableType=='multiChoice'
+        let singleFormatter=c=>c.getValue()?currentQuestionInfo(currentQuestion).options.find(o=>o.code==c.getValue()).texts[0].text:""
+        let mapped=JSON.parse(JSON.stringify(specifies))
+        if (isMulti) {
+          mapped=mapped.map(row=>{
+            row[currentQuestion+"."+otherCode+"$other"]=row[currentQuestion][otherCode+"$other"]
+            row[currentQuestion]=row[currentQuestion].true
+            return row
+          })
+        }
+        let multiAccessor=(v,d)=>{
+          let v2=typeof v === "string"?[v]:v
+          let obj={
+            true:v2,
+            false:_.difference(currentQuestionInfo(currentQuestion).options.map(o=>o.code),v2)
+          }
+          // obj[otherCode+"$other"]=d[currentQuestion+"."+otherCode+"$other"]
+          return isMulti?obj:v
+        }
+        verbTable=new Tabulator("#othersTable", {
+          data:mapped,
+          nestedFieldSeparator:"|",
+          columns:[
+            {field:"TSID",title:"TSID"},
+            {field:currentQuestion+"."+otherCode+"$other",title:"Specify"},
+            {field:currentQuestion,accessor:isMulti?multiAccessor:v=>v,title:currentQuestion,editor:optionEditor,editorParams:{
+              multiple:isMulti,
+              values:currentQuestionInfo(currentQuestion).options.map(o=>({label:o.texts[0].text,value:o.code})),
+              itemFormatter:(label,val)=>{
+                return val+": "+label
+              }},
+              // formatter:c=>c.getValue()?currentQuestionInfo(currentQuestion).options.find(o=>o.code==c.getValue() || (isMulti && c.getValue().includes(o.code))).texts[0].text:"",
+              cellEdited:c=>updateData(c,multiAccessor(c.getValue(),c.getData()))},
+          ]
+        })
+      })
+    }
+    function updateData(c,val){
+      $(c.getElement()).removeClass("loadingError")
+      $(c.getElement()).loader()
+      let pid=$("#forstaSurvey").val()
+      let update={'TSID':c.getData().TSID}
+      update[$('#targetQuestion').val()]=val
+      let data={
+        keys:['TSID'],
+        variables:[$('#targetQuestion').val()],
+        pid:pid,
+        data:[update]
+      }
+      $.ajax({global:false,url:"/update-forsta-data",method:"post",data:data}).fail(e=>{
+        $(c.getElement()).loader("done")
+        $(c.getElement()).addClass("loadingError")
+        $(c.getElement()).tooltip({title:"There was an error updating this data. Please amend manually in Forsta"})
+        c.restoreOldValue()
+      }).done(e=>{
+        $(c.getElement()).loader("done")
+      })
+    }
+  </script>
+</div>
+</body>
+</html>

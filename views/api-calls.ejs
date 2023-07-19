@@ -1,0 +1,179 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="table-wrapper">
+  <% if (projects.length > 0) {%>
+    <script>
+      $(document).ready(function () {
+        $('#Project-table').DataTable({
+          "paging": false
+        });
+        $('.dataTables_length').addClass('bs-select');
+      });
+      function fnExcelReport()
+      {
+        var tab_text="<table border='2px'><tr bgcolor='#87AFC6'>";
+          var textRange; var j=0;
+          tab = document.getElementById('Project-table'); // id of table
+
+          for(j = 0 ; j < tab.rows.length ; j++)
+          {
+            tab_text=tab_text+tab.rows[j].innerHTML+"</tr>";
+            //tab_text=tab_text+"</tr>";
+          }
+
+          tab_text=tab_text+"</table>";
+          tab_text= tab_text.replace(/<A[^>]*>|<\/A>/g, "");
+          tab_text= tab_text.replace(/<a[^>]*>|<\/a>/g, "");
+          tab_text= tab_text.replace(/<img[^>]*>/gi,"");
+          tab_text= tab_text.replace(/<input[^>]*>|<\/input>/gi, "");
+
+          var ua = window.navigator.userAgent;
+          var msie = ua.indexOf("MSIE ");
+
+          if (msie > 0 || !!navigator.userAgent.match(/Trident.*rv\:11\./))
+          {
+            txtArea1.document.open("txt/html","replace");
+            txtArea1.document.write(tab_text);
+            txtArea1.document.close();
+            txtArea1.focus();
+            sa=txtArea1.document.execCommand("SaveAs",true,"Project_Deadlines.xls");
+          }
+          else
+          sa = window.open('data:application/vnd.ms-excel,' + encodeURIComponent(tab_text));
+          return (sa);
+        }
+      </script>
+      <%
+      const dateIf = (inDate, seperator, order) => {
+        let day =''
+        if (new Date(inDate).getDate() < 10) {
+          day = '0' + new Date(inDate).getDate()
+        } else {
+          day = new Date(inDate).getDate()
+        }
+        let month =''
+        if (new Date(inDate).getMonth()+1 < 10) {
+          month = '0' + (new Date(inDate).getMonth()+1)
+        } else {
+          month = (new Date(inDate).getMonth()+1)
+        }
+        let year = new Date(inDate).getFullYear()
+        if(order=="f"){
+          return(day+seperator+month+seperator+year)
+        }
+        if(order=="r"){
+          return(year+seperator+month+seperator+day)
+        }
+      }
+      %>
+      <style>
+        .total {
+          background-color: #CBE3E9!important;
+          font-weight: bold;
+        }
+        .table-container {
+          width: 100%;
+          background: #a2a2a2;
+          color: #f3f3f3
+        }
+      </style>
+      <div class="table-container">
+        <div class="card text-dark mb-2 text-center">
+          <div class="card-body">
+            <h3>Interviewer calls for <%= date %></h3>
+            <button class="btn btn-sm btn-secondary" id="btnExport" onclick="fnExcelReport();" style="float:left;"> Download to excel </button>
+            <table class="table table-sm table-striped table-bordered" id="Project-table" style="width:100%; overflow-y:scroll; z-index:0;">
+              <thead class="thead">
+                <tr>
+                  <th scope="col">Project</th>
+                  <th scope="col">Interviewer</th>
+                  <th scope="col">Calls</th>
+                  <th scope="col">Completes</th>
+                  <th scope="col">Refusals</th>
+                  <th scope="col">Screenouts</th>
+                  <th scope="col">Total time</th>
+                  <th scope="col">Interview length</th>
+                  <th scope="col">Incidence</th>
+                </tr>
+              </thead>
+              <tbody>
+                <%
+                projects.forEach((project, i) => {
+                  let totalProjectCalls = 0;
+                  let totalProjectSuccess = 0;
+                  let totalProjectTime = 0;
+                  let totalProjectRefusals = 0;
+                  let totalProjectScreenouts = 0;
+                  let totalProjectInterviewTime = 0
+                  agents.forEach((agent, index) => {
+                    let totalCalls = 0;
+                    let totalSuccess = 0;
+                    let totalTime = 0;
+                    let totalScreenouts = 0;
+                    let totalRefusals = 0;
+                    let totalInterviewTime = 0;
+                    calls.forEach((call, index) => {
+                      if(call.Agents[0].AgentId == agent.Id && call.InterviewDetails.TaskId == project.Id){
+                        totalCalls ++;
+                        totalProjectCalls++;
+                        totalTime = totalTime+call.TimeDetails.TotalTime;
+                        totalProjectTime = totalProjectTime+call.TimeDetails.TotalTime;
+                        if(call.Result == 0){
+                          totalSuccess++;
+                          totalProjectSuccess++;
+                          totalInterviewTime = totalInterviewTime+call.TimeDetails.TotalTime;
+                          totalProjectInterviewTime = totalProjectInterviewTime+call.TimeDetails.TotalTime;
+                        }
+                        if(call.Result == 7){
+                          totalRefusals++
+                          totalProjectRefusals++
+                        }
+                        if(call.Result == 17 || call.Result == 18 || call.Result == 19 || call.Result == 20 || call.Result == 21 || call.Result == 13){
+                          totalScreenouts++;
+                          totalProjectScreenouts++;
+                        }
+                      }
+                    });
+                    if(totalCalls > 0){
+                      %>
+                      <tr>
+                        <td><%= project.Name %></td>
+                        <td><%= agent.FirstName %> <%= agent.LastName %></td>
+                        <td><%= totalCalls %></td>
+                        <td><%= totalSuccess %></td>
+                        <td><%= totalRefusals %></td>
+                        <td><%= totalScreenouts %></td>
+                        <td><%= new Date(totalTime * 1000).toISOString().substr(11, 8); %></td>
+                        <td><%= (totalSuccess>0) ? new Date((totalInterviewTime/totalSuccess) * 1000).toISOString().substr(11, 8) : "No data" %></td>
+                        <td><%= (totalSuccess>0) ? (totalSuccess/(totalScreenouts+totalSuccess)*100).toFixed(2) +"%" : "No data" %></td>
+                      </tr>
+                      <%}
+                    });
+                    let projectHours = Math.floor(totalProjectTime / (60*60))
+                    let projectMinutes = Math.floor((totalProjectTime - projectHours) / (60))
+                    if(totalProjectCalls>0){
+                    %>
+                    <tr class="total">
+                      <td><%= project.Name %></td>
+                      <td>Total</td>
+                      <td><%= totalProjectCalls %></td>
+                      <td><%= totalProjectSuccess %></td>
+                      <td><%= totalProjectRefusals %></td>
+                      <td><%= totalProjectScreenouts %></td>
+                      <td><%= new Date(totalProjectTime * 1000).toISOString().substr(11, 8); %></td>
+                      <td><%= (totalProjectSuccess>0) ? new Date((totalProjectInterviewTime/totalProjectSuccess) * 1000).toISOString().substr(11, 8) : "No data" %></td>
+                      <td><%= (totalProjectSuccess>0) ? (totalProjectSuccess/(totalProjectScreenouts+totalProjectSuccess)*100).toFixed(2) +"%" : "No data" %></td>
+                    </tr>                
+                  <%}
+                  });
+                  %>
+                </tbody>
+              </table>
+              <% } else { %>
+                <p class="text-center">No projects found.</p>
+                <% } %>
+              </div>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>

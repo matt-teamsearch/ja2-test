@@ -1,0 +1,36 @@
+<%- include('partials/'+versionPages.header) %>
+
+<script>
+
+  function findDaily() {
+    if ($("#inputdate").val()=='')
+    {
+      alert("Please select a date")
+    }
+    else
+    {
+      var datesearch = $("#inputdate").val()
+      var sd = datesearch.replace(/\//g,"-")
+      window.location.href=("/find-daily/" + sd)
+    }
+  };
+</script>
+
+<% if (message) { %>
+  <p class="text-center text-danger"><%= message %></p>
+  <% } %>
+  <div class="container" style="padding-top:70px;">
+    <div class="card text-dark bg-light mb-2 text-center">
+        <div class="card-body">
+          <h5 class="card-title">Select Date to Edit</h5>
+      <div style="border:1px solid #ced4da; padding:50px; background:#f2f6ff!important">
+        <div class="form-row">
+        <input class="form-control" type="date" id="inputdate" name="inputdate" style="width:200px; margin:auto;" required>
+        </div>
+        <div class="form-row">
+        <input type="submit" class="btn btn-primary m-auto" id="Redirect" value="Search" onclick="findDaily()">
+        </div>
+      </div>
+      </div>
+    </div>
+  </div>

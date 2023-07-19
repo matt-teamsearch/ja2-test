@@ -1,0 +1,151 @@
+<style media="screen">
+  #jobNotesGrid {
+    column-count: 2;
+    column-fill: balance;
+  }
+  #jobNotes{
+    max-height: 150px;
+    overflow: hidden;
+    transition: all 0.5s;
+    position: relative;
+  }
+  .ellipse::before {
+      content: "";
+      position: absolute;
+      bottom: 25px;
+      left: 0;
+      background-image: linear-gradient(to bottom,
+                                      rgba(255,255,255, 0),
+                                      rgba(255,255,255, 1) 90%);
+      width: 100%;
+      height: 3em;
+  }
+  #jobNotesCont{
+    background-color: inherit;
+    z-index: 1;
+    transition:all 0.5s;
+  }
+  #jobNotesCont:hover #jobNotes::after {
+    opacity:0;
+  }
+  #jobNotes .badge{
+    margin-top:10px;
+    column-span: all;
+    display: block;
+  }
+  .ellipse {
+      color: white;
+      font-size: 16px;
+      background: var(--secondary);
+      width: fit-content;
+      display: block;
+      margin: 5px auto;
+      line-height: 0px;
+      padding: 0px 7px;
+      opacity:1;
+      transition:all 0.5s;
+  }
+  #jobNotesCont:hover #jobNotes {
+      max-height: 1000px;
+  }
+  #jobNotesCont:hover .ellipse {
+      opacity: 0;
+  }
+  .jobNote {
+      width: 99%;
+      display: inline-grid;
+      margin: 3px 0px;
+      height: fit-content;
+      font-size: 12px;
+      border: 1px solid var(--secondary);
+  }
+  .jobNote .header {
+      background: var(--secondary);
+      display: flex;
+      font-size: 10px;
+      align-items: center;
+      justify-content: space-between;
+  }
+  .delBtn {
+      color: white!important;
+      padding: 0px 5px;
+  }
+  .jobNote .header .title{
+    color: white;
+    font-size: 12px;
+    overflow: hidden;
+    white-space: nowrap;
+    text-align: left;
+    padding: 0px 4px;
+    text-overflow: ellipsis;
+  }
+</style>
+<script type="text/javascript">
+  function checkHeight(){
+    if ($('#jobNotes')[0].clientHeight < $('#jobNotes')[0].scrollHeight) {
+      $('.ellipse').show()
+    }else {
+      $('.ellipse').hide()
+    }
+  }
+  $('#jobNotesCont').loader()
+  $.ajax({
+    url: '/get-notes',
+    type: 'GET',
+    contentType: 'application/json',
+    data: {page:'makeAnote',jobID:quoteID},
+    success: function (response) {
+      if (response.length==0) {
+        $('#jobNotesCont').hide()
+      }else {
+        $('#jobNotesCont').show()
+        response.forEach((note, i) => {
+          let el=$(document.createElement('div'))
+          el.addClass('jobNote')
+          let head=$(document.createElement('div'))
+          head.addClass('header')
+          let title=$(document.createElement('div'))
+          title.addClass('title')
+          title.html(note.staffName)
+          let del=$(document.createElement('button'))
+          del.html("X")
+          del.addClass('btn btn-flat delBtn')
+          el.prop('sql-data',JSON.stringify(note))
+          del.click(()=>{
+            if (confirm("Delete this note?")) {
+              let data=JSON.parse(el.prop('sql-data'))
+              data.note=''
+              delete data.tableName
+              $.ajax({url:'/update-note',contentType: 'application/json',type:'POST',data:JSON.stringify([data]),success:()=>{
+                el.remove()
+                checkHeight()
+              }})
+            }
+          })
+          head.append(title).append(del)
+          let txt=$(document.createElement('div'))
+          txt.addClass('note')
+          txt.html("["+moment(note.date).format("DD/MM/YYYY")+"] "+note.note)
+          el.append(head).append(txt)
+          $('#jobNotesGrid').append(el)
+          checkHeight()
+        });
+      }
+      $('#jobNotesCont').loader('done')
+    },
+    error: function (jqXHR, exception) {
+      alert(getErrorMessage(jqXHR, exception))
+    },
+  });
+</script>
+<div id="jobNotesCont">
+  <div id="jobNotes">
+    <span class="badge badge-secondary" style="background:var(--secondary);">Notes</span>
+    <div id="jobNotesGrid">
+
+    </div>
+  </div>
+  <div class="ellipse">
+    <i class="fas fa-ellipsis-h"></i>
+  </div>
+</div>

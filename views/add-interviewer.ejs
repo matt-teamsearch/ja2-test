@@ -1,0 +1,351 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px;">
+  <style>
+    #isRemote{
+      -webkit-transform: scale(2);
+      margin: 12px auto;
+      display: block;
+      text-align: center;
+    }
+    .namelist-cont{
+      padding:0px
+    }
+    .namelist-img{
+      border-radius:5px;
+      border:1px solid white;
+    }
+    .namelist-txt{
+      padding-left:5px;
+    }
+    #hiddenFields{
+      display:none;
+    }
+    #intName {
+      background-image: url('https://hr.breathehr.com/images/new/Powered_by_breathev2.png');
+      background-repeat: no-repeat;
+      background-position: left;
+    }
+    #intName:focus {
+      background-image: unset;
+    }
+    #intName:valid {
+      background-image: unset;
+    }
+    .BreatheMessage {
+      padding: 10px;
+      width: 200px;
+      border-radius: 40px;
+      font-size: small;
+      margin: auto;
+    }
+    .hasBreathe{
+      background: #d5daf9;
+      border: 1px solid var(--primary);
+    }
+    .noBreathe{
+      background: #f7d7d7;
+      border: 1px solid var(--danger);
+    }
+    .avatarImg{
+      border: 2px solid var(--primary)
+    }
+    .rcIcon{
+      width:25px;
+      margin-bottom: 3px;
+      border-radius: 6px;
+    }
+  </style>
+  <%
+
+  function dateIf(inDate, seperator, order){
+    let day =''
+    if (new Date(inDate).getDate() < 10) {
+      day = '0' + new Date(inDate).getDate()
+    } else {
+      day = new Date(inDate).getDate()
+    }
+    let month =''
+    if (new Date(inDate).getMonth()+1 < 10) {
+      month = '0' + (new Date(inDate).getMonth()+1)
+    } else {
+      month = (new Date(inDate).getMonth()+1)
+    }
+    let year = new Date(inDate).getFullYear()
+    if(order=="f"){
+      return(day+seperator+month+seperator+year)
+    }
+    if(order=="r"){
+      return(year+seperator+month+seperator+day)
+    }
+  }
+  %>
+  <script>
+    $(document).ready(function () {
+      var list=[]
+      $.ajax({
+        url: '/get-breathe-agent',
+        type: 'GET',
+        contentType: 'application/json',
+        dataType: "json",
+        success: function (data) {
+          data.agent.forEach((item, i) => {
+            list.push({
+              value: item.first_name.trim()+" "+item.last_name.trim(),
+              avatar: item.photo_url,
+              breatheID: item.id,
+              email: item.email,
+              dob: item.dob,
+              joined: item.join_date,
+              manager: item.line_manager
+            });
+          });
+          $( "#intName" ).autocomplete({
+            source: list,
+            select: function (event, ui) {
+              $('#email').val(ui.item.email)
+              $('#breatheID').val(ui.item.breatheID)
+              if ($('#intDOB').val()=="") {
+                $('#intDOB').val(ui.item.dob)
+              }
+              if ($('#intJoin').val()=="") {
+                $('#intJoin').val(ui.item.joined)
+                $('#contractStart').val(ui.item.joined)
+              }
+              $('#avatarURL').val(ui.item.avatar.replace(/\r?\n\s*/g,''))
+              $('.hasBreathe').show()
+              $('.avatarImg').show()
+              $('.noBreathe').hide()
+              $('.avatarImg').attr("src",ui.item.avatar)
+              if (ui.item.manager && $('#agentTeam').val()<2) {
+                $('#agentTeam option:contains('+ui.item.manager.first_name+')').attr("selected","true")
+                $('#agentTeam').selectpicker('refresh')
+              }
+              return this.value;
+            }
+          }).data("ui-autocomplete")._renderItem = function (ul, item) {
+            var inner_html = '<div class="namelist-cont"><img class="namelist-img" src="' + item.avatar + '" height="40px"><span class="namelist-txt">' + item.value+'</span></div>';
+            return $("<li>")
+            .data("ui-autocomplete-item", item)
+            .attr("data-id", item.id)
+            .append(inner_html)
+            .appendTo(ul);
+          };
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+      });
+      <%if(edit){%>
+        $('.selectpicker:last').on('loaded.bs.select',function(e){
+          $('#email').val('<%=agent.email%>')
+          $('#intName').val('<%=agent.agentName%>')
+          $('#breatheID').val('<%=agent.breatheID%>')
+          $('#intDOB').val('<%=dateIf(agent.agentDOB,"-","r")%>')
+          $('#intJoin').val('<%=dateIf(agent.agentJoined,"-","r")%>')
+          $('#intLeft').val('<%=new Date(agent.agentLeft).getFullYear()>1970?dateIf(agent.agentLeft,"-","r"):''%>')
+          $('#avatarURL').val('<%-breatheAgent.photo_url?breatheAgent.photo_url.replace(/\r?\n\s*/g,''):''%>')
+          $('#agentTeam').val('<%=agent.teamID%>')
+          $('#agentTeam').selectpicker('refresh')
+          $('#askiaID').val('<%=agent.agentAskiaID%>')
+          $('#agentID').val('<%=agent.agentID%>')
+          $('#payrollID').val('<%=agent.payrollID%>')
+          $('#unpaidHours').val('<%=agent.unpaidHours%>')
+          $('#contractVersion').selectpicker('refresh')
+          $('#rcSelect').val('<%=agent.ringCentralID%>')
+          $('#rcSelect').selectpicker('refresh')
+          $('#isRemote').prop('checked', <%=agent.isRemote==1%>);
+        })
+      <%}%>
+      $('.dropdown-toggle').removeClass("btn")
+    })
+    $(document).on('change', '#intDOB', function(evt) {
+      console.log(moment().diff($(this).val(), 'years'))
+      if (moment().diff($(this).val(), 'years')<16) {
+        this.setCustomValidity('Interviewer cannot be under 16');
+      }else {
+        this.setCustomValidity('');
+      }
+    })
+    $(document).on('change', '#rcSelect', function(evt) {
+      if ($(this).val()=="NEW") {
+        if (confirm("Add this user to RingCentral?")) {
+          $.ajax({
+            url: '/add-rc-user',
+            type: 'POST',
+            data:JSON.stringify({firstName:$('#intName').val().split(" ")[0],lastName:$('#intName').val().split(" ")[1],email:$('#email').val()}),
+            contentType: 'application/json',
+            success: function (data) {
+              let o= new Option($('#intName').val(),data.id)
+              $(o).html($('#intName').val());
+              $(o).attr("data-content","<img class='rcIcon' src='/RingCentralIcon.png'> "+$('#intName').val())
+              $(o).attr('selected',true)
+              $('#rcSelect [label="Extensions"]').append(o)
+              $('#rcSelect').selectpicker('refresh')
+            },
+            error: function (jqXHR, exception) {
+              alert(jqXHR.responseText)
+            },
+          });
+        }
+      }
+    })
+  </script>
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body">
+        <h5 class="card-title"><%if(edit){%>Edit <%}else{%>Add a new <%}%>interviewer</h5>
+        <form class="add-interviewer-form form-styles" action="<%if(edit){%>/editint<%}else{%>/add-interviewers<%}%>" method="post" enctype="multipart/form-data">
+          <input type="text" name="user" id="user" style="display:none;">
+          <div class="form-row">
+            <div id="hiddenFields">
+              <%if(edit){
+                console.log(agent.avatar)%>
+              <input type="number" name="agentID" id="agentID">
+              <%}%>
+              <input type="email" name="email" id="email">
+              <input type="number" name="breatheID" id="breatheID">
+              <input type="text" name="avatarURL" id="avatarURL">
+            </div>
+            <div class="form-group col-md-12" style="text-align:center">
+            <img src='<%if(edit){%><%=breatheAgent.photo_url%><%}%>' height="150px" style="<%=edit?(breatheAgent.photo_url?'':'display:none'):'display:none'%>" class="avatarImg" alt="Image is missing">
+            <div class="BreatheMessage hasBreathe" style="<%=edit?(breatheAgent.photo_url?'':'display:none'):'display:none'%>">
+            <img src='/BreatheCloud.png' height='20px'>
+             Linked to BreatheHR
+            </div>
+            <div class="BreatheMessage noBreathe" style="<%=edit?(!breatheAgent.photo_url?'':'display:none'):''%>">
+            <img src='/BreatheNoCloud.png' height='20px'>
+             Not linked to BreatheHR
+            </div>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="intName">Interviewer Name</label>
+              <input type="text" class="form-control" name="intName" id="intName" placeholder="" required>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="intName">Interviewer date of birth</label>
+              <input type="date" class="form-control" name="intDOB" id="intDOB" placeholder="Interviewer DOB" required>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="intName">Interviewer joined teamsearch</label>
+              <input type="date" class="form-control" name="intJoin" id="intJoin" placeholder="Joined" required>
+            </div>
+            <%if(edit){%>
+              <div class="form-group col-md-4">
+                <label for="intName">Interviewer left teamsearch</label>
+                <input type="date" class="form-control" onchange="if($(this).val()){if(!confirm('This will remove all shift bookings and tally sheet entries after this date. Are you sure you want to mark this agent as left?')){$(this).val('')}}" name="intLeft" id="intLeft" placeholder="Left">
+              </div>
+            <%}%>
+            <div class="form-group col-md-4">
+              <label for="intName">Interviewer Askia ID</label>
+              <input type="number" class="form-control" name="askiaID" id="askiaID" placeholder="Askia ID" required>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="intName">Payroll ID</label>
+              <input type="number" class="form-control" name="payrollID" id="payrollID" placeholder="Payroll ID (if known)">
+            </div>
+            <div class="form-group col-md-4">
+              <label for="agentTeam">Assign to team</label>
+              <select class="selectpicker form-control" data-style="form-control" name="agentTeam" id="agentTeam">
+                <optgroup label="Agent Teams">
+                  <% teams.forEach((team , index) => { %>
+                  <option value="<%= team.agentTeamID %>"><%= team.teamName %></option>
+                  <% }) %>
+                </optgroup>
+              </select>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="rcSelect">Ring Central Extension</label>
+              <select class="selectpicker form-control" <%= rcAgents.length?"":"disabled"%> data-live-search="true" data-style="form-control" title="Select an extension..." name="rcSelect" id="rcSelect">
+                <option data-content="<img class='rcIcon disabledImg' src='/RingCentralIcon.png'> No Ring Central extension" value=""></option>
+                <optgroup label="Extensions">
+                  <% rcAgents.forEach((rc, index) => {%>
+                    <option data-content="<img class='rcIcon' src='/RingCentralIcon.png'> <%= rc.name %>" value="<%= rc.id %>"></option>
+                  <% }) %>
+                </optgroup>
+                <optgroup label="">
+                  <option data-content="<img class='rcIcon specialImg' src='/RingCentralIcon.png'> Add to Ring Central" value="NEW"></option>
+                </optgroup>
+              </select>
+            </div>
+            <div class="form-group col-md-4">
+              <% if(contractHistory.length){%>
+                <h6>Contract history</h6>
+                <table style="width: 300px;margin: auto;font-size:small;">
+                  <th>Version</th>
+                  <th>From</th>
+                  <th>To</th>
+                  <!-- <th></th> -->
+                  <%contractHistory.forEach((cont, i) => {%>
+                    <tr>
+                      <td><%=cont.contractName%></td>
+                      <td><%=moment(cont.startDate).format("DD/MM/YYYY")%></td>
+                      <td><%=cont.endDate?moment(cont.endDate).format("DD/MM/YYYY"):"Present"%></td>
+                      <!-- <td><button type="button" class="editContractBtn btn btn-white btn-sm">Edit</button></td> -->
+                    </tr>
+                  <%})%>
+                </table>
+                <script type="text/javascript">
+                  // $('.editContractBtn').click(function(e){
+                  //   let id=document.createElement("input")
+                  //   let start=document.createElement("input")
+                  //   let end=document.createElement("input")
+                  //   let end=document.createElement("input")
+                  //   $().getModal({
+                  //     title:"Edit contract",
+                  //     body:
+                  //   })
+                  // })
+                </script>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="$('#newContractCont').toggle()">Add contract</button>
+            <%}%>
+              <div id="newContractCont" style="border: 1px solid gainsboro;padding: 10px;<%-contractHistory.length?'display:none':""%>">
+                <label for="contractVersion">Contract version<span class="infoHover">If the interviewer joined before 15th March 2021, select version 1. If they joined after 14th June 2022, select version 3. Any other date, select version 2.</span></label>
+                <select class="selectpicker form-control" data-style="form-control" required name="contractVersion" id="contractVersion">
+                  <option value="1">V1</option>
+                  <option value="2">V2 - Zero hours</option>
+                  <option value="3">V2 - Contracted</option>
+                  <option value="4">V3</option>
+                  <option value="5">V4 - Fixed hours 25</option>
+                  <option value="6">V4 - Fixed hours 28</option>
+                  <option value="7">V4 - Fixed hours 35</option>
+                  <option value="8">V5 - Fixed hours 15</option>
+                </select>
+                <label for="intName">Contract start date</label>
+                <input type="date" class="form-control" name="contractStart" id="contractStart" value="" <%-contractHistory.length?"":"required"%>>
+              </div>
+              <% if(contractHistory.length){%>
+              <script type="text/javascript">
+                $("#contractStart").focus(function(e){
+                  console.log("focussed")
+                  $("#contractStart").keydown(function(e){
+                    if (e.which==13) {
+                      e.preventDefault()
+                      $("#contractStart").blur()
+                    }
+                  })
+                  $("#contractStart").one("blur",function(e){
+                    if($(this).val() && moment($(this).val()).valueOf()<<%=moment(agent.contractStart).valueOf()%>){
+                      alert('Cannot start at same time as or before a previous contract')
+                      $(this).val('<%=moment(agent.contractStart).add(1,"d").format("YYYY-MM-DD")%>')
+                    }
+                  })
+                })
+              </script>
+              <%}%>
+            </div>
+            <!-- <div class="form-group col-md-4">
+              <label for="intName">Initial unpaid hours<span class="infoHover">Usually will be blank, unless, for example, where the interviewer is part of a grant scheme in which the first 25 hours are paid for by the government; in which case, enter 25 here.</span></label>
+              <input type="number" class="form-control" name="unpaidHours" id="unpaidHours" placeholder="# of hours">
+            </div> -->
+            <div class="form-group col-md-12">
+              <label for="isRemote">Working from home?</label>
+              <input type="checkbox" id="isRemote" name="isRemote">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary"><%if(edit){%>Update<%}else{%>Add<%}%> Interviewer</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

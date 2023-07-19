@@ -1,0 +1,109 @@
+<%- include('partials/'+versionPages.header) %>
+<style media="screen">
+
+</style>
+<div class="container" style="padding-top:70px;">
+
+  <% if (message != '') { %>
+    <p class="text-center text-danger"><%= message %></p>
+    <% } %>
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body">
+        <h5 class="card-title">Add a new quote</h5>
+        <form class="add-project-form form-styles flexForm" action="" method="post" enctype="multipart/form-data">
+          <input type="text" name="user" id="user" style="display:none;">
+          <!-- <div class="form-row"> -->
+            <div class="form-group col-md-4">
+              <input type="number" class="form-control " name="jobNum" id="jobNum" placeholder="Job Number" step=1 required>
+            </div>
+            <div class="form-group col-md-4">
+              <input type="text" class="form-control" name="jobName" id="jobName" placeholder="Job Name" required>
+            </div>
+            <div class="form-group col-md-4">
+              <input type="text" class="form-control" name="note" id="note" placeholder="Notes">
+            </div>
+          <!-- </div> -->
+          <!-- <div class="form-row"> -->
+            <div class="form-group col-md-4">
+              <select class="selectpicker form-control" data-container="body" data-style="btn-light btn-flat" data-live-search="true" name="clientSel" id="clientSel" onchange="updateContact()">
+                  <option value="" >Select Client</option>
+                  <% clients.forEach((client, index) => { %>
+                    <optgroup label="<%= client.clientName %>">
+                    <%contacts.filter(el=>el.clientID==client.clientID).forEach((contact, index) => { %>
+                      <option contactEmail="<%= contact.contactEmail %>" contactName="<%= contact.contactName %>" value="<%= client.clientID %>-<%= contact.contactID %>"><%= contact.contactName %> @ <%= client.clientName %></option>
+                    <% }) %>
+                    <option value="<%= client.clientID %>-0"><%= client.contactName %> @ <%= client.clientName %></option>
+                    </optgroup>
+                  <% }) %>
+                </select>
+              </div>
+              <input type="text" name="client" id="client" style="display:none;">
+              <div class="form-group col-md-4">
+                <input type="text" class="form-control " readonly name="clientName" id="clientName" placeholder="Client Contact Name" required>
+              </div>
+              <div class="form-group col-md-4">
+                <input type="email" class="form-control " readonly name="clientEmail" id="clientEmail" placeholder="Client Contact Email" required>
+              </div>
+            <!-- </div> -->
+            <!-- <div class="form-row"> -->
+              <div class="form-group col-md-4">
+                <label>Quoted Date: </label>
+                <input type="date" class="form-control" id="QuoteDate" name="QuoteDate" style="height:40px;" value="<%= new Date().getFullYear() %>-<%= ('0' + (new Date().getMonth()+1)).slice(-2) %>-<%= ('0' + new Date().getDate()).slice(-2) %>">
+              </div>
+              <div class="form-group col-md-4">
+                <label for="Audience">Audience: </label>
+                <select class="selectpicker form-control" data-style="btn-light btn-flat" name="Audience" id="Audience">
+                  <optgroup label="Select Table">
+                    <option value="" >Select Audience</option>
+                    <option value="1">Business</option>
+                    <option value="2">Consumer</option>
+                    <option value="3">Both</option>
+                  </optgroup>
+                </select>
+              </div>
+              <div class="form-group col-md-4">
+                <label id="CATI-Clicker" class="btn btn-outline-secondary btn-flat">
+                  <input type="checkbox" name="CATIPhone" id="CATIPhone" value="1"> CATI
+                </label>
+                <label id="Recruit-Clicker" class="btn btn-outline-secondary btn-flat">
+                  <input type="checkbox" name="Recruit" id="Recruit" value="1"> Recruit
+                </label>
+                <label id="F2F-Clicker" class="btn btn-outline-secondary btn-flat">
+                  <input type="checkbox" name="F2F" id="F2F" value="1"> F2F
+                </label>
+                <label id="Online-Clicker" class="btn btn-outline-secondary btn-flat">
+                  <input type="checkbox" name="Online" id="Online" value="1"> Online
+                </label>
+                <label id="International-Clicker" class="btn btn-outline-secondary btn-flat">
+                  <input type="checkbox" name="International" id="International" value="1"> International
+                </label>
+                <label id="International-Clicker" class="btn btn-outline-secondary btn-flat">
+                  <input type="checkbox" name="DP" id="DP" value="1"> DP
+                </label>
+              </div>
+              <div class="form-group col-md-12">
+                <button type="submit" class="btn btn-primary">Add Quote</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+      <script>
+        function updateContact(){
+          let el=$('#clientSel')
+          let sel=$('#clientSel').find("option:selected")
+          if (sel.attr("contactEmail")) {
+            $('#clientEmail').attr('value',sel.attr("contactEmail"))
+            $('#clientName').attr('value',sel.attr("contactName"))
+            $('#client').attr('value',sel.attr("value").split("-")[0])
+            $('#clientName').prop("readonly",true)
+            $('#clientEmail').prop("readonly",true)
+          }else {
+            $('#client').attr('value',sel.attr("value").split("-")[0])
+            $('#clientName').prop("readonly",false)
+            $('#clientEmail').prop("readonly",false)
+          }
+        }
+      </script>
+    </body>
+    </html>

@@ -1,0 +1,826 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .dropdown.bootstrap-select.recordingID > .dropdown-menu.show{
+    min-width: 270px!important;
+  }
+  .issueTd {
+    max-height: 70px;
+    overflow-y: scroll;
+    font-size: small;
+  }
+  .col-form-label{
+    text-align:left;
+  }
+  .addbox_container{
+    border: 4px solid rgba(48, 48, 48, 0.1);
+    border-radius: .25rem;
+    padding:8px;
+  }
+  .addBox{
+    overflow:auto;
+  }
+  .issueBox{
+    border-radius: 5px;
+    display: inline-block;
+    text-align: left;
+    /* cursor: auto; */
+    background: white;
+    /* width: 47%; */
+    /* height: 50px; */
+    font-size: 14px;
+    padding:5px;
+    margin: 3px;
+  }
+  .issueBox:hover {
+  	border-color: var(--primary);
+    color: var(--primary);
+    cursor:pointer;
+  }
+  .removeIssue{
+    border:none;
+  }
+  .rem{
+    padding: 0px;
+    border: none;
+  }
+  .issueCheck:checked + label {
+    background:var(--primary);
+    color: white;
+  }
+  .softissueCheck:checked + label>span {
+    background-color: var(--primary)!important;
+    color: white!important;
+  }
+  .softissueText{
+    text-align: left;
+    background: white;
+    font-size: 14px;
+    padding:5px
+  }
+  .softissueBox {
+    display: inline-block;
+    padding: 0px;
+    margin: 5px;
+  }
+  .softissueBox:hover {
+  	border-color: var(--primary);
+    color: var(--primary);
+    cursor:pointer;
+  }
+  .filter{
+    margin-bottom: 15px;
+  }
+  .searchMsg{
+    display:none;
+    color: grey;
+    padding: 20px;
+  }
+  .actionChecks{
+    width: auto;
+    transform: scale(2);
+    margin-top: 13px;
+    margin-left: 5px;
+    margin-right: 10px;
+  }
+  #modal_table td{
+    border: 1px solid #cacaca;
+    padding: 5px;
+    margin-bottom: 15px;
+  }
+  .is-invalid{
+    background-color: #dc35451a;
+  }
+  [data-id="auditor"]{
+    display:none;
+  }
+  [data-id="qcAuditor"]{
+    display:none;
+  }
+  .rcIcon{
+    width:25px;
+    margin-bottom: 3px;
+    border-radius: 6px;
+  }
+  .dropdown-item > span > .rcIcon{
+    margin-left:-17px;
+  }
+  .half{
+    display: inline-block!important;
+    width: 48%!important;
+  }
+  .form-group {
+    flex-basis: 100%;
+  }
+  <%
+  const dateIf = (inDate, seperator, order) => {
+    let day =''
+    if (new Date(inDate).getDate() < 10) {
+      day = '0' + new Date(inDate).getDate()
+    } else {
+      day = new Date(inDate).getDate()
+    }
+    let month =''
+    if (new Date(inDate).getMonth()+1 < 10) {
+      month = '0' + (new Date(inDate).getMonth()+1)
+    } else {
+      month = (new Date(inDate).getMonth()+1)
+    }
+    let year = new Date(inDate).getFullYear()
+    if(order=="f"){
+      return(day+seperator+month+seperator+year)
+    }
+    if(order=="r"){
+      return(year+seperator+month+seperator+day)
+    }
+  }
+  function pad(str, max) {
+    str = str.toString();
+    return str.length < max ? pad("0" + str, max) : str;
+  }
+  %>
+</style>
+  <div class="container" style="padding-top:70px;">
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body viewerHeight">
+      <form role="form" action="/add-qc-check" method="post" id="QCform" class="flexForm">
+        <h5 class="card-title"><%if (check[0]) {%>Edit <%}else{%>Add a new <%}%>quality check</h5>
+          <div class="form-group row">
+            <label for="inputdate" class="col-sm-2 col-form-label">Call date</label>
+            <div class="col-sm-10">
+              <input class="form-control" type="date" id="inputdate" name="inputdate" <%if (dateSel!=undefined) {%>readonly value="<%=dateSel%>"<%}else if (check[0].interviewDate) {%>readonly value="<%=dateIf(check[0].interviewDate,"-","r")%>"<%}%> required>
+            </div>
+          </div>
+          <div class="form-group row">
+            <label for="agent_select" class="col-sm-2 col-form-label">Call agent</label>
+            <div class="col-sm-10">
+              <select class="selectpicker agent_select" data-width="100%" data-live-search="true" name="agent_select" id="agent_select" <%if (agentSel>0 || check[0].agentID) {%>disabled<%}%> required>
+                  <option value=""></option>
+                  <%
+                  let checkAgent=0
+                  if (check[0]) {
+                    checkAgent=check[0].agentID
+                  }
+                  agents.forEach((agent, index) => {%>
+                    <option value="<%= agent.agentID %>" <%if (agent.agentID == agentSel || agent.agentID == checkAgent) {%>selected<%}%>><%= agent.agentName %></option>
+                  <% }) %>
+              </select>
+            </div>
+          </div>
+          <div class="form-group row">
+            <label for="job_select" class="col-sm-2 col-form-label">Call job name</label>
+            <div class="col-sm-10">
+              <select class="selectpicker job_select" data-width="100%" data-live-search="true" name="job_select" id="job_select" <%if (jobSel>0 || check[0].jobID) {%>disabled<%}%> required>
+                  <option value=""></option>
+                  <%
+                  let checkJob=0
+                  if (check[0]) {
+                    checkJob=check[0].jobID
+                  }
+                  jobs.forEach((job, index) => { %>
+                    <option value="<%= job.jobID %>" <%if (job.jobID == jobSel || job.jobID == checkJob) {%>selected<%}%>><%= job.quoteNo %> <%= job.quoteName %> - <%= job.jobName %></option>
+                  <% }) %>
+              </select>
+            </div>
+          </div>
+          <div class="form-group row">
+            <label for="serial" class="col-sm-2 col-form-label">Serial</label>
+            <div class="col-sm-10">
+              <input type="text" id="serial" name="serial" class="form-control" <%if (check[0]) {%>value="<%=check[0].serial%>"<%}%>/>
+            </div>
+          </div>
+          <div class="form-group row">
+            <label for="recordingID" class="col-sm-2 col-form-label">Recording link</label>
+            <div class="col-sm-10">
+              <input type="text" id="recordingID" name="recordingID" class="half form-control display-none" required <%if (check[0]) {%> <%if (recordings.map(el=>el.recording.id).includes(check[0].recordingID)) {%>readonly<%}%> value="<%=check[0].recordingID%>"<%}%>/>
+              Or
+              <select class="selectpicker recordingID half form-control" data-container="body" title="Select recording from Ring Central..." data-live-search="true" data-width="50%" name="recordingIDRC" id="recordingIDRC">
+                <option value=""></option>
+                <% recordings.filter(el=>el.to?el.to.phoneNumber:el.from.phoneNumber).forEach((rec, index) => {
+                  function phoneFormat(num){
+                    return num.indexOf("+44")>-1?num.replace("+44","0"):num
+                  }
+                  let dur=moment.duration(rec.duration,'seconds')%>
+                  <option data-content="<img class='rcIcon' src='/RingCentralIcon.png'> <%=phoneFormat(rec.to?rec.to.phoneNumber:rec.from.phoneNumber)%> @ <%=moment(rec.startTime).format("DD/MM/YYYY HH:mm:ss")%> - <%=dur.minutes()+"m "+dur.seconds()+"s"%>" content-uri="<%=rec.recording.uri%>" value="<%=rec.recording.id%>" <%if (check[0]) {if(check[0].recordingID==rec.recording.id){%>selected<%}}%>><%=rec.recording.id%></option>
+                <%})%>
+              </select>
+            </div>
+          </div>
+          <div class="form-group row">
+              <label class="col-sm-2 col-form-label" for="callType_select">Check type</label>
+              <div class="col-sm-10">
+                <select class="selectpicker callType_select" data-width="100%" name="callType_select" id="callType_select" required>
+                    <option value=""></option>
+                    <%
+                    let checkType=""
+                    if (check[0]) {
+                      checkType=check[0].type
+                    }
+                    %>
+                    <option value="Call" <%if (checkType == "Call" ) {%>selected<%}%>>Full call</option>
+                    <option value="Intro" <%if (checkType == "Intro" ) {%>selected<%}%>>Intro only</option>
+                </select>
+              </div>
+          </div>
+          <div class="form-group row" id="hardskills">
+            <label class="col-sm-2 col-form-label">Issues</label>
+              <div class="col-sm-10">
+                <div class="addbox_container">
+                  <input type="text" id="issuefilter" class="form-control filter" placeholder="Start typing to filter issues..."/>
+                  <div class="addBox" id="issueAddBox">
+                    <div id="issueEmpty" class="searchMsg">No matches to show</div>
+                    <%issues.forEach((issue, i) => {
+                      if(issue.issueType=="Call"){
+                        var filtered=addedIssues.filter(function(r) {
+                          return r.issueID[0] == issue.issueID;
+                        });
+                        %>
+                      <div id="issueLabel<%=i%>" class="issueBox btn btn-light card">
+                        <span style='display:none' class='QCissueNotes'><% if(filtered.length>0){%><%=JSON.stringify(filtered.map(value => value.note))%><%}%></span>
+                        <span style='display:none' class='QCissueScore'><%=issue.issueScore%></span>
+                        <span style='display:none' class='QCissueID'><%=issue.issueID%></span>
+                        <span class='QCissueText'><%=issue.issue%> (<%=issue.issueScore%>)</span>
+                        <span style='display:none' class="badge badge-primary issueBadge" id="issueBadge_<%=i%>"><% if(filtered){%><%=filtered.length%><%}%></span>
+                      </div>
+                    <%}});%>
+                  </div>
+                </div>
+              </div>
+              <input type="text" id="QCissues" name="QCissues" style="display:none;"/>
+              <input type="number" id="QCscore" name="QCscore" style="display:none;" value="100"/>
+          </div>
+          <div class="form-group row">
+            <label class="col-sm-2 col-form-label">Soft skills</label>
+              <div class="col-sm-10">
+                <div class="addbox_container">
+                  <input type="text" id="softissuefilter" class="form-control filter" placeholder="Start typing to filter soft skills..."/>
+                  <div class="addBox" id="softissueAddBox">
+                    <div id="softIssueEmpty" class="searchMsg">No matches to show</div>
+                    <%issues.forEach((issue, i) => {
+                      if(issue.issueType=="soft"){
+                        var filtered=addedIssues.filter(function(r) {
+                        return r.issueID[0] == issue.issueID;
+                        });
+                        %>
+                      <input type="checkbox" style="display:none;" class="softissueCheck" autocomplete="off" id='softissueBox<%=issue.issueID%>' name='softissueBox<%=issue.issueID%>' <% if(filtered.length>0){%>checked<%}%>>
+                      <label id="softissueLabel<%=i%>" class="softissueBox btn btn-light card" for="softissueBox<%=issue.issueID%>">
+                        <span style='display:none' class='softissueScore'><%=issue.issueScore%></span>
+                        <span style='display:none' class='softissueID'><%=issue.issueID%></span>
+                        <span class='softissueText'><%=issue.issue%> (<%=issue.issueScore%>)</span>
+                      </label>
+                    <%}});%>
+                  </div>
+                </div>
+              </div>
+              <input type="text" id="softissues" name="softissues" style="display:none;"/>
+              <input type="number" id="softscore" name="softscore" style="display:none;" value="0"/>
+          </div>
+          <div class="form-group row">
+            <label for="controllerNotes" class="col-sm-2 col-form-label">Controller's Summary</label>
+            <div class="col-sm-10">
+              <textarea id="controllerNotes" name="controllerNotes" rows="8" class="form-control"><%if (check[0]) {%><%=check[0].controllerNotes%><%}%></textarea>
+            </div>
+          </div>
+          <div class="form-group row">
+            <label for="clientFriendly" class="col-sm-2 col-form-label">Suitable for client?</label>
+            <div class="col-sm-10 text-left">
+              <input type="checkbox" id="clientFriendly" class="actionChecks" name="clientFriendly" class="form-control" <%if (check[0]) { if (check[0].clientFriendly==1) {%>checked<%}}%>>
+            </div>
+          </div>
+          <div class="form-group row ">
+            <label for="qcAudited" class="col-sm-2 col-form-label">Audited?</label>
+            <div class="col-sm-10 text-left">
+            <input type="checkbox" name="qcAudited" id="qcAudited" class="actionChecks" <%if (check[0]) {%><%if (audits[0]) {%>checked<%}}%>>
+            <select class="selectpicker" title="Select auditor" data-live-search="true" name="qcAuditor" id="qcAuditor">
+              <%staff.forEach((st , index) => {%>
+                <option <%if (check[0]) { if (audits[0]) { if (audits[0].auditorID==st.staffID){%>selected<%}}}%> value="<%= st.staffID %>"><%= st.staffName %></option>
+              <%})%>
+            </select>
+            </div>
+          </div>
+          <div class="form-group row ">
+            <label for="trainingIDs" class="col-sm-2 col-form-label">Training required?</label>
+            <div class="col-sm-10 text-left">
+            <select class="selectpicker" title="No training needed" data-live-search="true" multiple name="trainingIDs" id="trainingIDs" >
+              <%trainingTopics.forEach((topic, i) => {%>
+                <option <%if (check[0]) { if (training.map(el=>el.topicID).includes(topic.topicID)){%>selected<%}}%> value="<%= topic.topicID %>"><%= topic.topic %></option>
+              <%})%>
+            </select>
+            </div>
+          </div>
+          <div class="form-group row ">
+            <label for="emailTL" class="col-sm-2 col-form-label">Email TL once finished?</label>
+            <div class="col-sm-10 text-left">
+            <input type="checkbox" name="emailTL" id="emailTL" class="actionChecks" checked>
+            </div>
+          </div>
+          <div class="form-group row">
+            <label for="feedbackPriority" class="col-sm-2 col-form-label">Feedback priority</label>
+            <div class="col-sm-10 text-left">
+              <select class="selectpicker" data-width="100%" data-container="body" required title="Feedback priority" name="feedbackPriority" id="feedbackPriority">
+                <option value="high" <%if ((check[0] || {}).feedbackPriority=='high') {%>selected<%}%>>High</option>
+                <option value="mid" <%if ((check[0] || {}).feedbackPriority=='normal' || !check[0]) {%>selected<%}%>>Normal</option>
+                <option value="low" <%if ((check[0] || {}).feedbackPriority=='low') {%>selected<%}%>>Low</option>
+              </select>
+            </div>
+          </div>
+          <input type="number" id="QCID" name="QCID" style="display:none;" <%if (check[0]) {%>value="<%=check[0].qualityControlID%>"<%}%>/>
+          <input type="text" id="HTMLbody" name="HTMLbody" style="display:none;"/>
+          <input type="text" id="subject" name="subject" style="display:none;"/>
+          <input type="checkbox" id="isFinished" name="isFinished" style="display:none;">
+        <input id="submitFinished" onclick="finished()" type="submit" class="btn btn-primary" value="Save as finished" style="display:none;"/>
+        <button id="submitUnfinished" onclick="finishLater()" class="btn btn-secondary" style="display:none;">Save & finish later</button>
+        </form>
+      <button class="btn btn-primary exit qcForm" data-id="submitFinished">Save as finished</button>
+      <button class="btn btn-secondary exit qcForm" data-id="submitUnfinished">Save & finish later</button>
+      <%if (check[0]) {%>
+        <button type="button" class="btn btn-secondary qcForm" onclick="resendEmail()">Re-send email</button>
+        <button onclick="deleteQC()" class="btn btn-danger exit qcForm">Delete</button>
+      <%}%>
+      <%if (check[0]) {%>
+        <div class="card text-dark bg-light mb-2 text-center" style="margin-top: 30px;border: none;">
+          <h5>Feedback to agent</h5>
+          <form autocomplete="off" id="add-coaching-form" class="add-coaching-form form-styles" action="/add-coaching" method="post" enctype="multipart/form-data">
+            <input type="text" name="user" id="user" style="display:none;">
+            <div class="form-group">
+              <input type="date" class="form-control" name="coachDate" id="coachDate" value="" required>
+            </div>
+            <input type="hidden" name="toFollowUpPage" id="toFollowUpPage" value="true">
+            <input type="hidden" name="type" id="C-type" value="QC">
+            <input type="hidden" name="QCID" id="C-QCID" value="[<%=check[0].qualityControlID%>]">
+            <input type="hidden" name="agent" id="C-agent" value="<%=check[0].agentID%>">
+            <input type="hidden" name="job" id="C-job" value="<%=check[0].jobID%>">
+            <% if(coachingIssues.length>0){%>
+            <input type="hidden" name="issue" id="C-issue" value="<%=coachingIssues.map(el=>el.issueID).filter((el,i,self)=>self.indexOf(el)==i)%>">
+            <%}%>
+            <div class="form-group">
+              <select class="selectpicker" data-width="100%" data-container="body" required title="Follow-up required?" name="followupCheck" id="followupCheck" onchange="if($('#followupCheck').val()){$(followUpCont).show()}else{$(followUpCont).hide()}">
+                <option value="1">Yes</option>
+                <option value="">No</option>
+              </select>
+            </div>
+            <div id="followUpCont" style="display:none;">
+              <div class="card-header sub">Follow-up (if required)</div>
+              <div class="form-group row">
+                <label for="followUpDate" class="col-sm-2 col-form-label">Date to follow-up</label>
+                <div class="col-sm-10">
+                  <input type="date" class="form-control" name="followUpDate" id="followUpDate" value="">
+                </div>
+              </div>
+              <div class="form-group row">
+                <label for="followUpNotes" class="col-sm-2 col-form-label">SMART Target</label>
+                <div class="col-sm-10">
+                  <textarea class="form-control" name="followUpNotes" id="followUpNotes" placeholder="Should be: Specific, Measurable, Attainable, Realistic and Time-based"></textarea>
+                </div>
+              </div>
+            </div>
+            <div class="form-group row ">
+              <label for="audited" class="col-sm-2 col-form-label">Audited?</label>
+              <div class="col-sm-10 text-left">
+                <input type="checkbox" name="audited" id="audited" style="transform: scale(2);margin: 14px 5px;">
+                <select class="selectpicker" title="Select auditor" data-live-search="true" name="auditor" id="auditor">
+                <%staff.forEach((st , index) => {%>
+                  <option value="<%= st.staffID %>"><%= st.staffName %></option>
+                  <%})%>
+                </select>
+              </div>
+            </div>
+            <input type="text" id="otherTotal" name="otherTotal" style="display:none;"/>
+            <input type="number" id="otherCount" style="display:none;"/>
+            <button type="submit" style="display:none;" id="submitFeedback">Add feedback</button>
+          </form>
+          <button class="btn btn-primary exit" data-id="submitFeedback" style="width: auto;margin: auto;">Submit feedback</button>
+          </div>
+        <%}%>
+      </div>
+    </div>
+  </div>
+  <div class='modal fade' role='dialog' id='issuesAdder'>
+          <div class='modal-dialog modal-dialog-centered' role='document'>
+            <div class='modal-content'>
+              <div class='modal-header'>
+                <h5 class='modal-title'>Add an issue</h5>
+                <button type='button' class='close modalClose' data-dismiss='modal' aria-label='Close'>
+                  <span aria-hidden='true'>&times;</span>
+                </button>
+              </div>
+              <div class='modal-body'>
+                <table id="modal_table">
+                </table><br>
+                <input type="text" name="modalIssueID" id="modalIssueID" style="display:none;" value="">
+                <div class="form-group row">
+                  <div class="col-sm-12">
+                    <textarea class='form-control issues_form' id='issueNote' name="issueNote" rows="5" cols="80" placeholder='Notes'></textarea>
+                  </div>
+                </div>
+              </div>
+              <div class='modal-footer'>
+                <button type='button' class='btn btn-secondary modalClose' data-dismiss='modal'>Close</button>
+                <button type='button' class='btn btn-primary' id='add_issue_btn'>Add issue</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+<script>
+  $(document).ready(function () {
+    <%if(!isController){%>
+    $('#QCform input,#QCform select,#QCform button:not(.modalClose),#QCform textarea,#issuesAdder button:not(.modalClose),#issuesAdder textarea,.softissueBox,.qcForm').prop('disabled',true)
+    <%}%>
+    updateQCissues()
+    if ($("#callType_select").val()=="Intro") {
+      $("#hardskills").hide()
+    }else {
+      $("#hardskills").show()
+    }
+    $('.selectpicker').selectpicker('refresh')
+  })
+  <%if (check[0]) {%>
+  function deleteQC(){
+    if (confirm("Are you sure you want to delete this QC check, along with any coaching and follow-ups that have been conducted as a result of it?")) {
+      window.location.href=("/delete-qc-check/<%=check[0].qualityControlID%>")
+    }
+  }
+  <%}%>
+  function finishLater(){
+    $("#QCform input").prop("required", false);
+    $("#QCform select").prop("required", false);
+    $("#isFinished").prop( "checked", false )
+  }
+  function finished(){
+    $("#isFinished").prop( "checked", true )
+  }
+  $('form').submit(function(e) {
+    collateForm()
+  });
+  function collateForm(){
+    var a=$("#agent_select").find("option:selected").text();
+    var j=$("#job_select").find("option:selected").text();
+    var d=dateIf($("#inputdate").val(),"/","f")
+    var iScore=$("#QCscore").val()
+    var sScore=$("#softscore").val()
+    var r=$("#recordingID").val()
+    var priority=$("#feedbackPriority").val()
+    if ($("#recordingIDRC").val()) {
+      r="http://job-analysis:8080/download-RC-recording/"+$("#recordingID").val()
+    }else if ($("#recordingID").val().indexOf("http://")!=0) {
+      r="http://liquidvoice/web/recording/audioplayer.aspx?recordingid="+$("#recordingID").val()
+    }
+    var s=$("#serial").val()?$("#serial").val():''
+    var notes=$("#controllerNotes").val().replace(/\r?\n/g, '<br />')
+    var issues=JSON.parse($("#QCissues").val())
+    var training=$('#trainingIDs').find('option:selected').toArray().map(el=>el.innerText)
+    var emHTML=""
+      emHTML=emHTML+"<table><tr><td>Feedback priority:</td><td>"+priority.toUpperCase()+"</td></tr><tr><td>Agent:</td><td>"+a+"</td></tr><tr><td>Job:</td><td>"+j+"</td></tr><tr><td>Call date:</td><td>"+d+"</td></tr><tr><td>Serial:</td><td>"+s+"</td></tr><tr><td>Recording link:</td><td>"+r+"</td></tr><tr><td>Controller:</td><td><%=checker.staffName%></td></tr><tr><td>Controller's summary:</td><td>"+notes+"</td></tr></table>"
+      if ($('#callType_select').val()!='Intro') {
+        emHTML=emHTML+"<div style='width:100%; text-align:left;background: #ffeaea;padding: 10px;'>"
+        emHTML=emHTML+"<h3>Hard skills score: <b>"+iScore+"</b></h3>"
+          // emHTML=emHTML+'<ul>'
+          // issues.forEach((issue, i) => {
+          //   if (issue.issueType=="Hard") {
+          //     emHTML=emHTML+"<li><b>"+issue.issueText+"</b> <ul><li>"+issue.issueNotes.replace(/\r?\n|\r/,"<br>")+"</li></ul></li>"
+          //   }
+          // });
+          // emHTML=emHTML+'</ul>'
+        emHTML=emHTML+"</div>"
+        emHTML=emHTML+"<div style='width:100%;text-align:left;background: #efffea;padding: 10px;'>"
+        emHTML=emHTML+"<h3>Soft skills score: <b>"+sScore+"</b></h3>"
+          // emHTML=emHTML+'<ul>'
+          // issues.forEach((issue, i) => {
+          //   if (issue.issueType=="Soft") {
+          //   emHTML=emHTML+"<li>"+issue.issueText+"</li>"
+          //   }
+          // });
+          // emHTML=emHTML+'</ul>'
+          emHTML=emHTML+"</div>"
+          emHTML=emHTML+"<div style='width:100%; text-align:left;background: #fbe2aa;padding: 10px;'>"
+          emHTML=emHTML+"<h3>Overall score: <b>"+(Number(iScore)+Number(sScore))+"</b></h3>"
+          emHTML=emHTML+"</div>"
+        //   emHTML=emHTML+"<div style='width:100%; text-align:left;background: #f2f6ff;padding: 10px;'>"
+        //   emHTML=emHTML+"<h3>Training required:</h3>"
+        //   emHTML=emHTML+'<ul>'
+        //     if (training.length>0) {
+        //       training.forEach((t, i) => {
+        //         emHTML=emHTML+"<li><b>"+t+"</b></li>"
+        //       });
+        //     }else {
+        //       emHTML=emHTML+"<li>None</li>"
+        //     }
+        //     emHTML=emHTML+'</ul>'
+        // emHTML=emHTML+"</div><br><br>"
+      }
+    $("#subject").attr("value","New QC monitoring for "+a)
+    $("#HTMLbody").attr("value",emHTML)
+    $(':disabled').each(function(e) {
+      $(this).removeAttr('disabled');
+    })
+  }
+  $("#issuefilter").keyup(function() {
+      // Retrieve the input field text and reset the count to zero
+      var filter = $(this).val(),
+        count = 0;
+      // Loop through the comment list
+      $('#issueAddBox .issueBox').each(function() {
+        // If the list item does not contain the text phrase fade it out
+        if ($(this).text().search(new RegExp(filter, "i")) < 0) {
+          $(this).hide();  // MY CHANGE
+          // Show the list item if the phrase matches and increase the count by 1
+        } else {
+          $(this).show(); // MY CHANGE
+          count++;
+        }
+      });
+      if ($('.issueBox:visible').length==0) {
+        $("#issueEmpty").show()
+      }else {
+        $("#issueEmpty").hide()
+      }
+    });
+    $("#softissuefilter").keyup(function() {
+        // Retrieve the input field text and reset the count to zero
+        var filter = $(this).val(),
+          count = 0;
+        // Loop through the comment list
+        $('#softissueAddBox label').each(function() {
+          // If the list item does not contain the text phrase fade it out
+          if ($(this).text().search(new RegExp(filter, "i")) < 0) {
+            $(this).hide();  // MY CHANGE
+            // Show the list item if the phrase matches and increase the count by 1
+          } else {
+            $(this).show(); // MY CHANGE
+            count++;
+          }
+        });
+        if ($('.softissueBox:visible').length==0) {
+          $("#softIssueEmpty").show()
+        }else {
+          $("#softIssueEmpty").hide()
+        }
+      });
+
+  $(document).on('change', '#callType_select', function(evt) {
+    if ($(this).val()=="Intro") {
+      $("#hardskills").hide()
+    }else {
+      $("#hardskills").show()
+    }
+  })
+  $(document).on('click', '.exit', function(evt) {
+    var id=$(this).attr("data-id")
+    $.ajax({
+        url: '/check-connection',
+        type: 'GET',
+        timeout: 500,
+        global: false,
+        success: function (response) {
+          if ($('#qcAudited').is(":checked") && !$('#qcAuditor').val()) {
+            $('#qcAuditor')[0].setCustomValidity('Please select an auditor')
+            $('#qcAuditor')[0].reportValidity()
+          }else {
+            $('#'+id).click()
+          }
+        },
+        error: function (jqXHR, exception) {
+          console.log(jqXHR)
+          alert("The system administrator needs to restart the service before you can save your work. Please inform the administrator")
+        },
+      })
+  })
+  $(document).on('click', '.rem:not(.disabled)', function(evt) {
+    var source=this.id.split("_")[1]
+    var num=parseInt(this.id.split("_")[2])
+    var count=parseInt($("#"+source).find(".issueBadge").text())
+    var notes=JSON.parse($("#"+source).find(".QCissueNotes").text())
+    if (count>0) {
+      notes.splice(num,1)
+      $("#"+source).find(".QCissueNotes").text(JSON.stringify(notes))
+    }else {
+      $("#"+source).find(".QCissueNotes").text("")
+    }
+    $("#"+source).find(".issueBadge").text(count-1)
+    $(this).parent().parent().remove()
+    updateQCissues()
+  })
+  $(document).on('click', '#add_issue_btn', function(evt) {
+      var idnum=$(".issueBox").length+1
+      if (parseInt($("#"+$("#modalIssueID").val()).find(".issueBadge").text())>0) {
+        var notes=JSON.parse($("#"+$("#modalIssueID").val()).find(".QCissueNotes").text())
+      }else {
+        var notes=[]
+      }
+      notes.push($("#issueNote").val())
+      var count=parseInt($("#"+$("#modalIssueID").val()).find(".issueBadge").text())
+      $("#"+$("#modalIssueID").val()).find(".QCissueNotes").text(JSON.stringify(notes))
+      $("#"+$("#modalIssueID").val()).find(".issueBadge").text(count+1)
+      $('#issuesAdder').modal('hide')
+      updateQCissues()
+  })
+  $(document).on('change', '.softissueCheck', function(evt) {
+    updateQCissues()
+  })
+  function downloadFile(url){
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download="";
+    document.body.appendChild(a);
+    console.log(url)
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+  $(document).on('change', '#recordingIDRC', function(evt) {
+    let id=$(this).val()
+    $('#recordingID').attr("value",id)
+    if (id) {
+      $('#recordingID').attr("readonly",true)
+    }else {
+      $('#recordingID').attr("readonly",false)
+    }
+    if (id && confirm("Do you want to download the recording too?")) {
+      $.ajax({
+        url: '/get-rc-recording/'+id,
+        type: 'GET',
+        contentType: 'application/json',
+        success: function (response) {
+          downloadFile(response)
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+      });
+    }
+  })
+  $(document).on('click', '.issueBox', function(evt) {
+      $(".issue_select").addClass("is-invalid")
+      $("#issueNote").val("")
+      var currIssues=""
+      for (var i = 0; i < parseInt($(this).find(".issueBadge").text()); i++) {
+        currIssues=currIssues+"<tr><td><span class='badge badge-primary'>"+(i+1)+"</span></td><td><div class='issueTd'>"+JSON.parse($(this).find(".QCissueNotes").text())[i]+"</div></td><td><span class='btn btn-outline-danger btn-sm rem "+($('#issueNote:disabled').length>0?'disabled':'')+"' id='rem_"+this.id+"_"+i+"'><i class='material-icons'>remove_circle_outline</i></span></td></tr>"
+      }
+      $("#modal_table").html(currIssues)
+      $(".modal-title").html($(this).find(".QCissueText").html())
+      $("#modalIssueID").attr("value",this.id)
+      $('#issuesAdder').modal({
+        backdrop:'static'
+      })
+      $('#issuesAdder').modal('show')
+  })
+
+  $(document).on('change', '#audited', function(evt) {
+    if ($(this).prop('checked')) {
+      $('[data-id="auditor"]').show()
+    }else {
+      $('[data-id="auditor"]').hide()
+    }
+  })
+  $(document).on('change', '#qcAudited', function(evt) {
+    if ($(this).prop('checked')) {
+      $('[data-id="qcAuditor"]').show()
+      $('[data-id="qcAuditor"]').attr("required",true)
+    }else {
+      $('[data-id="qcAuditor"]').hide()
+      $('[data-id="qcAuditor"]').attr("required",false)
+    }
+  })
+  <%if (!check[0]) {%>
+  $(document).on('change', '#recordingID,#recordingIDRC', function(evt) {
+    var data =[]
+    var jsonData={};
+    var obj=this
+    jsonData.recordingID=$('#recordingID').val()
+    jsonData.recordingIDRC=$('#recordingIDRC').val()
+    jsonData.jobID=$('#job_select').val()
+    data.push(jsonData)
+    $.ajax({
+        url: '/check-QC-ID',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          if (response) {
+            $(obj).addClass('is-invalid')
+            if (confirm(((response.type=='Call') ? 'A full QC check' : 'An intro check')+' has already been conducted on this call. Do you want to continue?')) {
+              $(obj).removeClass('is-invalid')
+              obj.setCustomValidity('')
+              obj.reportValidity()
+            }else {
+              obj.setCustomValidity(((response.type=='Call') ? 'A full QC check' : 'An intro check')+' has already been conducted on this call')
+              obj.reportValidity()
+            }
+          }else {
+            $(obj).removeClass('is-invalid')
+            obj.setCustomValidity('')
+            obj.reportValidity()
+          }
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+    return false;
+  })
+  <%}%>
+  function getErrorMessage(jqXHR, exception) {
+    var msg = '';
+    if (jqXHR.status === 0) {
+       msg = 'Not connect.\n Verify Network.';
+    } else if (jqXHR.status == 404) {
+       msg = 'Requested page not found. [404]';
+    } else if (jqXHR.status == 500) {
+       msg = 'Internal Server Error [500]. '+JSON.parse(jqXHR.responseText).error;
+    } else if (exception === 'parsererror') {
+       msg = 'Requested JSON parse failed.';
+    } else if (exception === 'timeout') {
+       msg = 'Time out error.';
+    } else if (exception === 'abort') {
+       msg = 'Ajax request aborted.';
+    } else {
+       msg = 'Uncaught Error.\n' + jqXHR.responseText;
+    }
+    return msg;
+  }
+  function pad(str, max) {
+    str = str.toString();
+    return str.length < max ? pad("0" + str, max) : str;
+  }
+  function updateQCissues(){
+    var data =[]
+    var score=100
+    var softscore=0
+    $(".issueBox").each(function() {
+      for (var i = 0; i < parseInt($(this).find(".issueBadge").text()); i++) {
+        var jsonData={};
+        jsonData.issueID=$(this).find(".QCissueID").text();
+        var time=[]
+        notes=JSON.parse($(this).find(".QCissueNotes").text())
+        jsonData.issueNotes=notes[i];
+        jsonData.issueText=$(this).find(".QCissueText").text();
+        jsonData.issueType="Hard"
+        data.push(jsonData)
+        score=score+Number($(this).find(".QCissueScore").text())
+      }
+      if (parseInt($(this).find(".issueBadge").text())>0) {
+        $(this).find(".issueBadge").show()
+      }else {
+        $(this).find(".issueBadge").hide()
+      }
+    })
+    $(".softissueCheck").each(function() {
+      var jsonData={};
+      if ($(this).prop("checked")) {
+        jsonData.issueID=$(this).next().find(".softissueID").text();
+        jsonData.issueNotes="";
+        jsonData.issueText=$(this).next().find(".softissueText").text();
+        jsonData.issueType="Soft"
+        data.push(jsonData)
+        softscore=softscore+Number($(this).next().find(".softissueScore").text())
+      }
+    })
+    $("#QCissues").attr("value",JSON.stringify(data))
+    $("#QCscore").attr("value",score)
+    $("#softscore").attr("value",softscore)
+  }
+  function resendEmail(){
+    collateForm()
+    let data={}
+    data.QCissues=$("#QCissues").attr("value")
+    data.agent_select=$("#agent_select").val()
+    data.subject=$("#subject").val()
+    data.HTMLbody=$("#HTMLbody").val()
+    data.QCID=$("#QCID").val()
+    $.ajax({
+      url: '/send-qc-email/',
+      type: 'POST',
+      data:JSON.stringify(data),
+      contentType: 'application/json',
+      success: function (response) {
+        console.log(response)
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  const dateIf = (inDate, seperator, order) => {
+    let day =''
+    if (new Date(inDate).getDate() < 10) {
+      day = '0' + new Date(inDate).getDate()
+    } else {
+      day = new Date(inDate).getDate()
+    }
+    let month =''
+    if (new Date(inDate).getMonth()+1 < 10) {
+      month = '0' + (new Date(inDate).getMonth()+1)
+    } else {
+      month = (new Date(inDate).getMonth()+1)
+    }
+    let year = new Date(inDate).getFullYear()
+    if(order=="f"){
+      return(day+seperator+month+seperator+year)
+    }
+    if(order=="r"){
+      return(year+seperator+month+seperator+day)
+    }
+  }
+</script>
+</body>
+</html>

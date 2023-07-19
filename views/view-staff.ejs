@@ -1,0 +1,184 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  $(document).ready(function () {
+    var buttonCommon = {
+      exportOptions: {
+        format: {
+          body: function (data, row, column, node) {
+            let val=data
+            if (column === 1) {
+              val=data.replace( /\n.*|<[^>]*>/g, '' )
+            }
+            return val;
+          }
+        }
+      }
+    };
+    $('#staff-table').DataTable({
+      paging: true,
+      order: [[ 2, "asc" ]],
+      pageLength:15,
+      dom: 'Bfrtip',
+      buttons: [
+          $.extend( true, {}, buttonCommon, {
+             extend: 'copyHtml5'
+         } ),
+         $.extend( true, {}, buttonCommon, {
+             extend: 'excelHtml5'
+         } ),
+         {
+           extend: 'collection',
+           text: 'Status',
+           className: 'btn dropdown-toggle',
+           buttons: [
+           {
+             text: "All",
+             action: function( e, dt, button, config ) {
+               filterTable(":contains(Left)","",button)
+             }
+           },
+           {
+             text: "Active",
+             action: function( e, dt, button, config ) {
+               filterTable(":contains(Left)","-",button)
+             }
+           },
+           {
+             text: "Left",
+             action: function( e, dt, button, config ) {
+               filterTable(":contains(Left)",'/',button)
+             }
+           },
+           ]
+         },
+         {
+           extend: 'collection',
+           text: 'Job title',
+           className: 'btn dropdown-toggle',
+           buttons: [
+           {
+             text: "All",
+             action: function( e, dt, button, config ) {
+               filterTable(":contains(title)","",button)
+             }
+           },
+           <% jobTitles.forEach((jobTitle , index) => { %>
+           {
+             text: "<%=jobTitle.jobTitleName%>",
+             action: function( e, dt, button, config ) {
+               filterTable(":contains(title)","<%=jobTitle.jobTitleName%>",button)
+             }
+           },
+           <% }) %>
+           ]
+         }
+       ]
+    });
+  });
+  function filterTable(col,val,button){
+    $(button).parent().children('.dt-button').removeClass('activeFilter')
+    if (val==="") {
+      $("[aria-expanded='true']").removeClass('activeFilter')
+    }else {
+      $("[aria-expanded='true']").addClass('activeFilter')
+      $(button).addClass('activeFilter')
+    }
+    $('#staff-table').DataTable()
+      .columns(col)
+      .search(val)
+      .draw();
+    $(".dt-button-background").trigger("click");
+  }
+  function editPerson(id){
+    window.location.href="/edit-staff/"+id
+  }
+  function addStaffClick(){
+    window.location.href="/add-staff/"
+  }
+</script>
+
+<%
+ const dateIf = (inDate, seperator, order) => {
+   if(new Date(inDate).getDate() > -1)
+   {
+     let day =''
+     if (new Date(inDate).getDate() < 10) {
+       day = '0' + new Date(inDate).getDate()
+     } else {
+       day = new Date(inDate).getDate()
+     }
+     let month =''
+     if (new Date(inDate).getMonth()+1 < 10) {
+       month = '0' + (new Date(inDate).getMonth()+1)
+     } else {
+       month = (new Date(inDate).getMonth()+1)
+     }
+     let year = new Date(inDate).getFullYear()
+     if(order=="f"){
+       return(day+seperator+month+seperator+year)
+     }
+     if(order=="r"){
+       return(year+seperator+month+seperator+day)
+     }
+   }
+   else{
+     return ""
+   }
+   }
+   %>
+   <style>
+     #interviewer-table td{
+       padding:2px;
+       vertical-align: middle;
+     }
+    table.dataTable tbody tr {
+      cursor: pointer;
+    }
+    div.dt-button-collection {
+      width: max-content!important;
+    }
+    .disabledImg{
+      mix-blend-mode: luminosity;
+      opacity: 0.4;
+    }
+  </style>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5 class="card-title">Staff</h5>
+        <% if (staff.length > 0) {%>
+          <table class="table table-striped table-compact table-hover table-sm" id="staff-table">
+            <thead class="thead">
+              <tr>
+                <th scope="col"> </th>
+                <th scope="col"> </th>
+                <th scope="col">Staff name</th>
+                <th scope="col">Job title</th>
+                <th scope="col">Joined</th>
+                <th scope="col">Left</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% staff.forEach((person, index) => { if(person.staffID > 1) {
+                %>
+                <tr onclick="editPerson(<%=person.staffID%>)">
+                  <td><img src='/BreatheCloud.png' height='15px' <%if(!person.breatheID){%>class='disabledImg'<%}%>></td>
+                  <td><img src='/teamup.png' height='22px' <%if(!person.teamupID){%>class='disabledImg'<%}%>></td>
+                  <td><%= person.staffName %></td>
+                  <td><%= person.jobTitleName %></td>
+                  <td><%= dateIf(person.staffJoined,"/","f") %></td>
+                  <td data-sort='<%= person.staffLeft?person.staffLeft:0 %>'><%= person.staffLeft?dateIf(person.staffLeft,"/","f"):"-" %></td>
+                </tr>
+                <% }}) %>
+              </tbody>
+            </table>
+            <button type="button" onclick="addStaffClick()" class="btn btn-primary btn-block" id="addStaff"><i class="fas fa-plus"></i> Add new staff member</button>
+            <% } else { %>
+              <Br><br>
+                <p class="text-center">No staff members found. Go <a href="/add-staff" >here</a> to add interviewers.</p>
+                <% } %>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>

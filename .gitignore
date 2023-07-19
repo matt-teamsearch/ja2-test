@@ -1,0 +1,9 @@
+/public/complaints
+/public/temp
+/public/uploads
+/public/ChromeExt
+/public/F2F Agents
+/public/F2F Tablets
+/node_modules
+/public/sessions
+.env

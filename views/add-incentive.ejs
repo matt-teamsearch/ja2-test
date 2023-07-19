@@ -1,0 +1,44 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px;">
+  <% if (message) { %>
+    <p class="text-center text-danger"><%= message %></p>
+    <% } %>
+    <% if (project) { %>
+      <%  project.forEach((project , index) => { %>
+        <div class="card text-dark bg-light mb-2 text-center">
+          <div class="card-body">
+            <h5 class="card-title"><%= project.quoteNo %> <%= project.quoteName %> - <% project.jobName %> Add a new incentive</h5>
+            <form class="add-project-form form-styles" action="" method="post" enctype="multipart/form-data">
+              <input type="text" name="user" id="user" style="display:none;">
+              <div class="form-row">
+                <div class="form-group col-md-4">
+                  <label for="incentiveNumber">Number of incentives required</label>
+                  <input type="number" class="form-control" name="incentiveNumber" id="incentiveNumber" value="" required step="1" min="0">
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="incType">Type of incentive</label>
+                  <input type="text" class="form-control" name="incType" id="incType" value="">
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group col-md-4">
+                  <label for="incentiveCost">Cost per incentive</label>
+                  <input type="number" class="form-control" name="incentiveCost" id="incentiveCost" value="" required step="0.01" min="0">
+                </div>
+                <div class="form-group col-md-4">
+                  <label for="incAdminCost">Admin Cost per incentive</label>
+                  <input type="number" class="form-control" name="incAdminCost" id="incAdminCost" value="" required step="0.01" min="0">
+                </div>
+              </div>
+              <button type="submit" class="btn btn-success float-right">Add Incentive</button>
+            </form>
+            <% }) %>
+            <% } else { %>
+              <p class="text-center">Project Not Found. Go <a href="/add">here</a> to add Projects.</p>
+              <% } %>
+            </div>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>

@@ -1,0 +1,32 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px;">
+  <div class="card-header text-center py-2"><strong><% incentives.forEach((incentive, index) => { if (index == 0) {  %><%= incentive.quoteNo %> <%= incentive.quoteName %> <%= incentive.jobName %> <% } else {} }) %> Edit Incentive</strong></div>
+  <form class="add-project-form" action="" method="post" enctype="multipart/form-data" style="border:1px solid #ced4da; padding:50px;">
+    <input type="text" name="user" id="user" style="display:none;">
+    <%  incentives.forEach((incentive , index) => { %>
+    <div class="form-row">
+      <div class="form-group col-md-4">
+        <label for="incentiveNumber">Number of incentives required</label>
+        <input type="number" class="form-control" name="incentiveNumber" id="incentiveNumber" value="<%= incentive.incentiveCount %>" required step="1" min="0">
+      </div>
+      <div class="form-group col-md-4">
+        <label for="incType">Type of incentive</label>
+        <input type="text" class="form-control" name="incType" id="incType" value="<%= incentive.incentiveType %>">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group col-md-4">
+        <label for="incentiveCost">Cost per incentive</label>
+        <input type="number" class="form-control" name="incentiveCost" id="incentiveCost" value="<%= incentive.incentiveCost %>" required step="0.01" min="0">
+      </div>
+      <div class="form-group col-md-4">
+        <label for="incAdminCost">Admin Cost per incentive</label>
+        <input type="number" class="form-control" name="incAdminCost" id="incAdminCost" value="<%= incentive.incentiveAdminCost %>" required step="0.01" min="0">
+      </div>
+    </div>
+    <% }) %>
+    <button type="submit" class="btn btn-success float-right">Update Incentive</button>
+  </form>
+</div>
+</body>
+</html>

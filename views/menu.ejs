@@ -1,0 +1,784 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  body
+  {
+    background-color:#2d2d2d;
+  }
+
+  .blackheader{
+    background:#d5deed;
+    color:black;
+    border-radius:0px!important;
+  }
+  .dashHeadline{
+    border:10px solid orange;
+    border-radius:100%;
+    height:100px;
+    width:100px;
+    color: orange;
+    padding:15px;
+    text-align:center;
+    font-size:30px;
+  }
+  .blurred{
+    animation-name: blur;
+    animation-duration: 0.5s;
+    animation-fill-mode: forwards;
+    mix-blend-mode: luminosity;
+  }
+  .blurred:hover{
+    animation-name: unblur;
+    animation-duration: 0.1s;
+    animation-fill-mode: forwards;
+    mix-blend-mode: unset;
+  }
+  .progress > div:not(.tabulator-col-resize-handle):not([data-min="0"]) {
+    top: 1px!important;
+  }
+  .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+    padding: 2px;
+    font-size: small;
+  }
+  @keyframes blur {
+    from {
+      filter: blur(0px);
+      opacity: 1
+    }
+    to {
+      filter: blur(5px);
+      opacity: 0.7
+    }
+  }
+  @keyframes unblur {
+    from {
+      filter: blur(5px);
+      opacity: 0.7
+    }
+    to {
+      filter: blur(0px);
+      opacity: 1
+    }
+  }
+  @keyframes grow {
+    from {
+      transform:translateY(-100px);
+    }
+    to {
+      transform:translateY(0px);
+    }
+  }
+  .tabulator-row .tabulator-cell{
+    border-right:none;
+  }
+  .favourites-group {
+    display: flex;
+    justify-content: center;
+    background-color: #3a586d;
+    margin-bottom: 15px;
+  }
+  .favourites {
+    /* position: relative; */
+    height: 140px;
+    padding: 6px;
+    width: 150px;
+    display: inline-flex;
+    justify-content: center;
+    align-items: flex-start;
+    overflow: hidden;
+  }
+  .favInfo > .favIcon{
+    font-size:25px;
+    position: absolute;
+    transition:font-size 0.5s;
+  }
+  .favInfo > .favName{
+    font-size:19px;
+    position: absolute;
+    top:39px;
+    transition:top 0.5s;
+  }
+  .favInfo {
+    position: relative;
+    display: flex;
+    flex-wrap: nowrap;
+    flex-direction: column;
+    align-items: center;
+    vertical-align: middle;
+    width:130px;
+    text-align:center;
+  }
+  .favourites:hover > .favInfo > .favIcon{
+    font-size:80px;
+  }
+  .favourites:hover > .favInfo > .favName{
+    top:200px;
+  }
+  /* .list-group>.menuItems{
+    height:0px;
+    overflow: hidden;
+    transition:none;
+  }
+  .list-group:hover>.menuItems{
+    height:600px;
+    z-index:2;
+    transition:height 0.5s;
+  }
+  .list-group{
+    position:absolute;
+    width:100%;
+  }
+  #menuTable td{
+    position:relative;
+    width:50%;
+  }
+  .list-group:nth-of-type(2){
+    top:60px;
+  } */
+  .list-group-item{
+    width:50%;
+    border-radius:0px!important;
+    background-color:#3a586d;
+    color:#fff;
+  }
+  .menuItems{
+    display: flex;
+    flex-wrap: wrap;
+    flex-direction: row;
+    align-content: flex-start;
+    border-radius:0px;
+  }
+  .super {
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 1px;
+  }
+  .super.danger {
+    color:var(--danger);
+  }
+  .super.success {
+    color:var(--success);
+  }
+</style>
+<body>
+<div class="container" style="padding-top:70px; max-width:85%; min-width:1040px;">
+  <% if (message) { %>
+    <h1 class="text-center text-danger"><%= message %></h1>
+    <% } %>
+    <%
+    var tdy = new Date()
+    %>
+    <!-- <iframe src="https://app.klipfolio.com/published/ab4199b5bef07e0540308413b95bcd34/ja2" frameBorder="0" width="100%" height="400px"></iframe> -->
+    <canvas id="contChart" height="50" style=""></canvas>
+    <div id="liveProjects" style="background-color:#ffffff00;width:100%" class="supportLocked"></div>
+    <table id="menuTable" style="width:100%; background-color:transparent!important;">
+      <tr>
+        <td colspan="3">
+          <div class="card-header text-center py-2 blackheader"><strong>Favourites</strong></div>
+          <div class="favourites-group">
+          <%
+          for (let i = 0; i < Math.min(5,favourites.length); i++) {
+            %>
+          <a href="<%=favourites[i].pageURL%>" class="list-group-item list-group-item-action favourites"><span class="favInfo"><span class="favIcon"><%-favourites[i].pageIcon%></span><span class="favName"><%=favourites[i].pageName%></span></span></a>
+          <%}%>
+          </div>
+        </td>
+      </tr>
+     <tr>
+        <td valign="top" style="width:45%;">
+          <div class="list-group supportLocked">
+            <div class="card-header text-center py-2 blackheader "><strong>Projects</strong></div>
+            <div class="menuItems">
+              <a href="/add" title="Add a New Project" class="list-group-item list-group-item-action text-center ">Add Quote <i class="fas fa-file-signature"></i></a>
+              <a href="/live-proj" title="View Projects" class="list-group-item list-group-item-action text-center ">Live Projects <i class="fas fa-list-alt"></i></a>
+              <a href="/proj-page/0" title="View Projects" class="list-group-item list-group-item-action text-center ">All Projects <i class="far fa-list-alt"></i></a>
+              <a href="/view-planner/1/60" class="list-group-item list-group-item-action text-center ">Resource Planner <i class="fas fa-chalkboard-teacher"></i></a>
+              <a href="/completes-database/" class="list-group-item list-group-item-action text-center ">Completes Database <i class="fas fa-award"></i></a>
+              <a href="/unused-sample/" class="list-group-item list-group-item-action text-center ">Unused Sample <i class="far fa-address-card"></i></a>
+            </div>
+          </div>
+          <br/>
+          <div class="list-group">
+            <div class="card-header text-center py-2 blackheader"><strong>Admin</strong></div>
+            <div class="menuItems">
+              <a href="/view-clients/" class="list-group-item list-group-item-action text-center supportLocked">View Clients <i class="fas fa-handshake"></i></a>
+              <a href="/add-panel/" class="list-group-item list-group-item-action text-center supportLocked">Add Panel <i class="far fa-address-card"></i></a>
+              <a href="/add-interviewers/0" class="list-group-item list-group-item-action text-center supportLocked">Add Interviewer <i class="fas fa-user-plus"></i></a>
+              <a href="/view-interviewers/1" class="list-group-item list-group-item-action text-center supportLocked">View Interviewers <i class="fas fa-user-alt"></i></a>
+              <a href="/view-suppliers" class="list-group-item list-group-item-action text-center supportLocked">View Suppliers <i class="fas fa-truck"></i></a>
+              <a href="/team-management/" class="list-group-item list-group-item-action text-center supportLocked">Interviewer Teams <i class="fas fa-users-cog"></i></a>
+              <a href="/edit_payrates" class="list-group-item list-group-item-action text-center supportLocked">Update Pay Rates <i class="fas fa-pound-sign"></i></a>
+              <a href="/view-staff/" class="list-group-item list-group-item-action text-center supportLocked">View Staff <i class="fas fa-user-tie"></i></a>
+              <a href="/admin-panel/" class="adminLocked list-group-item list-group-item-action text-center supportLocked">Admin tools <i class="fas fa-tools"></i></a>
+              <a href="/view-f2f-agents/" class="list-group-item list-group-item-action text-center">F2F Staff <i class="fas fa-street-view"></i></a>
+              <a href="/f2f-tablet-admin/" class="list-group-item list-group-item-action text-center">F2F Tablets <i class="fas fa-tablet-alt"></i></a>
+              <a href="/inbound-lines/" class="list-group-item list-group-item-action text-center supportLocked">Inbound Lines <i class="fas fa-phone"></i></a>
+              <a href="/complaints-log/" class="list-group-item list-group-item-action text-center supportLocked">Complaints Log <i class="far fa-thumbs-down"></i></a>
+              <a href="/booking-hub/0/0/0" class="list-group-item list-group-item-action text-center supportLocked">Booking Hub <i class="fas fa-book"></i></a>
+              <a href="/attendance-hub/0/0" class="list-group-item list-group-item-action text-center supportLocked">Attendance Hub <i class="fas fa-briefcase-medical"></i></a>
+            </div>
+          </div>
+        </td>
+        <td style="width:10%;">
+        </td>
+        <td valign="top" style="width:45%;">
+          <div class="list-group">
+            <div class="card-header text-center py-2 blackheader"><strong>Daily Input</strong></div>
+            <div class="menuItems">
+              <a href="/tally-sheet/0/0/0/1/1" class="list-group-item list-group-item-action text-center supportLocked">Tally Sheet <i class="fas fa-calendar-alt"></i></a>
+              <a href="/add-coaching/0/0" class="list-group-item list-group-item-action text-center">Interviewer Coaching <i class="fas fa-graduation-cap"></i></a>
+              <a href="/staff-booking/d/0/ejs/1" class="list-group-item list-group-item-action text-center supportLocked">Staff Booking <i class="fas fa-book"></i></a>
+              <a href="/quality-control/0/0" class="list-group-item list-group-item-action text-center">Quality Control <i class="fas far fa-check-square"></i></a>
+              <a href="/dial-report/0" class="list-group-item list-group-item-action text-center supportLocked">Interviewer Dials <i class="fas fa-tty"></i></a>
+            </div>
+          </div>
+          <br>
+          <div class="list-group">
+            <div class="card-header text-center py-2 blackheader"><strong>Reports</strong></div>
+            <div class="menuItems">
+              <a href="/daily-update/0" class="list-group-item list-group-item-action text-center supportLocked">View day/eve update <i class="fas fa-calendar-day"></i></a>
+              <a href="/live-report/0/de" class="list-group-item list-group-item-action text-center supportLocked">View live report <i class="fas fa-headset heartbeat"></i></a>
+              <a href="/interviewer-league-table/" class="list-group-item list-group-item-action text-center supportLocked">Interviewer League <i class="fas fa-sort-amount-up"></i></a>
+              <a href="/team-report/" class="list-group-item list-group-item-action text-center supportLocked">Team Performance <i class="fas fa-users"></i></a>
+              <a href="/interviewer-snapshot/" class="list-group-item list-group-item-action text-center">Interviewer Snapshot <i class="fas fa-th"></i></a>
+              <a href="/view-interviewer-pay/<%=currPayMonth%>/<%=currPayYear%>/0" class="list-group-item list-group-item-action text-center supportLocked">Interviewer Wages <i class="fas fa-coins"></i></a>
+              <a href="/client-sat/" class="list-group-item list-group-item-action text-center supportLocked">Client Satisfaction <i class="fas fa-comments"></i></a>
+              <a href="/sales-spend/0/0/0/0/0/0/0" class="list-group-item list-group-item-action text-center supportLocked">Call centre figures by date <i class="fas fa-calendar-week"></i></a>
+              <a href="/dials-analysis" class="list-group-item list-group-item-action text-center supportLocked">Dials Analysis <i class="fas fa-tty"></i></a>
+              <a href="/staff-reports/" class="adminLocked list-group-item list-group-item-action text-center supportLocked">Staff Reports <i class="fas fa-user-tie"></i></a>
+              <!-- <a href="/mi-dashboard/" class="list-group-item list-group-item-action text-center supportLocked">MI dashboard <i class="fas fa-tachometer-alt"></i></a> -->
+              <a href="/operations-digest/" class="list-group-item list-group-item-action text-center supportLocked">Ops Digest <i class="fas fa-book-open"></i></a>
+              <a href="/booking-report/4/7" class="list-group-item list-group-item-action text-center supportLocked">Booking Reports <i class="fas fa-book"></i></a>
+              <a href="/qc-issues-report/0/0" class="list-group-item list-group-item-action text-center supportLocked">QC Advisories <i class="fas fa-exclamation-circle"></i></a>
+              <a href="/client-report/" class="list-group-item list-group-item-action text-center supportLocked">Client Report <i class="fas fa-handshake"></i></a>
+
+            </div>
+          </div>
+        </td>
+      </tr>
+    </table>
+    <%
+    Date.prototype.toShortFormat = function() {
+
+    let monthNames =["Jan","Feb","Mar","Apr",
+                      "May","Jun","Jul","Aug",
+                      "Sep", "Oct","Nov","Dec"];
+
+    let day = this.getDate();
+
+    let monthIndex = this.getMonth();
+    let monthName = monthNames[monthIndex];
+
+    let year = this.getFullYear();
+
+    return `'${day}-${monthName}'`;
+    }
+    var labels=[]
+    var eveCont=[]
+    var dayCont=[]
+    var target=[]
+    if(typeof contChart == 'object' && contChart){
+      contChart.forEach((cont, i) => {
+        var inpDate=new Date(cont.inputDate)
+        labels.push(inpDate.toShortFormat())
+        target.push(35)
+        dayCont.push(((cont.DayWages/cont.DaySales)*100).toFixed(1))
+        eveCont.push(((cont.EveWages/cont.EveSales)*100).toFixed(1))
+      });
+    }
+    %>
+<script>
+  var ctxL = document.getElementById("contChart").getContext('2d');
+  var myLineChart = new Chart(ctxL, {
+      type: 'line',
+      data: {
+          labels: [<%-labels%>],
+          datasets: [{
+                  label: "Day",
+                  data: [<%-dayCont%>],
+                  backgroundColor: [
+                      'rgba(105, 0, 132, 0)',
+                  ],
+                  borderColor: [
+                      '#efc128',
+                  ],
+                  pointBorderColor: '#efc128',
+                  pointBackgroundColor: '#efc128',
+                  pointHitRadius: 5,
+                  borderWidth: 2
+              },
+              {
+                  label: "Eve",
+                  data: [<%-eveCont%>],
+                  backgroundColor: [
+                      'rgba(0, 137, 132, 0)',
+                  ],
+                  borderColor: [
+                      '#f7f2e1',
+                  ],
+                  pointBorderColor: '#f7f2e1',
+                  pointBackgroundColor: '#f7f2e1',
+                  pointHitRadius: 5,
+                  borderWidth: 2
+              },
+              {
+                  label: "Target",
+                  data: [<%-target%>],
+                  backgroundColor: [
+                      'rgba(107, 255, 97, 0.2)',
+                  ],
+                  borderColor: [
+                      'rgba(107, 255, 97, 0)',
+                  ],
+                  pointRadius: 0
+              }
+          ]
+      },
+      options: {
+        plugins: {
+          datalabels: {
+            display:false
+          }
+        },
+          responsive: true,
+          legend: {
+            display: false,
+            labels: {
+              usePointStyle: true,
+              boxWidth: 10,
+              fontColor: 'white'
+            }
+          },
+          title: {
+            display: true,
+            text: 'Last 30 days contribution',
+            fontColor: 'white',
+            fontSize: 14,
+            fontStyle: 'normal'
+            },
+          scales: {
+            yAxes: [{
+              display:false,
+              ticks: {
+                userCallback: function (tick) {
+                  return tick.toString() + '%';
+                },
+                fontColor: 'white'
+              },
+              gridLines: {
+                display:false
+              }
+            }],
+            xAxes: [{
+              gridLines: {
+                display:false
+              },
+              ticks: {
+                fontColor: 'white'
+              },
+            }]
+          }
+      }
+  });
+  $(document).ready(function(e){
+    var projectCount=function(values, data, calcParams){
+      var cnt=0
+      values.forEach((val, i) => {
+        cnt++
+      });
+      return cnt+" projects"
+    }
+    var dateParams={
+      inputFormat:"YYYY-MM-DD",
+      outputFormat:"DD/MM/YY",
+      invalidPlaceholder:"N/A",
+    }
+    var percFormat = function(cell, formatterParams, onRendered){
+      var ret=''
+      if (isFinite(cell.getValue()) && cell.getValue()>0) {
+        ret=(cell.getValue()*100).toFixed(0)+"%"
+      }
+      return ret
+    }
+    var contCalc = function(values, data, calcParams){
+      var sales = 0;
+      var pay = 0;
+      data.forEach(function(rowData){
+        sales=sales+rowData.sales || 0
+        pay=pay+rowData.pay || 0
+      });
+      return Math.ceil((pay/sales)*100)+'%';
+    }
+    function getInitials(str){
+      var arr=str.split(" ")
+      var init=""
+      arr.forEach((word, i) => {
+        init=init+word[0]
+      })
+      return init.toUpperCase()
+    }
+    function workday_count(start,end) {
+      var first = start.clone().endOf('week'); // end of first week
+      var last = end.clone().startOf('week'); // start of last week
+      var days = last.diff(first,'days') * 5 / 7; // this will always multiply of 7
+      var wfirst = first.day() - start.day(); // check first week
+      if(start.day() == 0) --wfirst; // -1 if start with sunday
+      var wlast = end.day() - last.day(); // check last week
+      if(end.day() == 6) --wlast; // -1 if end with saturday
+      return wfirst + Math.floor(days) + wlast; // get the total
+    }
+    function prepareRow(job,dailys){
+      var idField=job.jobID?'jobID':'projectID'
+      var rowData={
+        id:job.jobID?'j'+job.jobID:job.projectID,
+        projectID:job.projectID,
+        quoteID:job.quoteID,
+        quoteNo:job.quoteNo,
+        quoteName:(job.jobID?job.quoteName+" - "+job.jobName:job.quoteName)+(job.hasHourly?' <i class="far fa-clock"></i>':''),
+        clientName:job.clientName,
+        CM:job.CM?getInitials(job.CM):'',
+        PM:job.PM?getInitials(job.PM):'',
+        startDate: moment.utc(job.startDate).format("YYYY-MM-DD"),
+        endDate: moment.utc(job.endDate).format("YYYY-MM-DD"),
+        interviewsTarget:job.interviewsTarget,
+        ints:Math.ceil(job.ints),
+        shouldBe:Math.ceil(job.daysDone>0?job.shouldBe:0),
+        progress:job.ints/job.interviewsTarget,
+        cont:job.pay/job.sales,
+        pay:job.pay,
+        sales:job.sales,
+        todayHours:Math.round(job.todayHours*2)/2+" hrs",
+        hoursPerDay:job.ahr?((Math.round(job.hoursPerDay*2)/2)+" hrs"):'',
+        hasEve: job.hasEve,
+        hasDay: job.hasDay,
+        hasOnline: job.hasOnline,
+        hasFace: job.hasFace,
+        hasOut: job.hasOut,
+        hasHourly: job.hasHourly,
+        sorter: job.hasDay+""+job.hasEve+""+job.hasOnline+""+job.hasFace,
+        fwPeriod: job.fwPeriod,
+        qcChecks:job.catiInts?job.qcCount/job.catiInts:0
+      }
+      return rowData
+    }
+    var bool = true;
+    var step = 1;
+    function scrollpage() {
+      let el=$('.tabulator-tableHolder')[0]
+      let wait=10
+      if (!$(el).is(":hover")) {
+        if ( el.scrollTop==0 ||  Math.round(el.offsetHeight +  el.scrollTop) >=  Math.round(el.scrollHeight)){
+          bool=!bool;
+          setTimeout(e=>{
+            if (bool) {
+              el.scrollTo(0,  el.scrollTop += step);
+            }else {
+              el.scrollTo(0,  el.scrollTop -= step);
+            }
+            setTimeout(scrollpage,10)
+          },1000)
+        }else {
+          if (bool) {
+            el.scrollTo(0,  el.scrollTop += step);
+          }else {
+            el.scrollTo(0,  el.scrollTop -= step);
+          }
+          setTimeout(scrollpage,10)
+        }
+      }else {
+        setTimeout(scrollpage,10)
+      }
+    }
+    const projectsTable = new Tabulator("#liveProjects", {
+      // data:projectsData,
+      autoResize:true,
+      height:"200px",
+      layout:"fitColumns",
+      dataTree:true,
+      ajaxURL:"/get-live-jobs", //ajax URL
+      ajaxConfig:"POST",
+      ajaxParams:{view:'Projects'},
+      initialSort:[
+        {column:"sorter", dir:"desc"}
+      ],
+      initialFilter:[
+        {field:"endDate", type:">=", value:moment.utc().format("YYYY-MM-DD")},
+        {field:"startDate", type:"<=", value:moment.utc().format("YYYY-MM-DD")},
+      ],
+      headerSort:false,
+      rowFormatter:function(row){
+        row.getElement().style.height= "25px";
+        row.getCells().forEach((cell, i) => {
+          cell.getElement().style['font-size']= "small";
+          cell.getElement().style.padding= "2px";
+          // cell.getElement().style['mix-blend-mode']='difference';
+          if (cell.getData().hasHourly==1) {
+            cell.getElement().style.color= '#ff8d8d';
+          }
+        })
+        var gradArr=[]
+        var txtColArr=[]
+        if (row.getData().hasDay) {
+          gradArr.push('rgba(255,192,0,0.8)')
+          txtColArr.push('black')
+        }
+        if (row.getData().hasEve) {
+          gradArr.push('rgba(255,255,255,0.8)')
+          txtColArr.push('black')
+        }
+        if (row.getData().hasOnline) {
+          gradArr.push('rgba(0,0,255,0.8)')
+          txtColArr.push('white')
+        }
+        if (row.getData().hasFace || row.getData().hasOut) {
+          gradArr.push('rgba(255,0,255,0.8)')
+          txtColArr.push('white')
+        }
+        var grad="linear-gradient(90deg, "
+        var gradTxtArr=[]
+        var cellArr=row.getCells()
+        var cellCount=cellArr.length
+        var cellGrpCnt=Math.floor(cellCount/gradArr.length)
+        for (var i = 0; i < gradArr.length; i++) {
+          gradTxtArr.push(gradArr[i]+" "+((80/(gradArr.length-1))*i).toFixed(0)+"%")
+          gradTxtArr.push(gradArr[i]+" "+((80/(gradArr.length-1))*(i+0.5)).toFixed(0)+"%")
+          for (var n = 0; n < cellGrpCnt; n++) {
+            cellArr[n+Math.ceil(i*cellGrpCnt)].getElement().style.color=txtColArr[i]
+          }
+        }
+        grad=grad+gradTxtArr.join(", ")+")"
+        row.getElement().style.background=gradArr[0];
+        row.getElement().style.background=grad;
+      },
+      columns:[
+        {title:"id", visible:false, field:"id"},
+        {title:"sorter", visible:false, field:"sorter"},
+        {title:"Proj No.", field:"quoteNo", cssClass:'Q1' },
+        {title:"Project Name",width:300, field:"quoteName", cssClass:'Q1' , formatter:'html'},
+        {title:"Client", field:"clientName", cssClass:'Q2' },
+        {title:"CM", field:"CM", cssClass:'Q3' },
+        {title:"PM", field:"PM", cssClass:'Q3' },
+        {title:"Start", field:"startDate", cssClass:'Q3', formatter:"datetime", formatterParams:dateParams},
+        {title:"End", field:"endDate", cssClass:'Q3', formatter:"datetime", formatterParams:dateParams},
+        {title:"Target", cssClass:'Q4', field:"interviewsTarget"},
+        {title:"Completed", cssClass:'Q4', field:"ints",formatter:function(cell){
+          let diff=cell.getValue()-cell.getData().shouldBe
+          let txt="<span class='super "+(diff>=0?"success":"danger")+"'>"+(diff>=0?"+":"")+diff+"</span>"
+          return cell.getValue()+txt
+        }},
+        {title:"Should be", cssClass:'Q4', field:"shouldBe"},
+        {title:"Needed p/d", cssClass:'Q4', field:"hoursPerDay"},
+        {title:"Today", cssClass:'Q4', field:"todayHours"},
+        {title:"QC", field:"qcChecks", formatter:"progress", cssClass:"progress", formatterParams:{
+          min:0,
+          max:0.05,
+          color:function(value){return value>=0.05?"var(--success)":"#808080"},
+          legend: function(value){return value>0.05?'>5%':(value*100).toFixed(0)+"%"},
+          legendColor:"#000000",
+          legendAlign:"center",
+        }},
+        {title:"Progress", field:"progress", formatter:"progress", cssClass:"progress", formatterParams:{
+          min:0,
+          max:1,
+          color:function(value){return value>=1?"var(--success)":"#808080"},
+          legend: function(value){return (value*100).toFixed(0)+"%"},
+          legendColor:"#000000",
+          legendAlign:"center",
+        }},
+        {title:"Cont", field:"cont", cssClass:'Q4', formatter: percFormat}
+      ],
+      rowUpdated:function(row){
+        row.reformat()
+      },
+      dataFiltered:function(filters, rows){
+        if (rows.length<1) {
+          alert("No matching rows found")
+          rows[0].getTable().clearFilter();
+        }
+      },
+      dataTreeRowExpanded:function(row, level){
+        $(row.getElement()).addClass('expanded')
+        $(row.getElement()).removeClass('blurred')
+        $('.tabulator-row.tabulator-tree-level-0:not(.expanded)').addClass('blurred')
+      },
+      dataTreeRowCollapsed:function(row, level){
+        $(row.getElement()).removeClass('expanded')
+        $(row.getElement()).addClass('blurred')
+        // $('.tabulator-row.tabulator-tree-level-0:not(.expanded)').addClass('blurred')
+        if ($('.expanded').length<1) {
+          $('.blurred').removeClass('blurred')
+        }
+      },
+      rowClick:function(e, row){
+        window.location.href = "/overview/"+row.getData().quoteID
+      },
+      ajaxResponse:function(url, params, response){
+        var rowCollection=[]
+        var jobRS=response.view=='Projects'?'projects':'jobs'
+        var dailyRS=response.view=='Projects'?'projectDailys':'dailys'
+        response[jobRS].forEach((project, i) => {
+          var projectRow=prepareRow(project,response[dailyRS])
+          var jobs=response.jobs.filter(el=>el.projectID==project.projectID)
+          if (response.view=='Projects' && jobs.length>1) {
+            var jobDailys=response.dailys.filter(el=>el.projectID==project.projectID)
+            projectRow['_children']=[]
+            jobs.forEach((job, i) => {
+              projectRow['_children'].push(prepareRow(job,jobDailys))
+            });
+          }
+          rowCollection.push(projectRow)
+        })
+        return rowCollection
+      },
+      dataLoaded:function(){
+        scrollpage()
+      },
+    })
+    $('a:has(i)').on('click',e=>{
+      let target=e.target
+      $.ajax({
+        url: '/menu-click',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({pageName:$(target).text().trim(),pageIcon:$(target).find('i')[0].outerHTML,pageURL:$(target).attr("href")}),
+        global:false
+      });
+    })
+  })
+</script>
+<script type="text/javascript" src="https://survey.teamsearchsurvey.co.uk/AskiaVistaReader.Net4/Scripts/askiavista.js"></script>
+<script type="text/javascript">
+  function loadCSat(){
+    askiaVista.getInterviews({
+      "format": "json",
+      "lazyLoading": false,
+      maxPerPage: 999999,
+      "settings": {
+        "id": 1
+      },
+      subPopulation : {
+        name : "Responded",
+        script : "s5 has {1 to 11}" // AskiaScript goes here
+      },
+      "questions": [
+      {
+        "key": "444|3@@0",
+        "shortcut": "BrokerPanelId"
+      },
+      {
+        "key": "444|233@@0",
+        "shortcut": "s5"
+      },
+      {
+        "key": "444|271@1877;@0",
+        "shortcut": "s5_1 (Scripting/programming of the questionnaire)"
+      },
+      {
+        "key": "444|271@1878;@0",
+        "shortcut": "s5_1 (Data/tables/other deliverables)"
+      },
+      {
+        "key": "444|271@1879;@0",
+        "shortcut": "s5_1 (Management of timelines, quotas &amp; resource)"
+      },
+      {
+        "key": "444|271@1880;@0",
+        "shortcut": "s5_1 (Overall communications)"
+      },
+      {
+        "key": "444|245@@0",
+        "shortcut": "s3"
+      },
+      {
+        "key": "444|218@@0",
+        "shortcut": "s4"
+      },
+      {
+        "shortcut": "s1a"
+      },
+      {
+        "shortcut": "s1b"
+      },
+      {
+        "shortcut": "s1c"
+      },
+      {
+        "shortcut": "s2"
+      },
+      {
+        "shortcut": "cName"
+      },
+      {
+        "shortcut": "end_time"
+      },
+      {
+        "shortcut": "start_time"
+      }
+      ],
+      "survey": {
+        "id": 444,
+        "name": "0000_Client_Satisfaction_Survey"
+      },
+      success:function(d,query){
+        let ynScale=["","Yes","No","n/a"]
+        var data=JSON.parse(d)
+        var csatScores=data.interviews.filter(el=>el[1].responses[0].entryCode>0)
+        var uploadData=csatScores.map(vistaData=>{
+          let el={}
+          el.csatID=vistaData[0].responses[0]
+          el.s5=Number(vistaData[1].responses[0].entryCode)
+          el.s5_1=Number(vistaData[2].responses[0].entryCode)
+          el.s5_2=Number(vistaData[3].responses[0].entryCode)
+          el.s5_3=Number(vistaData[4].responses[0].entryCode)
+          el.s5_4=Number(vistaData[5].responses[0].entryCode)
+          //get valid responses for S5_1 to _4
+          var c=[el.s5_1,el.s5_2,el.s5_3,el.s5_4].filter(el2=>!isNaN(el2) && el2>=0)
+          //get mean of valid responses
+          el.s5calc=c.reduce((a,b)=>a+Number(b),0)/c.length
+          //if there are no valids, take overall
+          el.s5calc=isNaN(el.s5calc)?el.s5:el.s5calc
+          //repeat above seperately for CM & PM scores
+          var cm=[el.s5_3,el.s5_4].filter(el2=>!isNaN(el2) && el2>=0)
+          el.s5cm=cm.reduce((a,b)=>a+Number(b),0)/cm.length
+          var pm=[el.s5_1,el.s5_2].filter(el2=>!isNaN(el2) && el2>=0)
+          el.s5pm=pm.reduce((a,b)=>a+Number(b),0)/pm.length
+          //if pm scores are answered n/a for both, and CM scores have been given, assume there was no PM work required
+          el.s5pm=isNaN(el.s5pm)?(isNaN(el.s5cm)?el.s5:NaN):el.s5pm
+          el.s5cm=isNaN(el.s5cm)?el.s5:el.s5cm
+          el.s3=vistaData[6].responses[0]
+          el.s4=vistaData[7].responses[0]
+          el.s1a=ynScale[vistaData[8].responses[0].entryCode]
+          el.s1b=ynScale[vistaData[9].responses[0].entryCode]
+          el.s1c=ynScale[vistaData[10].responses[0].entryCode]
+          el.s2=ynScale[vistaData[11].responses[0].entryCode]
+          el.cName=vistaData[12].responses[0]
+          el.respDate=vistaData[13].responses[0]
+          return el
+        }).filter(el=>el.respDate).filter(el=>moment(el.respDate,'DD/MM/YYYY HH:mm:ss').isAfter(moment().subtract(1,'week'),'day') && moment(el.respDate,'DD/MM/YYYY HH:mm:ss').isAfter('2022-05-10','day'))
+        if (uploadData.length>0) {
+          $.ajax({
+            url: '/check-csat',
+            type: 'POST',
+            data: {data:uploadData},
+            global:false
+          });
+        }
+      }
+    })
+  }
+  askiaVista.config({
+    url: "https://survey.teamsearchsurvey.co.uk/AskiaVistaReader.Net4/AjaxEmbedHandler.aspx",
+  });
+  askiaVista.login({
+    login : 'joe.black',
+    password : 'TSYngzYMc',
+    success : function () {
+      console.log('The user was successfully authenticated');
+      loadCSat()
+    },
+    error : function (message, query) {
+      console.log(message);
+    }
+ });
+</script>
+</body>
+</html>

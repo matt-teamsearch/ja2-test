@@ -1,0 +1,322 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .form-row {
+    align-items: baseline;
+  }
+  label.col-md-3,label.col-md-4 {
+    text-align: left;
+  }
+  .d-flex {
+    justify-content: space-around;
+    flex-wrap: wrap;
+  }
+  input[type="checkbox"] {
+    transform: scale(1.8);
+    margin: 7px;
+  }
+  .checkCont {
+    padding: 4px;
+    display: flex;
+    justify-content: flex-start;
+  }
+  .bigFig {
+    font-size: xx-large;
+    font-weight: 600;
+    vertical-align: middle;
+    line-height: 29px;
+  }
+  .table-sm td, .table-sm th {
+    padding: .3rem;
+    vertical-align: middle;
+  }
+  tfoot{
+    font-weight: 600;
+  }
+  .ratingScale {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: nowrap;
+    flex-direction: row;
+    margin-bottom: 0px;
+    border-bottom: 1px solid gainsboro;
+  }
+  .ratingBox {
+    transform: scale(2.7);
+    cursor:pointer;
+  }
+  .ratingLabel:hover {
+    background: var(--primary);
+    color:white;
+  }
+  .ratingLabel {
+    cursor: pointer;
+    line-height: 50px;
+    width: 100%;
+    font-size: 26px;
+    color: #c9c9c9;
+  }
+  .ratingLabel.checked {
+    color: var(--primary);
+  }
+  .ratingLabel.checked:hover {
+    background: #c9c9c9;
+  }
+  .ratingRow:hover{
+    background:#e6ebf9;
+  }
+  .card {
+    margin-bottom: 20px;
+  }
+  .disabledWrapper {
+    position: relative;
+  }
+  .editBtn{
+    position: absolute;
+    font-size: small;
+    padding: 5px;
+    line-height: 9px;
+    width: 42px;
+    top: -18%;
+    left: -20px;
+    z-index: 9;
+    box-shadow: #f2f6ff 9px 6px 13px 6px;
+  }
+</style>
+<%
+const supplier=supplierResp[0]
+%>
+<script type="text/javascript">
+  var reviewChanges={}
+  $(document).ready(e=>{
+    <%if(supplier){%>
+      let supplier=<%-JSON.stringify(supplier)%>
+      Object.keys(supplier).forEach((field, i) => {
+        if (supplier[field]===true || supplier[field]===false) {
+          $('#'+field).prop('checked',supplier[field])
+        }else {
+          $('#'+field).val(supplier[field])
+        }
+      });
+      $('#notes').html(supplier.note)
+      $('#onboardedDate').val(moment(supplier.onboardedDate).format("YYYY-MM-DD"))
+    <%}else {%>
+      const name = document.getElementById("supplierName");
+      const supplierNames=<%-JSON.stringify(suppliers.map(el=>el.supplierName))%>
+      $(name).on("keyup",e=>{
+        let match=supplierNames.find(el=>el.toLowerCase().replace(/ /g,'')==$(name).val().toLowerCase().replace(/ /g,''))
+        if (match) {
+          name.setCustomValidity("'"+match+"' already present in database.");
+          name.reportValidity()
+        }else {
+          name.setCustomValidity("");
+        }
+      })
+    <%}%>
+    $('.disabled input').prop('disabled',true)
+    $(':disabled').wrap('<div class="disabledWrapper"></div>')
+    let editBtn=`
+    <button type="button" name="button" class="editBtn btn btn-sm btn-primary">Edit</button>
+    `
+    $('.disabledWrapper').prepend(editBtn)
+    $('.editBtn').on('click',function(e){
+      $(this).hide()
+      let inp=$(this).parent().find('input')
+      if (inp.length>0) {
+        inp.prop('disabled',false)
+      }else {
+        inp=$(this).parent().find('select')
+        $(this).parent().find('select').prop('disabled',false)
+        $(this).parent().find('select').selectpicker('refresh')
+      }
+      reviewChanges[inp.attr('name')]={}
+      let val=inp.is('[type="checkbox"]')?(inp.is(':checked')?1:0):inp.val()
+      reviewChanges[inp.attr('name')].from=val
+      $('#reviewChanges').attr('value',JSON.stringify(reviewChanges))
+    })
+    $('input,select').on('change',function(e){
+      let val=$(this).is('[type="checkbox"]')?($(this).is(':checked')?1:0):$(this).val()
+      if (reviewChanges[$(this).attr('name')]) {
+        reviewChanges[$(this).attr('name')].to=val
+      }
+      $('#reviewChanges').attr('value',JSON.stringify(reviewChanges))
+    })
+    // $(':disabled').parent().hover(
+    //   function(){
+    //     console.log(this)
+    //     console.log($(this).parent().find('.editBtn'))
+    //     $(this).find('input').find('.editBtn').toggle()
+    //   }
+    // )
+  })
+</script>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5 class="card-title"><%=supplier.supplierName%> review</h5>
+      <form class="card-body" id="reviewSupplierForm" action="/review-supplier/<%=supplier.supplierID%>" method="post" enctype="multipart/form-data">
+        <input type="text" name="reviewChanges" id="reviewChanges" style="display:none;">
+        <div class="card-body">
+          Onboarded: <%=moment(supplier.onboardedDate).format("DD/MM/YYYY")%><br>
+          Onboarding notes: <%=supplier.note%>
+        </div>
+        <div class="form-row">
+          <label for="contactName" class="col-md-3 required">Contact/Account manager:</label>
+          <div class="form-group col-md-3">
+            <input disabled type="text" class="form-control" name="contactName" id="contactName" value="" placeholder="Name">
+          </div>
+          <div class="form-group col-md-3">
+            <input disabled type="email" class="form-control" name="contactEmail" id="contactEmail" value="" placeholder="Email">
+          </div>
+          <div class="form-group col-md-3">
+            <input disabled type="text" class="form-control" name="contactTel" id="contactTel" value="" placeholder="Tel">
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="supplierTypes" class="col-md-3 required">Supplier offerings:</label>
+          <div class="form-group col-md-9 d-flex disabled">
+            <div class="checkCont"><input type="checkbox" value="1" id="isOnlineCons" name="isOnlineCons"/><label for="isOnlineCons">Online consumer panel</label></div>
+            <div class="checkCont"><input type="checkbox" value="1" id="isOnlineB2B" name="isOnlineB2B"/><label for="isOnlineB2B">Online B2B panel</label></div>
+            <div class="checkCont"><input type="checkbox" value="1" id="isConsSample" name="isConsSample"/><label for="isConsSample">Consumer CATI sample</label></div>
+            <div class="checkCont"><input type="checkbox" value="1" id="isB2bSample" name="isB2bSample"/><label for="isB2bSample">B2B CATI sample</label></div>
+            <div class="checkCont"><input type="checkbox" value="1" id="isUkFieldwork" name="isUkFieldwork"/><label for="isUkFieldwork">UK CATI fieldwork</label></div>
+            <div class="checkCont"><input type="checkbox" value="1" id="isIntFieldwork" name="isIntFieldwork"/><label for="isIntFieldwork">International CATI fieldwork</label></div>
+            <div class="checkCont"><input type="checkbox" value="1" id="isIncentives" name="isIncentives"/><label for="isIncentives">Incentives</label></div>
+            <div class="checkCont"><input type="checkbox" value="1" id="isF2fFieldwork" name="isF2fFieldwork"/><label for="isF2fFieldwork">F2F fieldwork</label></div>
+            <div class="checkCont"><input type="checkbox" value="1" id="isAdmin" name="isAdmin"/><label for="isAdmin">Admin/Other</label></div>
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="SLAs" class="col-md-3">SLA(s):</label>
+          <div class="form-group col-md-9">
+            <%if(supplier){%>
+              <table class="table table-sm fileList">
+                <%for (var i = 0; i < files.length; i++) {%>
+                  <tr data-rowID="<%=i%>">
+                    <td onclick="downloadFile('SLAs','<%=files[i]%>')"><%=files[i]%></td>
+                    <td onclick="deleteFile('SLAs','<%=files[i]%>',<%=i%>)"><i class="far fa-trash-alt"></i></td>
+                  </tr>
+                <%}%>
+              </table>
+            <%}%>
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="iso" class="col-md-3 required">ISO Accreditation:</label>
+          <div class="form-group col-md-9">
+            <select disabled class="selectpicker" name="iso" id="iso" data-width="100%">
+              <option value=""></option>
+              <option value="26362:2009">ISO 26362:2009</option>
+              <option value="20252:2012">ISO 20252:2012</option>
+              <option value="19731:2017">ISO 19731:2017</option>
+              <option value="20252:2019">ISO 20252:2019</option>
+            </select>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Last 12 months</h5>
+            <div class="col-md-12">
+              <h6>Spend</h6>
+              <div style="padding:10px">
+                <table class="table table-sm table-striped">
+                  <th>Category</th>
+                  <th>Total spend</th>
+                  <th>Total projects</th>
+                  <th>Total units</th>
+                  <th>Avg. spend per project</th>
+                  <th>Avg. units per project</th>
+                  <th>Avg. CPI/cost per unit</th>
+                  <th>Ranking</th>
+                  <th>% of category spend</th>
+                  <%
+                  function getRank(arr){
+                    arr.sort((a,b)=>(a.spend>b.spend?-1:(b.spend>a.spend?1:0)))
+                    let supplierIDs=arr.map(el=>el.supplierID)
+                    return supplierIDs.indexOf(supplier.supplierID)+1
+                  }
+                  function nth(n){return[,'st','nd','rd'][n/10%10^1&&n%10]||'th'}
+                  let supplierSpend=supplierTotals.find(el=>el.supplierID==supplier.supplierID)
+                  costTypes.forEach((cost,i)=>{
+                    let thisSupplier=typeSuppliers.find(el=>el.typeID==cost.costTypeID && el.supplierID==supplier.supplierID)
+                    let thisCostSpends=typeSuppliers.filter(el=>el.typeID==cost.costTypeID)
+                    cost.position=getRank(thisCostSpends)
+                    if (thisSupplier) {%>
+                      <tr>
+                        <td><%= cost.costTypeName %></td>
+                        <td>£<%= thisSupplier.spend.toFixed(2) %></td>
+                        <td><%= thisSupplier.projects %></td>
+                        <td><%= thisSupplier.units %></td>
+                        <td>£<%= thisSupplier.avgSpend.toFixed(2) %></td>
+                        <td><%= thisSupplier.avgUnits %></td>
+                        <td>£<%= thisSupplier.avgUnitValue.toFixed(2) %></td>
+                        <td><span class="bigFig"><%=cost.position%></span><span class="ord"><%=nth(cost.position) %></span></td>
+                        <td><span class="bigFig"><%=((thisSupplier.spend/typeTotals.find(el=>el.typeID==cost.costTypeID).spend)*100).toFixed(1)%>%</span></td>
+                      </tr>
+                      <%}%>
+                      <%})%>
+                      <tfoot>
+                        <tr>
+                          <td>Overall</td>
+                          <td>£<%= supplierSpend.spend.toFixed(2) %></td>
+                          <td><%= supplierSpend.projects %></td>
+                          <td><%= supplierSpend.units %></td>
+                          <td>£<%= supplierSpend.avgSpend.toFixed(2) %></td>
+                          <td><%= supplierSpend.avgUnits %></td>
+                          <td>£<%= supplierSpend.avgUnitValue.toFixed(2) %></td>
+                          <td><span class="bigFig"><%=getRank(supplierTotals)%></span><span class="ord"><%=nth(getRank(supplierTotals)) %></span></td>
+                          <td><span class="bigFig"><%=((supplierSpend.spend/typeTotals.reduce((a,b)=>a+Number(b.spend),0))*100).toFixed(1)%>%</span></td>
+                        </tr>
+                      </tfoot>
+                    </table>
+                  </div>
+                </div>
+              </div>
+        </div>
+        <h5>Satisfaction ratings</h5>
+          <% let ratingCat=[
+            {name:'commsSpeedRating',label:'Speed of communication'},
+            {name:'commsQualityRating',label:'Quality of communication'},
+            {name:'quoteSpeedRating',label:'Speed of quoting/cost estimation'},
+            {name:'competitivenessRating',label:'Competitiveness'},
+            {name:'productRangeRating',label:'Product/service range'},
+            {name:'productQualityRating',label:'Quality of product/service'},
+            {name:'easeOfUseRating',label:'Ease of use'},
+            {name:'deliverySpeedRating',label:'Speed of product/service delivery'},
+            {name:'aftercareRating',label:'Aftercare/amendments'},
+            {name:'complianceRating',label:'GDPR/MRS/ISO compliance'},
+            {name:'overallRating',label:'Overall satisfaction'},
+          ]
+          let smileys=[
+          '<i class="far fa-angry"></i>',
+          '<i class="far fa-frown"></i>',
+          '<i class="far fa-meh"></i>',
+          '<i class="far fa-smile"></i>',
+          '<i class="far fa-grin"></i>',
+          '<i class="far fa-grin-beam"></i>',
+          ]
+          ratingCat.forEach((cat,i)=>{%>
+            <div class="form-row ratingRow">
+            <input type="number" name="<%=cat.name%>" id="<%=cat.name%>" value="" style="display:none;"/>
+            <label class="col-md-4 required"><%=cat.label%>:</label>
+            <div class="form-group col-md-8 ratingScale">
+              <% for (let r = 0; r < 6; r++) { %>
+                <div onclick="$('#<%=cat.name%>').attr('value',<%=r%>); $('.<%=cat.name%>').removeClass('checked'); $('#<%=cat.name%>-<%=r%>').addClass('checked')" class="ratingLabel <%=cat.name%>" for="<%=cat.name%>" id="<%=cat.name%>-<%=r%>">
+                  <span><%-smileys[r]%></span>
+                </div>
+              <%}%>
+            </div>
+          </div>
+          <%})%>
+        <div class="form-row" style="display: flex;flex-direction: column;align-items: center;margin:20px;">
+          <div class="checkCont"><input disabled type="checkbox" value="1" id="isSupplierActive" name="isSupplierActive"/><label for="isSupplierActive">Currently active?</label></div>
+          <div class="checkCont"><input disabled type="checkbox" value="1" id="isSupplierPreferred" name="isSupplierPreferred"/><label for="isSupplierPreferred">Preferred supplier?</label></div>
+        </div>
+        <div class="col-md-12">
+          <button type="submit" class="btn btn-primary submit">Submit review</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+</body>
+</html>

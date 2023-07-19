@@ -1,0 +1,90 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  $(document).ready(function () {
+    $('#interviewer-table').DataTable({
+      "paging": false
+    });
+    $('.dataTables_length').addClass('bs-select');
+  });
+</script>
+
+<%
+const dateIf = (inDate, seperator, order) => {
+  let day =''
+  if (new Date(inDate).getDate() < 10) {
+    day = '0' + new Date(inDate).getDate()
+  } else {
+    day = new Date(inDate).getDate()
+  }
+  let month =''
+  if (new Date(inDate).getMonth()+1 < 10) {
+    month = '0' + (new Date(inDate).getMonth()+1)
+  } else {
+    month = (new Date(inDate).getMonth()+1)
+  }
+  let year = new Date(inDate).getFullYear()
+  if(order=="f"){
+  return(day+seperator+month+seperator+year)
+  }
+  if(order=="r"){
+  return(year+seperator+month+seperator+day)
+  }
+}
+%>
+
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <% days.forEach((day, index) => { if (index == 0) { %>
+        <h5 class="card-title">Overview for <a href="/overview/<%= day.quoteID %>"><%= day.quoteNo %> <%= day.quoteName %> <%= day.jobName %></a> on <%= dateIf(day.inputDate,"/","f") %></h5>
+      <%} })%>
+        <div class="card-body">
+          <table class="table table-sm table-striped table-bordered" id="interviewer-table">
+            <thead class="thead">
+              <tr>
+                <th scope="col">Interviewer</th>
+                <th scope="col">Hours</th>
+                <th scope="col">Interviews</th>
+                <th scope="col">IPH</th>
+                <th scope="col">Wage</th>
+                <th scope="col">Sales</th>
+                <th scope="col">Contribution</th>
+                <th scope="col">Contribution (Hol)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <%
+              var agentsAdded=[]
+              days.forEach((day, index) => {
+                if (!agentsAdded.includes(day.agentID)) {
+                  console.log("day.agentID: "+day.agentID)
+                  console.log("agentsAdded: "+agentsAdded)
+                  agentsAdded.push(day.agentID);%>
+                <script>
+                  function editProjectDaily() {
+                    window.location.href=("/edit-project-daily/<%= day.jobID %>/<%= dateIf(day.inputDate,'-','r') %>")
+                  };
+                </script>
+                <tr>
+                  <td><a href="/int-performance/<%= currPayPeriodSt %>/<%= currPayPeriodEn %>/<%= day.agentID %>"><%= day.agentName %></a></td>
+                  <td><%= day.inputHours %></td>
+                  <td><%= day.inputInterviews %></td>
+                  <td><%= (day.inputInterviews/day.inputHours).toFixed(2) %></td>
+                  <td>£<%= (day.aPayRate * day.inputHours).toFixed(2) %></td>
+                  <td>£<%= (day.inputInterviews * day.jobCPI).toFixed(2) %></td>
+                  <td style="color:<% if  (((day.aPayRate * day.inputHours) / (day.inputInterviews * ((day.jobCPI) + (day.setupCost / day.interviewsTarget))) * 100) > 34) {%>red<%} else {%>green<%}%>">
+                    <%= ((day.aPayRate * day.inputHours) / (day.inputInterviews * day.jobCPI) * 100).toFixed(2) %>%
+                  </td>
+                  <td><%= (((day.aPayRate * day.inputHours)*1.1207) / (day.inputInterviews * day.jobCPI) * 100).toFixed(2) %>%</td>
+                </tr>
+              <% }
+            }) %>
+              </tbody>
+            </table>
+            <button type="submit" class="btn btn-primary" value="Edit" onclick="editProjectDaily()" style="width:100%;">Edit</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+  </html>

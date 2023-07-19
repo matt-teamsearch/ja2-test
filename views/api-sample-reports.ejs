@@ -1,0 +1,66 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="table-wrapper">
+  <% if (projects.length > 0) {%>
+    <script>
+      $(document).ready(function () {
+        $('#Project-table').DataTable({
+          "pageLength": 50
+        });
+        $('.dataTables_length').addClass('bs-select');
+      });
+    </script>
+    <%
+    const dateIf = (inDate, seperator, order) => {
+      let day =''
+      if (new Date(inDate).getDate() < 10) {
+        day = '0' + new Date(inDate).getDate()
+      } else {
+        day = new Date(inDate).getDate()
+      }
+      let month =''
+      if (new Date(inDate).getMonth()+1 < 10) {
+        month = '0' + (new Date(inDate).getMonth()+1)
+      } else {
+        month = (new Date(inDate).getMonth()+1)
+      }
+      let year = new Date(inDate).getFullYear()
+      if(order=="f"){
+        return(day+seperator+month+seperator+year)
+      }
+      if(order=="r"){
+        return(year+seperator+month+seperator+day)
+      }
+    }
+    %>
+    <style>
+      label{
+        color:white
+      }
+      .paginate_button{
+        background:linear-gradient(to bottom, #fff 0%, #dcdcdc 100%)
+      }
+    </style>
+    <table class="table table-sm table-striped table-bordered" id="Project-table" style="width:100%; overflow-y:scroll; z-index:0;">
+      <thead class="thead">
+        <tr>
+          <th scope="col">List IDs</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+        <% listIDs.forEach((listID, index) => { %>
+          <td>
+            <%=listID%>
+          </td>
+        <%});%>
+        </tr>
+      </tbody>
+    </table>
+        <% } else { %>
+          <br><br>
+          <p class="text-center">No projects found.</p>
+          <% } %>
+        </div>
+      </div>
+    </body>
+    </html>

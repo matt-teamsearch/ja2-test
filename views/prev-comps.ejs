@@ -1,0 +1,793 @@
+<%- include('partials/'+versionPages.header) %>
+<style media="screen">
+  .filterValue {
+    width: auto;
+    display: none;
+  }
+  .dataCount {
+      font-size: xxx-large;
+      position: relative;
+      padding-bottom: 13px;
+      width: 100%;
+  }
+  .dataCount::after {
+      content: "Records in database";
+      font-size: initial;
+      position: absolute;
+      bottom: 0px;
+      left: 50%;
+      transform: translateX(-50%);
+  }
+  .inUse {
+      color: gray;
+      font-family: 'Arial Nova light';
+      margin: auto;
+      width: 200px;
+  }
+  .appliedFilters {
+    display: flex;
+    width: 100%;
+    padding: 10px;
+    flex-wrap: wrap;
+    position: relative;
+    justify-content: center;
+}
+.appliedFiltersCont {
+    margin: 9px auto;
+    width: 100%;
+    border: 1px solid gainsboro;
+    padding: 10px;
+    background: gainsboro;
+    position: relative;
+}
+.appliedFilter {
+    width: fit-content;
+    padding: 2px 2px 2px 7px;
+    background: var(--secondary);
+    color: white;
+    box-shadow: 0px 3px 9px -2px #00000030;
+    height: fit-content;
+    margin: 2px;
+}
+.noFilters {
+    width: 100%;
+    font-size: x-large;
+    padding: 5px;
+    color: gray;
+}
+div#splitByGrid .tabulator-table .countCell:hover {
+    background: var(--secondary);
+    color: white;
+    cursor: pointer;
+}
+div#splitByGrid .tabulator-table .countCell:hover input{
+  background: white;
+}
+div#splitByGrid table td.titleTd.selected {
+    background: var(--primary);
+    color: white;
+}
+div#splitByGrid table:hover tr.titleSelected~tr:not(.titleSelected) .titleTd {
+    background: var(--secondary);
+    color: white;
+}
+div#splitByGrid table tr:hover~tr:not(.titleSelected) .titleTd:not(.selected) {
+    background: none;
+    color: black;
+}
+div#splitByGrid .customCount{
+  color:var(--primary);
+  font-family: 'Arial Nova heavy';
+}
+div#splitByGrid table td input {
+    padding: 0px;
+    line-height: 0px;
+    width: 100%;
+    margin: 0px;
+    height: 100%;
+    text-align: center;
+}
+.tabulator-row.tabulator-row-even{
+  background-color: #efefef;
+}
+div#splitByGridCont {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+}
+div#groupModeCont {
+    background: gainsboro;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+.currentGroup{
+  background: var(--primary)!important;
+  color: white;
+}
+span#groupCellCount {
+    font-size: xx-large;
+    margin: -2px 4px;
+}
+.inUseTable td, .inUseTable th {
+    border: 1px solid #4c4c4c;
+    text-align: left;
+    padding: 2px 4px;
+    white-space: nowrap;
+}
+.tooltip-inner{
+  max-width:500px;
+}
+#subsetCount {
+    width: 67px;
+    height: 24px;
+    padding: 2px;
+}
+.bottomCont {
+    display: flex;
+    width: 400px;
+    margin: auto;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-around;
+    border: 1px solid gainsboro;
+    padding: 10px;
+}
+.appliedFilter {
+    width: fit-content;
+    padding: 2px 2px 2px 7px;
+    background: var(--secondary);
+    color: white;
+    box-shadow: 0px 3px 9px -2px #00000030;
+    height: fit-content;
+    margin: 2px;
+    font-size: x-large;
+}
+.appliedFilter .btn i {
+    font-size: x-large;
+}
+.btn.bs-invalid {
+    box-shadow: 0 0 6px 2px red;
+}
+</style>
+<div class="container" style="padding-top:70px;max-width:100%">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5 class="card-title"><%=title%></h5>
+      <!-- <div id="PrevCompsTable">
+      </div> -->
+      <div class="appliedFiltersCont">
+        <div class="noFilters">
+          No filters applied
+        </div>
+        <div class="appliedFilters">
+        </div>
+        <div class="form-row" style="justify-content: center;">
+          <select class="selectpicker filterCol" data-live-search="true" title="Filter the database...">
+            <%cols.forEach(col=>{%>
+              <option data-type="<%=col.dataType%>" value="<%=col.col%>"><%=col.col%></option>
+              <%})%>
+            </select>
+            <select class="selectpicker filterCompare" name="" data-hide-disabled=true>
+              <option data-varchar=true data-list=true data-int=true value="IN">is one of</option>
+              <option data-varchar=true data-list=true data-int=true value="NOT IN">is <u>not</u> one of</option>
+              <option data-datetime=true value=">">is after</option>
+              <option data-datetime=true value="<">is before</option>
+              <option data-int=true value="<">is less than</option>
+              <option data-int=true value=">">is more than</option>
+              <option data-int=true value="=">is</option>
+              <option data-varchar=true value="LIKE">contains</option>
+            </select>
+            <input class="form-control filterValue" data-datetime=true type="date" name="" value="">
+            <input class="form-control filterValue" data-int=true type="number" name="" value="">
+            <input class="form-control filterValue" data-varchar=true type="text" name="" value="">
+            <select class="selectpicker filterValue" data-live-search=true multiple data-varchar=true data-int=true data-list=true name="">
+
+            </select>
+            <input class="form-control filterValue" type="file" accept=".csv" placeholder="Upload lookup file">
+            <button class="btn btn-primary" onclick="addFilter()" id="addFilterBtn" disabled>Add filter</button>
+          </div>
+      </div>
+      <div class="dataCount odometer">
+
+      </div>
+      <div class="inUse">
+        <span class="inUseCount"> </span> currently in use
+      </div>
+      <div class="form-row" id="splitByCont" style="align-items: flex-end;justify-content: center;">
+        <select class="selectpicker splitBy" name="splitBy" id="splitBy" title="Split by..." data-live-search="true">
+          <option value=""></option>
+          <%cols.forEach(col=>{%>
+            <option data-type="<%=col.dataType%>" value="<%=col.col%>"><%=col.col%></option>
+          <%})%>
+        </select>
+        <select class="selectpicker splitBy" name="splitBy2" id="splitBy2" title="Split further by..." data-live-search="true">
+          <option value=""></option>
+          <%cols.forEach(col=>{%>
+            <option data-type="<%=col.dataType%>" value="<%=col.col%>"><%=col.col%></option>
+          <%})%>
+        </select>
+
+      </div>
+      <div id='splitByGridCont'>
+        <div id='splitByGrid'>
+
+        </div>
+        <div id="groupModeCont" style="display:none">
+          <h5 class="groupInfo form-row"style="align-items: flex-end;">
+            Grouping <span id="groupCellCount"></span> cells
+          </h5>
+          <div class="form-row" style="flex-wrap: nowrap;">
+            <label for="groupName" style="width:50%">Name group:</label>
+            <input type="text" style="width:50%" name="groupName" id="groupName" value="">
+          </div>
+          <div class="form-row" style="flex-wrap: nowrap;">
+            <label for="groupCount" style="width:50%">Count needed:</label>
+            <input type="number" style="width:50%" max=0 onblur="$(this).val(Math.max(Math.min($(this).val(),$(this).attr('max')),0))" name="groupCount" id="groupCount" value="">
+          </div>
+          <div class="form-row">
+            <button type="button" class="btn btn-primary" id="groupModeAdd" name="button">Apply group</button>
+            <button type="button" class="btn btn-secondary" id="groupModeCancel" name="button">Cancel</button>
+          </div>
+        </div>
+      </div>
+      <div class="form-row" style="justify-content: center;">
+        <!-- <label for="projectID">Project: </label> -->
+      </div>
+    </div>
+    <div class="bottomCont">
+      <select class="selectpicker" name="projectID" data-width="100%" required id="projectID" title="Select the project you're using this sample for..." data-live-search="true">
+      <% projects.forEach((project,i)=>{ %>
+        <option value="<%=project.projectID%>"><%=project.quoteNo+" - "+project.quoteName%></option>
+        <% }) %>
+      </select>
+      <!-- <button type="button" class="btn btn-primary" id="downloadTable" onclick="downloadRecords()">Download all <span id="recordCount" disabled></span> records</button> -->
+      <button type="button" style="margin-top:5px;width: 100%;" class="btn btn-primary" id="downloadsubset">Download <input type="number" cols="5" onchange="$(this).val(Math.min(10000,Math.max(1,Math.min($(this).val(),$(this).attr('max')))))" id="subsetCount" min="1" max="0" value="100"> records</button>
+    </div>
+    </div>
+  </div>
+</div>
+<div class='modal fade' role='dialog' id='Modal'>
+  <div class='modal-dialog modal-dialog-centered' style="max-width:70%;width: 525px;" role='document'>
+    <div class='modal-content'>
+      <div class='modal-body' id='modal-body'>
+
+    </div>
+  </div>
+</div>
+<script type="text/javascript">
+  <%if(completes){%>
+    let filters=[{id:1,column:"E2",compare:"is not",value:"null"}]
+  <%}else{%>
+    let filters=[{id:1,column:"E2",compare:"is",value:"null"}]
+  <%}%>
+  let countFilters=[]
+  let cellCountGroups=[]
+  let splitTable
+  function downloadRecords(count){
+    let getFile=()=>{
+      let data=filtersToForm("records",null,count)
+      $.ajax({url:"/get-prevcomp-info",method:'post',contentType: false,processData: false,data:data}).done(e=>{
+        // console.log(e.records)
+        var link=document.createElement('a');
+        link.href=e.file.path
+        link.download=e.file.filename
+        link.click();
+        link.remove()
+      })
+    }
+    if (count==$('#subsetCount').attr("max")) {
+      if (confirm("You are downloading all records matching this criteria. You should only ever download the number of records that you need for your project. Do you really need all of these records?")) {
+        getFile()
+      }
+    }else {
+      getFile()
+    }
+  }
+  $('#downloadsubset').mousedown(function(e){
+    if (e.target.id!="subsetCount") {
+      let isValid=true
+      $('[required]').each(function(e){
+        if (!$(this)[0].checkValidity()) {
+          $(this)[0].reportValidity()
+          isValid=false
+        }
+      })
+      if (isValid) {
+        downloadRecords($('#subsetCount').val())
+      }
+    }
+  })
+  function filtersToForm(type,col,count){
+    console.log($("#splitBy").val(),$("#splitBy2").val())
+    var fd = new FormData();
+    let postFilters=filters
+    if (type=="records") {
+      postFilters=postFilters.concat(countFilters)
+    }
+    fd.append("type", type);
+    fd.append("projectID", $("#projectID").val());
+    fd.append("col", col);
+    fd.append("count", count);
+    fd.append("splitCol1", $("#splitBy").val());
+    fd.append("splitCol2", $("#splitBy2").val());
+    fd.append("filterIDs", postFilters.map(f=>f.id).join(","))
+    postFilters.forEach(filt=>{
+      fd.append("column-"+filt.id, filt.column);
+      fd.append("compare-"+filt.id, filt.compare);
+      fd.append("value-"+filt.id, filt.value);
+      fd.append("lookupFile-"+filt.id, filt.file);
+      fd.append("countFilter-"+filt.id, filt.countFilter);
+      fd.append("excluder-"+filt.id, filt.excluder);
+    })
+    return fd
+  }
+  function refreshCount(){
+    return new Promise(res=>{
+      let data=filtersToForm("count")
+      $('#groupModeAdd').off("click")
+      $('#groupModeCancel').off("click")
+      // console.log(data)
+      $.ajax({url:"/get-prevcomp-info",method:'post',contentType: false,processData: false,data:data}).done(e=>{
+        console.log(e)
+        let nowGrouping=false
+        let totalRow=e.counts.find(r=>(r.grp1==1 || r.grp1===undefined) && (r.grp2==1 || r.grp2===undefined) && r.grpInUse==1)
+        let totalCount=totalRow?totalRow.c:0
+        $('.dataCount').html(totalCount)
+        $('.inUseCount').html(totalRow?totalRow.inuse:0)
+        $('.inUse').tooltip({html:true,sanitize:false,title:"<table class='inUseTable'><th>#</th><th>Project</th><th>CM</th>"+e.counts.filter(r=>(r.grp1==1 || r.grp1===undefined) && (r.grp2==1 || r.grp2===undefined) && r.grpInUse==0 && r.downloadedBy).map(g=>"<tr><td>"+g.inuse+"</td><td>"+g.downloadedFor+"</td><td>"+g.downloadedBy+"</td></tr>").join("")+"</table>"})
+        $('#subsetCount').val(totalCount).attr("max",totalCount).trigger("change")
+        $("#splitByGrid").empty()
+        if ($("#splitBy").val() || $("#splitBy2").val()) {
+          $('body').addClass("loading")
+          let split1=$("#splitBy").val()
+          let split2=$("#splitBy2").val()
+          let addCountFilter=(count,val,val2)=>{
+            let newFilt={
+              id:(new Date()).getTime(),
+              countFilter:true,
+              column:'sampleID',
+              compare:'in',
+              value:"(select top "+count+" sampleID from PrevComps where "+split1+"='"+val+"'"+(val2?" and "+split2+"='"+val2+"'":"")+"{{filters}})",
+              excluder:split1+"<>'"+val+"'"+(val2?" and "+split2+"<>'"+val2+"'":""),
+              customCount:count,
+              customCountFields:[split1,split2===""?null:split2],
+              customCountVals:[val,val2],
+            }
+            countFilters.push(newFilt)
+            return newFilt
+          }
+          // console.log(JSON.parse(JSON.stringify(countFilters)))
+          countFilters=countFilters.filter(filt=>filt.customCountFields[0]===split1 && (filt.customCountFields[1]===split2 || filt.customCountFields[1]===null))
+          // console.log(JSON.parse(JSON.stringify(countFilters)))
+
+          if (split1) {
+            let splitData=[]
+            let split1totals=e.counts.filter(r=>r.grp1==0 && (r.grp2==1 || r.grp2===undefined) && r[split1] && r.grpInUse==1)
+            let split2totals=e.counts.filter(r=>r.grp1==1 && r.grp2==0 && r[split2] && r.grpInUse==1)
+            let getCountInput=(c,onR,success,cancel)=>{
+              let countInput=$(document.createElement("input"))
+              let max=c.getValue().max
+              countInput.attr("type","number").val(c.getValue().val).addClass("noArrows")
+              countInput.keyup(function(e){
+                if (e.which==13) {
+                  countInput.blur()
+                }
+                if (e.which==27) {
+                  cancel()
+                }
+              })
+              countInput.blur(function(e){
+                if (c.getValue().countFilter) {
+                  countFilters=countFilters.filter(filt=>filt.id!==c.getValue().countFilter.id)
+                }
+                console.log(countInput.val(),countInput.val()==="")
+                if (countInput.val()==="" || countInput.val()==max) {
+                  $(c.getElement()).removeClass("customCount")
+                  success({val:max,max:max,cellGroup:c.getValue().cellGroup,countFilter:null})
+                }else {
+                  let newVal=Math.max(0,Math.min(max,countInput.val()))
+                  let newFilt=addCountFilter(newVal,c.getData().splitTitle,(c.getField()=="splitTotal"?null:c.getField()))
+                  $(c.getElement()).addClass("customCount")
+                  success({val:newVal,max:max,cellGroup:c.getValue().cellGroup,countFilter:newFilt})
+                }
+              })
+              onR(()=>{
+                countInput.focus().select()
+              })
+              return countInput[0]
+            }
+            let countFormatter=(c,p,onR)=>{
+              // console.log(JSON.parse(JSON.stringify(countFilters)),c.getData().splitTitle,c.getField())
+              let isCustom=false
+              if (countFilters.find(filt=>filt.customCountVals[0]===c.getData().splitTitle && ((c.getField()=="splitTotal" && filt.customCountVals[1]===null) || filt.customCountVals[1]===c.getField()))) {
+                console.log("FOUND COUNTFILTER")
+                isCustom=true
+                onR(()=>{
+                  $(c.getElement()).addClass("customCount")
+                })
+              }
+              if (c.getValue().cellGroup) {
+                onR(()=>{
+                  $(c.getElement()).addClass("cellGroupCell-"+c.getValue().cellGroup.id).addClass("cellGroupCell")
+                  $(c.getElement()).attr("title","Grouped in "+c.getValue().cellGroup.groupName+": "+c.getValue().cellGroup.groupCount)
+                })
+              }
+              if (c.getValue().isGrouping) {
+                $(c.getElement()).addClass("currentGroup")
+              }
+              // console.log(c.getValue(),(c.getValue() || {val:0,max:0}).val)
+              let val=c.getValue() || {val:null,max:0}
+              return isCustom?val.val:(val.val?val.val:"")
+            }
+            let updateTotalCounts=()=>{
+              console.log("UPDATING TOTAL COUNTS")
+              if (split2) {
+                splitTable.getRows().forEach((row, i) => {
+                  let d=row.getData()
+                  let rowTotal=d.splitTotal.val
+                  rowTotal=split2totals.reduce((a,b) => {
+                    return a+Number(d[b[split2]].cellGroup?0:d[b[split2]].val)
+                  },0);
+                  rowTotal=Math.min(row.getData().splitTotal.val,rowTotal)
+                  let max=d.splitTotal.max
+                  if (rowTotal<d.splitTotal.val) {
+                    max=rowTotal
+                  }
+                  row.update({splitTotal:{val:rowTotal,max:max,countFilter:row.getData().splitTotal.countFilter,cellGroup:row.getData().splitTotal.cellGroup}})
+                });
+                splitTable.recalc()
+              }
+              let total=splitTable.getCalcResults().top.splitTotal+_.uniqBy(cellCountGroups,"id").reduce((a,b)=>a+Number(b.groupCount),0)
+              $('.dataCount').html(total)
+              $('#subsetCount').val(total).attr("max",total).trigger("change")
+            }
+            let groupedCells=[]
+            $('#groupModeAdd').on('click',function(e){
+              let fildID=(new Date()).getTime()
+              let name=$('#groupName').val()+""
+              countFilters.push({
+                id:fildID,
+                countFilter:true,
+                column:'sampleID',
+                compare:'in',
+                value:"(select top "+$('#groupCount').val()+" sampleID from PrevComps where ("+groupedCells.map(c=>"("+split1+"='"+c.getData().splitTitle+"'"+(c.getField()!='splitTotal'?" and "+split2+"='"+c.getField()+"'":"")+")").join(" or ")+"){{filters}})",
+                excluder:groupedCells.map(c=>split1+"<>'"+c.getData().splitTitle+"'"+(c.getField()!='splitTotal'?" and "+split2+"<>'"+c.getField()+"'":"")).join(" and "),
+                customCount:$('#groupCount').val(),
+                customCountFields:[split1,null],
+                customCountVals:[null,null],
+              })
+              groupedCells.forEach((c, i) => {
+                console.log(name)
+                let cGrp={id:fildID,field1:c.getData().splitTitle,field2:c.getField()!='splitTotal'?null:c.getField(),groupName:name,groupCount:$('#groupCount').val()}
+                cellCountGroups.push(cGrp)
+                let val=c.getValue()
+                delete val.isGrouping
+                val.cellGroup=cGrp
+                splitTable.getRow(c.getData().splitTitle).getCell(c.getField()).setValue(val)
+              });
+              let colour=chartColours[Math.floor(Math.random() * 10)]
+              $("<style type='text/css'>.cellGroupCell-"+fildID+"{color:"+colour+"!important;background:"+colour+"!important;opacity:0.8;}</style>").appendTo("head")
+              $('#groupModeCont').hide()
+              $('#groupName').val("")
+              groupedCells=[]
+              splitTable.redraw(true)
+              updateTotalCounts()
+            })
+            $('#groupModeCancel').on('click',function(e){
+              groupedCells.forEach((c, i) => {
+                let val=c.getValue()
+                delete val.isGrouping
+                splitTable.getRow(c.getData().splitTitle).getCell(c.getField()).setValue(val)
+              });
+              $('#groupModeCont').hide()
+              groupedCells=[]
+              splitTable.redraw(true)
+              $('#groupName').val("")
+            })
+            let cellClick=(e,c)=>{
+              if (!c.getValue().cellGroup) {
+                if (e.ctrlKey) {
+                  e.preventDefault()
+                  if (!$('#groupModeCont').is(":visible")) {
+                    $('#groupModeCont').show()
+                  }
+                  if (groupedCells.find(g=>g.getField()===c.getField() && g.getData().splitTitle==c.getData().splitTitle)) {
+                    groupedCells=groupedCells.filter(g=>g.getField()!==c.getField() && g.getData().splitTitle!==c.getData().splitTitle)
+                    let val=c.getValue()
+                    delete val.isGrouping
+                    splitTable.getRow(c.getData().splitTitle).getCell(c.getField()).setValue(val)
+                  }else {
+                    groupedCells.push(c)
+                    let val=c.getValue()
+                    val.isGrouping=true
+                    splitTable.getRow(c.getData().splitTitle).getCell(c.getField()).setValue(val)
+                  }
+                  $('#groupCellCount').html(groupedCells.length)
+                  $('#groupCount').val(groupedCells.reduce((a,b)=>a+Number(b.getValue().max),0))
+                  $('#groupCount').attr("max",$('#groupCount').val())
+                }else {
+                  c.edit(true)
+                }
+              }else {
+                if (confirm("Remove grouped counts?")) {
+                  let thisID=c.getValue().cellGroup.id
+                  countFilters=countFilters.filter(filt=>filt.id!==thisID)
+                  $(".cellGroupCell-"+thisID).removeClass("cellGroupCell-"+thisID).removeClass("cellGroupCell").attr("title","")
+                  cellCountGroups.filter(filt=>filt.id==thisID).forEach((cell, i) => {
+                    let tableCell=splitTable.getRow(cell.field1).getCell(cell.field2)
+                    let val=tableCell.getValue()
+                    val.cellGroup=null
+                    tableCell.setValue(val)
+                  });
+                  cellCountGroups=cellCountGroups.filter(filt=>filt.id!==thisID)
+                  // c.edit(true)
+                }
+              }
+            }
+            let topCalc=v=>v.filter(c=>!c.cellGroup).reduce((a,b)=>a+Number(b.val),0)
+            let cols=[
+              {field:"splitTitle",title:"",frozen:true},
+              {field:"splitTotal",resizable:true,editable:false,cellClick:cellClick,cssClass:"countCell",frozen:true,title:"Total",topCalc:topCalc,formatter:countFormatter,editor:getCountInput,cellEdited:c=>{
+                updateTotalCounts()
+              }}
+            ]
+            split2totals.forEach((cnt2, i) => {
+              cols.push({field:cnt2[split2],resizable:true,editable:false,cellClick:cellClick,cssClass:"countCell",topCalc:topCalc,title:cnt2[split2],formatter:countFormatter,editor:getCountInput,cellEdited:c=>{
+                updateTotalCounts()
+              }})
+            // let trHead=$(document.createElement("tr"))
+            // let topLeft=$(document.createElement("th"))
+            // let thTotal=$(document.createElement("th"))
+            // thTotal.html("Total")
+            // trHead.append(topLeft,thTotal)
+            // let trColTotal=$(document.createElement("tr"))
+            // trColTotal.append(topLeft.clone().html("Total"))
+            // let thTotalCount=topLeft.clone()
+            // thTotalCount.html(totalCount).addClass("topTotal")
+            // trColTotal.append(thTotalCount)
+            //   let th=$(document.createElement("th"))
+            //   th.html(cnt2[split2])
+            //   trHead.append(th)
+            //   trColTotal.append(th.clone().html(cnt2.c))
+            });
+            // splitTable.append(trHead,trColTotal)
+            split1totals.forEach((cnt, i) => {
+              let row={splitTitle:cnt[split1],splitTotal:{val:cnt.c,max:cnt.c,cellGroup:null}}
+              let customCount=countFilters.find(filt=>filt.customCountVals[0]===cnt[split1] && filt.customCountVals[1]===null)
+              if (customCount) {
+                row.splitTotal.val=customCount.customCount
+                row.splitTotal.countFilter=customCount
+              }
+              let cellGroup=cellCountGroups.find(c=>c.field1===cnt[split1] && c.field2==="splitTotal")
+              if (cellGroup) {
+                row.splitTotal.cellGroup=cellGroup
+              }
+              // let tr=$(document.createElement("tr"))
+              // let titleTd=$(document.createElement("td"))
+              // titleTd.addClass("titleTd").html(cnt[split1]).attr("data-title",cnt[split1])
+              // let countTd=$(document.createElement("td"))
+              // countTd.html(cnt.c).attr("data-max",cnt.c).addClass("rowTotal")
+              // let customCount=countFilters.find(filt=>filt.customCountVals[0]==cnt[split1])
+              // if (customCount) {
+              //   countTd.html(customCount).addClass("customCount")
+              // }
+              // tr.append(titleTd,countTd)
+              // // add custom counts
+              // countTd.click(function(e){
+              //   getCountInput(countTd,cnt[split1])
+              // })
+              split2totals.forEach((cnt2, i) => {
+                // let countTd2=$(document.createElement("td"))
+                // console.log(e.counts.filter(r=>r.grp1==0 && r.grp2==0),split1,cnt[split1],split2,cnt2[split2])
+                let dbCount=(e.counts.find(r=>r.grp1==0 && r.grp2==0 && r[split1]===cnt[split1] && r[split2]===cnt2[split2] && r.grpInUse==1) || {c:0}).c
+                let customCount=countFilters.find(filt=>filt.customCountVals[0]===cnt[split1] && filt.customCountVals[1]===cnt2[split2])
+                if (customCount) {
+                  row[cnt2[split2]]={val:customCount.customCount,max:dbCount,cellGroup:null,countFilter:customCount}
+                }else {
+                  row[cnt2[split2]]={val:dbCount,max:dbCount,cellGroup:null}
+                }
+                let cellGroup2=cellCountGroups.find(c=>c.field1===cnt[split1] && c.field2===cnt[split2])
+                if (cellGroup2) {
+                  row[cnt2[split2]].cellGroup=cellGroup2
+                }
+                // countTd2.html(dbCount).attr("data-max",dbCount)
+                // tr.append(countTd2)
+                // let customCount=countFilters.find(filt=>filt.customCountVals[0]==cnt[split1] && filt.customCountVals[1]==cnt2[split2])
+                // if (customCount) {
+                //   countTd2.html(customCount).addClass("customCount")
+                // }
+                // countTd2.click(function(e){
+                //   getCountInput(countTd2,cnt[split1],cnt2[split2])
+                // })
+              });
+              splitData.push(row)
+            });
+            // console.log(splitData)
+            if (splitTable) {
+              splitTable.destroy()
+            }
+            splitTable=new Tabulator("#splitByGrid",{
+              data:splitData,
+              columns:cols,
+              height:"400px",
+              index:'splitTitle'
+              // renderHorizontal:"virtual",
+              // layout:"fitDataFill",
+              // layout:"fitColumns",
+              // responsiveLayout:"hide",
+            })
+            splitTable.on("tableBuilt",function(e){
+              updateTotalCounts()
+              $('body').removeClass("loading")
+            })
+            splitTable.on("tableRendered",function(e){
+              cellCountGroups.forEach((c, i) => {
+
+              });
+            })
+            // $("#splitByGrid").append(splitTable)
+          }
+        }else {
+          countFilters=[]
+          if (splitTable) {
+            splitTable.destroy()
+          }
+        }
+        res()
+      })
+    })
+  }
+  function initialize(){
+    <%if(completes){%>
+      filters=[{id:1,column:"E2",compare:"is not",value:"null"}]
+    <%}else{%>
+      filters=[{id:1,column:"E2",compare:"is",value:"null"}]
+    <%}%>
+    refreshCount()
+    $("select.filterCompare").selectpicker("hide")
+    $("select.filterValue").selectpicker("hide")
+    $("#splitBy2").selectpicker("hide")
+  }
+  $('.selectpicker:last').on('loaded.bs.select',function(e){
+    initialize()
+  })
+  $('#splitBy,#splitBy2').on("change",function(e){
+    if ($("#splitBy").val()) {
+      $("#splitBy2").selectpicker("show")
+    }else {
+      $("#splitBy2").val("").selectpicker("refresh")
+      $("#splitBy2").selectpicker("hide")
+    }
+    refreshCount()
+  })
+  $("select.filterCol").on("change",function(e){
+    $("select.filterCompare").selectpicker("val","").selectpicker("hide")
+    $("select.filterValue").selectpicker("val","").selectpicker("hide")
+    $(".filterValue").val("").hide()
+    $("select.filterCompare option").prop("disabled",true)
+    if ($("select.filterCol").val()) {
+      let dataType=$("select.filterCol option:selected").attr("data-type")
+      $("select.filterCompare option[data-"+dataType+"=true]").prop("disabled",false)
+      $("select.filterCompare").selectpicker("show")
+      if ($("select.filterCompare").val()) {
+        getValues()
+      }
+    }
+    $("select.filterCompare").selectpicker("refresh")
+  })
+  $("select.filterValue").on("change",function(e){
+    if ($("select.filterValue").val()=="[lookupfile]") {
+      $(".filterValue[type='file']").show()
+      $(".filterValue[type='file']").click()
+    }else {
+      $(".filterValue[type='file']").hide()
+    }
+  })
+  $(".filterValue").on('change',function(e){
+    // console.log("changed",this,$(this).val())
+    if ($(this).val().length) {
+      $("#addFilterBtn").prop("disabled",false)
+    }else {
+      $("#addFilterBtn").prop("disabled",true)
+    }
+  })
+  function getValues(){
+    let dataType=$("select.filterCol option:selected").attr("data-type")
+    if ($("select.filterCompare option[data-list=true]:selected").length) {
+      $(".filterValue[data-"+dataType+"=true][data-list=true]").show()
+      let data=filtersToForm("colValues",$("select.filterCol").val())
+      // console.log(data)
+      $.ajax({url:"/get-prevcomp-info",method:'post',contentType: false,processData: false,data:data}).done(e=>{
+        let sel=$("select.filterValue")
+        sel.empty()
+        // console.log(e.vals)
+        if (e.vals.length<200) {
+          sel.append(new Option("-Upload a lookup file-","[lookupfile]"))
+          e.vals.forEach((val, i) => {
+            sel.append(new Option(val.val,val.val))
+          });
+          sel.selectpicker("refresh")
+          sel.selectpicker("show")
+        }else {
+          $(".filterValue[type='file']").show()
+        }
+      }).fail(e=>console.log(e))
+    }else {
+      $(".filterValue[data-"+dataType+"=true]").show()
+    }
+  }
+  $("select.filterCompare").on("change",function(e){
+    $(".filterValue").val("").hide()
+    if ($("select.filterCompare").val()) {
+      getValues()
+    }
+  })
+  function addFilter(){
+    setTimeout(()=>{
+      let newFilter={
+        id:(new Date()).getTime(),
+        column:$("select.filterCol").val(),
+        compare:$("select.filterCompare").val(),
+        value:$("select.filterCompare").val()=="LIKE"?"'%"+$(".filterValue:visible").val()+"%'":"'"+$(".filterValue:visible").val()+"'",
+      }
+      function setValue(){
+        return new Promise(res=>{
+          if ($(".filterValue[type='file']").val()) {
+            newFilter.file=$(".filterValue[type='file']")[0].files[0]
+            res()
+          }else if($("select.filterValue").val().length>0) {
+            newFilter.value="("+$("select.filterValue").val().map(v=>"'"+v+"'")+")"
+            res()
+          }else {
+            newFilter.value=$("select.filterCompare").val()=="LIKE"?"'%"+$(".filterValue:visible:not([type='file'])").val()+"%'":"'"+$(".filterValue:visible:not([type='file'])").val()+"'"
+            res()
+          }
+        })
+      }
+      setValue().then(e=>{
+        console.log($("select.filterValue").val().length,$(".filterValue:visible:not([type='file'])").val())
+        console.log(newFilter)
+        filters.push(newFilter)
+        refreshCount().then(e=>{
+          $(".filterCompare").selectpicker("val","").selectpicker("hide")
+          $(".filterValue").val("").hide()
+          $(".filterCol").selectpicker("val","")
+          $("#addFilterBtn").prop("disabled",true)
+          let filt=$(document.createElement("div"))
+          filt.addClass("appliedFilter").tooltip({title:newFilter.column+" "+newFilter.compare+" "+_.truncate(newFilter.value,{length:200})})
+          let filtText=$(document.createElement("span"))
+          filtText.html(newFilter.column)
+          let filtDel=$(document.createElement("button"))
+          filtDel.addClass("btn btn-secondary btn-sm").html('<i class="fa-solid fa-trash-can"></i>')
+          filtDel.click(e=>{
+            filt.tooltip("dispose")
+            filt.remove()
+            filters=filters.filter(f=>f.id!=newFilter.id)
+            if (filters.length==1) {
+              $(".noFilters").show()
+              $(".appliedFilters").hide()
+            }
+            refreshCount()
+          })
+          filt.append(filtText,filtDel)
+          $(".noFilters").hide()
+          $(".appliedFilters").show()
+          $(".appliedFilters").append(filt)
+        })
+      })
+
+    },100)
+  }
+
+</script>
+<style>
+  .tabulator-col-content,.tabulator-cell{
+    padding:3px!important;
+    font-size:small;
+  }
+</style>
+</body>
+</html>

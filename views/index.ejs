@@ -1,0 +1,275 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="table-wrapper">
+    <script>
+      $(document).ready(function () {
+        var initials=function(cell){
+          var init=""
+          if (cell.getValue()) {
+            var arr=cell.getValue().split(" ")
+            arr.forEach((word, i) => {
+              init=init+word[0]
+            })
+          }
+          return init.toUpperCase()
+        }
+        let headerFilterPs={
+          values:true,
+          sortValuesList:'asc',
+          multiselect:true,
+        }
+        let customHeaderFilter=(filtVal,rowVal,data)=>{
+          return filtVal.indexOf(rowVal)>-1 || filtVal.length==0
+        }
+        var table=new Tabulator("#Project-table",{
+          autoResize:true,
+          layout:"fitData",
+          // resizableColumns:false,
+          ajaxURL:"/allProjects",
+          pagination:"remote",
+          paginationSize:25,
+          layout:"fitDataTable",
+          height:'80vh',
+          // headerSort:false,
+          ajaxResponse:function(url, params, response){
+            return response.jobs.map(el=>{
+              el.notes=el.projectID?response.notes.filter(n=>n.jobID==el.projectID).map(n=>n.note).join(""):''
+              return el
+            })
+          },
+          rowClick:function(e,row){
+            window.location.href = "/overview/"+row.getData().quoteID
+          },
+          columns:[
+            {field: 'quoteID',visible:false},
+            {field: 'quoteNo',title:'Job Num',headerFilter:"number"},
+            {field: 'quoteName',title:'Job Name',headerFilter:"input",formatter:(cell)=>cell.getValue()+(cell.getData().isJobHourly==1?' <i class="far fa-clock"></i>':'')},
+            {field: 'clientName',title:'Client',headerFilter:"select",headerFilterParams:headerFilterPs,headerFilterFunc:customHeaderFilter},
+            {field: 'quoteDate',title:'Quoted',headerFilter:"select",headerFilterParams:headerFilterPs,headerFilterFunc:customHeaderFilter,mutator:val=>val?moment(val).format("DD/MM/YYYY"):''},
+            {field: 'ProjStatus',title:'Status',headerFilter:"select",headerFilterParams:headerFilterPs,headerFilterFunc:customHeaderFilter},
+            {field: 'chased',title:'Quote chased',headerFilter:"select",headerFilterParams:headerFilterPs,headerFilterFunc:customHeaderFilter,mutator:val=>val?moment(val).format("DD/MM/YYYY"):''},
+            {field: 'chaseOutcome',title:'Chase response',maxWidth:150,headerFilter:"select",headerFilterParams:headerFilterPs,headerFilterFunc:customHeaderFilter,mutator:(val)=>val?val:''},
+            {field: 'startDate',title:'Start',headerFilter:"select",headerFilterParams:headerFilterPs,headerFilterFunc:customHeaderFilter,sorter:"date", sorterParams:{format:"dd/MM/yyyy",alignEmptyValues:"bottom"},mutator:val=>val?moment(val).format("DD/MM/YYYY"):''},
+            {field: 'endDate',title:'End',headerFilter:"select",headerFilterParams:headerFilterPs,headerFilterFunc:customHeaderFilter,mutator:val=>val?moment(val).format("DD/MM/YYYY"):''},
+            {field: 'dataDate',title:'Data',headerFilter:"select",headerFilterParams:headerFilterPs,headerFilterFunc:customHeaderFilter,mutator:val=>val?moment(val).format("DD/MM/YYYY"):''},
+            {field: 'tablesDate',title:'Tabs',headerFilter:"select",headerFilterParams:headerFilterPs,headerFilterFunc:customHeaderFilter,mutator:val=>val?moment(val).format("DD/MM/YYYY"):''},
+            {field: 'staffName',title:'CM',headerFilter:"select",headerFilterParams:headerFilterPs,headerFilterFunc:customHeaderFilter,formatter:initials},
+            {field: 'staffPMName',title:'PM',headerFilter:"select",headerFilterParams:headerFilterPs,headerFilterFunc:customHeaderFilter,formatter:initials},
+            {field: 'interviewsTarget',title:'Ints target'},
+            {field: 'hourlyTarget',title:'AHR target'},
+            {field: 'ints',title:'Ints done'},
+            {field: 'AHR',title:'AHR',formatter:function(cell){return cell.getValue()?cell.getValue().toFixed(2):''}},
+            {field: 'cont',title:'Cont',formatter:function(cell){return cell.getValue()?(cell.getValue()*100).toFixed(1)+"%":''}},
+            {field: 'isJobDay',visible:false},
+            {field: 'isJobEve',visible:false},
+            {field: 'isJobBusiness',visible:false},
+            {field: 'isJobConsumer',visible:false},
+            {field: 'isJobConfirmit',visible:false},
+            {field: 'isJobInHouse',visible:false},
+            {field: 'isJobCATI',visible:false},
+            {field: 'isJobOnline',visible:false},
+            {field: 'isJobFace',visible:false},
+            {field: 'isJobRecruitment',visible:false},
+            {field: 'isJobValidation',visible:false},
+            {field: 'isJobRecontacts',visible:false},
+            {field: 'isJobInternational',visible:false},
+            {field: 'isJobDP',visible:false},
+            {field: 'isJobHourly',visible:false},
+          ],
+          cellMouseOver:function(e, cell){
+            var notes=cell.getData().notes.replaceAll(r,"")
+            var sPos=notes.toLowerCase().indexOf($("#searchInput").val().toLowerCase())
+            if (notes && $("#searchInput").val() && sPos>-1) {
+              var r=/(<[^>]*>)/g;
+              $(cell.getElement()).tooltip({
+                title:"<div class='tooltipTitle'>From commission notes:</div>..."+notes.substring(sPos-40,sPos+40)+"...",
+                html:true,
+                container:'body',
+                position:'bottom',
+                boundary:'window'
+              })
+              $(cell.getElement()).tooltip("show")
+              var tooltipMark = new Mark("#"+$(cell.getElement()).attr("aria-describedby"));
+              tooltipMark.mark($("#searchInput").val());
+            }
+          },
+          cellMouseOut:function(e, cell){
+            $(cell.getElement()).tooltip("dispose")
+          },
+          rowFormatter:function(row){
+            // row.getElement().style.height= "25px";
+            // row.getCells().forEach((cell, i) => {
+            //   cell.getElement().style['font-size']= "small";
+            //   cell.getElement().style.padding= "2px";
+            //   // cell.getElement().style['mix-blend-mode']='difference';
+            //   if (cell.getData().isJobHourly==1) {
+            //     cell.getElement().style.color= '#ff8d8d';
+            //   }
+            // })
+            let data=row.getData()
+            var gradArr=[]
+            var txtColArr=[]
+            if (data.ProjStatus=='Quoted') {
+              gradArr.push('rgb(133 133 133 / 80%)')
+              txtColArr.push('white')
+            }else {
+              if (data.isJobDay==1) {
+                gradArr.push('rgba(255,192,0,0.8)')
+                txtColArr.push('black')
+              }
+              if (data.isJobEve==1) {
+                gradArr.push('rgba(255,255,255,0.8)')
+                txtColArr.push('black')
+              }
+              if (data.isJobOnline==1) {
+                gradArr.push('rgba(0,0,255,0.8)')
+                txtColArr.push('white')
+              }
+              if (data.isJobFace==1 || data.isJobInHouse!=1) {
+                gradArr.push('rgba(255,0,255,0.8)')
+                txtColArr.push('white')
+              }
+            }
+            var grad="linear-gradient(90deg, "
+            var gradTxtArr=[]
+            var cellArr=row.getCells()
+            var cellCount=18
+            var cellGrpCnt=cellCount/gradArr.length
+            for (var i = 0; i < gradArr.length; i++) {
+              let percFrom=Math.round((50/(gradArr.length-1))*i)
+              let percTo=Math.round((50/(gradArr.length-1))*(i+0.5))
+              gradTxtArr.push(gradArr[i]+" "+percFrom+"%")
+              gradTxtArr.push(gradArr[i]+" "+percTo+"%")
+            }
+            cellArr.forEach((cell, i) => {
+              let c=cell.getElement()
+              if (c.offsetParent) {
+                let percTo=((c.offsetLeft+c.offsetWidth)/c.offsetParent.offsetWidth)*100
+                let i=Math.round((percTo/(50/(gradArr.length-1)))-0.5)
+                c.style.color=txtColArr[Math.min(gradArr.length-1,i)]
+              }
+            });
+            grad=grad+gradTxtArr.join(", ")+")"
+            row.getElement().style.background=gradArr[0];
+            row.getElement().style.background=grad;
+          },
+          ajaxRequesting:function(url, params){
+            $('body').addClass('loading')
+          },
+          dataLoaded:function(data){
+            $('body').removeClass('loading')
+          },
+          renderComplete:delay(function(){
+            $('body').addClass('loading')
+            console.log($('#searchInput').val())
+            if ($('#searchInput').val()) {
+              this.getRows().forEach((row, i) => {
+                // $(row.getElement()).unmark()
+                var rowMark = new Mark(row.getElement())
+                rowMark.unmark()
+                rowMark.mark($('#searchInput').val())
+              });
+            }
+            $('body').removeClass('loading')
+          },200),
+        })
+      });
+      $(document).on("change","select.customfilters",function(e){
+        var col=$(this).attr("data-col")
+        var val=$(this).val()
+        var jobsTable=Tabulator.prototype.findTable('#Project-table')[0]
+        jobsTable.getFilters().filter(el=>el.field==col).forEach((filter, i) => {
+          jobsTable.removeFilter(filter.field,filter.type,filter.value)
+        });
+        if (val) {
+          jobsTable.addFilter(col,"like",val)
+        }
+      })
+      function delay(callback, ms) {
+        var timer = 0;
+        return function() {
+          var context = this, args = arguments;
+          clearTimeout(timer);
+          timer = setTimeout(function () {
+            callback.apply(context, args);
+          }, ms || 0);
+        };
+      }
+      $(document).on("keyup","#searchInput",delay(function(e){
+        var searchVal=$(this).val()
+        var jobsTable=Tabulator.prototype.findTable('#Project-table')[0]
+        var quoteNums=jobsTable.getData().filter(el=>{
+          return (el.quoteName+el.clientName+el.quoteNo+(el.notes?el.notes:'')).toLowerCase().indexOf(searchVal.toLowerCase())>-1
+        }).map(el=>el.quoteNo)
+        jobsTable.getFilters().filter(el=>el.field=="quoteNo").forEach((filter, i) => {
+          jobsTable.removeFilter(filter.field,filter.type,filter.value)
+        });
+        if (searchVal) {
+          jobsTable.addFilter("quoteNo","in",quoteNums.length>0?quoteNums:['a'])
+        }
+      },500))
+      $(document).on("change","select.customMultifilters",function(e){
+        var val=$(this).val()
+        var jobsTable=Tabulator.prototype.findTable('#Project-table')[0]
+        jobsTable.getFilters().filter(el=>el.field.indexOf("isJob")>-1).forEach((filter, i) => {
+          jobsTable.removeFilter(filter.field,filter.type,filter.value)
+        });
+        if (val.length>0) {
+          val.forEach((v, i) => {
+            if (v=="isJobInHouse") {
+              jobsTable.addFilter(v,"!=",1)
+            }else {
+              jobsTable.addFilter(v,"=",1)
+            }
+          });
+        }
+      })
+    </script>
+    <style>
+      label{
+        color:white
+      }
+      .container{
+        max-width: fit-content!important;
+      }
+      .tooltipTitle{
+        font-size:small;
+        font-variant: petite-caps;
+        color:gray;
+      }
+      mark {
+        padding: 0px;
+      }
+      .tabulator-row .tabulator-cell,.tabulator-col-content{
+        padding: 2px!important;
+        font-size: small;
+      }
+    </style>
+    <div class="container">
+      <div class="card text-dark bg-light mb-2 text-center viewerHeight">
+        <div class="card-body">
+        <input type="text" id="searchInput" placeholder="Search..."  class="form-control" style="display: inline-block; width: auto;" value="">
+        <select multiple size="99" id="type-filter" class="selectpicker customMultifilters btn-flat" data-container="body" data-live-search="true" title="Type...">
+            <option value="isJobDay" >Day</option>
+            <option value="isJobEve" >Eve</option>
+            <option value="isJobBusiness" >B2B</option>
+            <option value="isJobConsumer" >Consumer</option>
+            <option value="isJobConfirmit" >ConfirmIt</option>
+            <option value="isJobInHouse" >Outsourced</option>
+            <option value="isJobCATI" >CATI</option>
+            <option value="isJobOnline" >Online</option>
+            <option value="isJobFace" >F2F</option>
+            <option value="isJobRecruitment" >Recruitment</option>
+            <option value="isJobValidation" >Validation</option>
+            <option value="isJobRecontacts" >Recontact</option>
+            <option value="isJobInternational" >International</option>
+            <option value="isJobDP" >DP only</option>
+            <option value="isJobHourly" >Charged by the hour</option>
+        </select>
+        <div id="Project-table" style="width:100%; z-index:0;">
+          </div>
+        </div>
+        </div>
+        </div>
+      </div>
+    </body>
+    </html>

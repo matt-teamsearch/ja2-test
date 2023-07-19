@@ -1,0 +1,108 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  $(document).ready(function () {
+    var table = $('#Project-table').DataTable( {
+      ordering: false,
+      scrollY: 550,
+      scrollX: false,
+      scrollCollapse: true,
+      paging: false,
+      info: false
+    });
+  })
+  function fnExcelReport(id)
+  {
+      var tab_text="<table border='2px'><tr bgcolor='#87AFC6'>";
+      var textRange; var j=0;
+      tab = document.getElementById(id); // id of table
+
+      for(j = 0 ; j < tab.rows.length ; j++)
+      {
+          tab_text=tab_text+tab.rows[j].innerHTML+"</tr>";
+          //tab_text=tab_text+"</tr>";
+      }
+
+      tab_text=tab_text+"</table>";
+      tab_text= tab_text.replace(/<A[^>]*>|<\/A>/g, "");
+      tab_text= tab_text.replace(/<a[^>]*>|<\/a>/g, "");
+      tab_text= tab_text.replace(/<img[^>]*>/gi,"");
+
+
+      var ua = window.navigator.userAgent;
+      var msie = ua.indexOf("MSIE ");
+
+      if (msie > 0 || !!navigator.userAgent.match(/Trident.*rv\:11\./))
+      {
+          txtArea1.document.open("txt/html","replace");
+          txtArea1.document.write(tab_text);
+          txtArea1.document.close();
+          txtArea1.focus();
+          sa=txtArea1.document.execCommand("SaveAs",true,"Client_performance.xls");
+      }
+      else
+          sa = window.open('data:application/vnd.ms-excel,' + encodeURIComponent(tab_text));
+
+      return (sa);
+  }
+</script>
+<div class="container" style="padding-top:70px;">
+  <%
+  const dateIf = (inDate, seperator, order) => {
+    let day =''
+    if (new Date(inDate).getDate() < 10) {
+      day = '0' + new Date(inDate).getDate()
+    } else {
+      day = new Date(inDate).getDate()
+    }
+    let month =''
+    if (new Date(inDate).getMonth()+1 < 10) {
+      month = '0' + (new Date(inDate).getMonth()+1)
+    } else {
+      month = (new Date(inDate).getMonth()+1)
+    }
+    let year = new Date(inDate).getFullYear()
+    if(order=="f"){
+    return(day+seperator+month+seperator+year)
+    }
+    if(order=="r"){
+    return(year+seperator+month+seperator+day)
+    }
+  }
+  %>
+  <% if (dailydata.length > 0) {%>
+    <div class="card text-dark bg-light mb-2 text-center">
+        <div class="card-body">
+          <h5 class="card-title">Update interviewer achievements for <%= dateIf(message,"/","f") %></h5>
+        </div>
+      <div class="card-body">
+        <form class="add-daily-form" action="" method="post" enctype="multipart/form-data" style="overflow-x:auto;">
+          <input type="text" name="user" id="user" style="display:none;">
+          <table class="table table-sm table-striped table-bordered" id="Project-table">
+            <thead>
+              <th>Project Number</th>
+              <th>Project Name</th>
+              <th>Interviewer</th>
+              <th>Interviews </th>
+              <th>Hours</th>
+            </thead>
+            <% dailydata.forEach((daily, index) => { %>
+              <tr style="border:solid 1px grey; padding-left:10px;" id="">
+                <td><%= daily.quoteNo %></td>
+                <td><%= daily.quoteName %> - <%= daily.jobName %></td>
+                <td><%= daily.agentName %></td>
+                <td><div style="display:none;"><%= daily.inputInterviews %></div><input type="number" step="1" min="0" value="<%= daily.inputInterviews %>" id="jobInts_<%= daily.jobID %>_<%= daily.agentID %>" name="jobInts_<%= daily.jobID %>_<%= daily.agentID %>"></input></td>
+                <td><div style="display:none;"><%= daily.inputHours %></div><input type="number" step="0.05" min="0" value="<%= daily.inputHours %>" id="jobHours_<%= daily.jobID %>_<%= daily.agentID %>" name="jobHours_<%= daily.jobID %>_<%= daily.agentID %>"></input></td>
+              </tr>
+              <% }) %>
+            </table>
+            <input type="submit" class="btn btn-success" id="Redirect" value="Update" style="width:100%;">
+          </form>
+          <button class="btn btn-secondary" id="btnExport" onclick="fnExcelReport('Project-table');" style="width:100%;"> Download to excel </button>
+        </div>
+      </div>
+      <% } else { %>
+        <p class="text-center text-danger">No interviews on selected date</p>
+        <% } %>
+      </div>
+    </body>
+    </html>

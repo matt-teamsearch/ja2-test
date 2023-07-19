@@ -1,0 +1,41 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  $(document).ready(function () {
+    $('#Project-table').DataTable({
+      "paging": false,
+    });
+    $('.dataTables_length').addClass('bs-select');
+  });
+</script>
+<p class="text-center text-danger"><%= message %></p>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <% if (quotes.length > 0) {%>
+        <h3><%= quotes[0].clientName %> Quote Breakdown</h3>
+        <table class="table table-sm table-striped table-bordered" id="Project-table">
+          <thead class="thead">
+            <tr>
+              <th scope="col">Project number</th>
+              <th scope="col">Project name</th>
+              <th scope="col">Client</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% quotes.forEach((quote, index) => { %>
+              <tr>
+                <td><a href="/overview/<%= quote.quoteID %>"><%= quote.quoteNo %></a></td>
+                <td><%= quote.quoteName %></td>
+                <td><%= quote.clientName %></td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+          <% } else { %>
+            <h1 class="text-center text-danger">No quotes found.</h1>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </body>
+    </html>

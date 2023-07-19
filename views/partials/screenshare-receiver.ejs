@@ -1,0 +1,57 @@
+<%- include('partials/'+versionPages.header) %>
+<div id="contentContainer">
+  <input type="text" name="" value="" id="sid">
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<link rel="stylesheet" href="/css/virtual-select.min.css">
+<script src="/js/virtual-select.min.js"></script>
+<style media="screen">
+</style>
+<script type="text/javascript">
+  const socket = globalSocket;
+  const peer = new RTCPeerConnection();
+  globalSocket.on("connect",function(e){
+    $("#sid").val(globalSocket.id)
+  })
+  let requestSID
+  socket.on('screenshare-request', async (sourceSID) => {
+    console.log("new screenshare request",sourceSID)
+    requestSID=sourceSID
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        audio: false,
+        video: true,
+        preferCurrentTab: true,
+      });
+
+      peer.addTrack(stream.getVideoTracks()[0], stream);
+      stream.getVideoTracks()[0].addEventListener('ended', () => {
+        socket.emit('screenshare-end', requestSID);
+      })
+      const sdp = await peer.createOffer();
+      await peer.setLocalDescription(sdp);
+      console.log("sending offer",{pld:peer.localDescription,target:sourceSID})
+      socket.emit('offer', {pld:peer.localDescription,target:sourceSID});
+    } catch (error) {
+
+      console.error(error);
+      alert(error.message);
+    }
+  });
+
+  socket.on('answer', async (answer) => {
+    peer.setRemoteDescription(answer.pld);
+  });
+
+  peer.addEventListener('icecandidate', (event) => {
+    if (event.candidate) {
+      console.log(event.candidate)
+      socket.emit('icecandidate', {candidate:event.candidate,target:requestSID});
+    }
+  });
+  socket.on('icecandidate', async (candidate) => {
+    await peer.addIceCandidate(new RTCIceCandidate(candidate));
+  });
+</script>
+</body>
+</html>

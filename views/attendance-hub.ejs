@@ -1,0 +1,735 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .explanitory{
+    opacity:0.5;
+    font-style:italic;
+  }
+  .tabulator-cell,.tabulator-col-content {
+    padding: 3px!important;
+  }
+  .aBtn {
+    background: none;
+    border: none;
+    padding: 1px;
+    color: var(--primary);
+  }
+  .actionBtns {
+    height: 100%;
+    width: 100%;
+    font-size: 24px;
+    padding: 2px;
+    line-height: 1em;
+    border: none;
+  }
+  .actionBtns.btn-outline-success {
+    pointer-events:none;
+  }
+  .tabulator-cell.btnCell {
+    padding: 0px!important;
+  }
+  .flash-message {
+    font-size: 30px;
+    padding-right: 47px!important;
+  }
+  .flash-container .flash-message:after{
+    font-family: 'Font Awesome 5 Free';
+  }
+  .tabulator-col-title {
+    white-space: break-spaces!important;
+  }
+  .hoverSymbols {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #ffffffd1;
+  }
+  .hoverSymbols .fa-times{
+    color: var(--danger);
+  }
+  .hoverSymbols .fa-check{
+    color: var(--success);
+  }
+  img.cellSpinner {
+    width: 50px;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translateY(-50%) translateX(-50%);
+    cursor: wait;
+  }
+  .tableCont {
+    width: 48%;
+    margin: 0px 1%;
+  }
+  .sideBySide {
+    display: flex;
+  }
+  .actionDone {
+    text-decoration: line-through 3px wavy #008f21;
+  }
+  .actionBtn {
+    height: 100%;
+    width: 100%;
+    border: none;
+    padding:0px;
+  }
+  .actionFields,.fileFields {
+    margin: -4px 0px 20px 0px!important;
+  }
+</style>
+<div class="container" style="padding-top:70px;max-width:90%">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h4 class="card-title">Attendance Hub</h4>
+      <div class="filters">
+        <select class="selectpicker selectFilters" data-live-search="true" id="shift_search" name="shift_search" title="Filter by shift">
+          <option value="0">All</option>
+          <option value="Day" <%if(sessShift=="Day"){%>selected<%}%>>Day</option>
+          <option value="Eve" <%if(sessShift=="Eve"){%>selected<%}%>>Eve</option>
+        </select>
+        <select class="selectpicker selectFilters" multiple data-live-search="true" id="team_search" name="team_search" title="Filter by team">
+          <%
+          sessTeam=sessTeam.split(",")
+          teams.forEach((team,i) => { %>
+            <option value="<%=team.agentTeamID%>" <%if(sessTeam.find(t=>t==team.agentTeamID)){%>selected<%}%>><%=team.teamName%></option>
+            <% }) %>
+          </select>
+          <button type="button" style="display:none;" class="btn btn-primary" id="updateReportBtn" onclick="refreshReport()" name="button">Update report</button>
+      </div>
+      <canvas id="attendanceKPIs" width="800" height="150"></canvas><br>
+      <h5>Absences (last 365 days)</h5>
+      <a href="#" class="btn btn-sm btn-xlsx" onclick="downloadTableXlsx('agentTable','Attendance Statuses')">Download table to Excel</a>
+      <div id="agentTable"></div>
+      <div class="sideBySide">
+        <div class="tableCont">
+          <h5>Lates (last 30 days)</h5>
+          <a href="#" class="btn btn-sm btn-xlsx" onclick="downloadTableXlsx('latesTable','Lateness Statuses')">Download table to Excel</a>
+          <div id="latesTable"></div>
+        </div>
+        <div class="tableCont">
+          <h5>No shows (last 365 days)</h5>
+          <a href="#" class="btn btn-sm btn-xlsx" onclick="downloadTableXlsx('noShowsTable','No Show Statuses')">Download table to Excel</a>
+          <div id="noShowsTable"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class='modal fade' role='dialog' id='Modal'>
+  <div class='modal-dialog modal-dialog-centered' role='document'>
+    <div class='modal-content'>
+      <div class='modal-header'>
+        <h5 class='modal-title' id='Modal-title'>Add a disciplinary outcome</h5>
+        <button type='button' class='close modalClose' data-dismiss='modal' aria-label='Close'>
+          <span aria-hidden='true'>&times;</span>
+        </button>
+      </div>
+      <div class='modal-body' id='Modal-body'>
+        <form id="actionForm" style="background: unset!important;">
+          <label for="actionDate">Date of hearing:</label><input type="date" class="form-control actionFields" required name="actionDate" id="actionDate" value="<%=tdy%>">
+          <label for="actionTypeID">Outcome:</label><select class="selectpicker actionFields form-control" data-class="actionFields" data-width="100%" required name="actionTypeID" id="actionTypeID" title="Select an outcome...">
+            <%actionTypes.forEach((action, i) => {%>
+              <option value="<%=action.actionTypeID%>"><%=action.actionName%></option>
+              <%});%>
+            </select>
+            <label for="breatheURL">Breathe report:<span class="infoHover">Go to the interviewer's profile on Breathe, go to the 'Disciplinaries' section, find the disciplinary related to this hearing, then click the arrow on the right hand side. Paste in here the URL from the address bar on that page.</span></label><input type="url" class="form-control actionFields" required pattern="^https:\/\/hr\.breathehr\.com\/employees\/\d+\/disciplinaries\/.+" id="breatheURL" name="breatheURL" value="" placeholder="Paste in URL from Breathe">
+        </form>
+      </div>
+      <div class='modal-footer'>
+        <button type='button' class='btn btn-primary' id="modalAddBtn">Add</button>
+        <button type='button' class='btn btn-secondary modalClose' data-dismiss='modal'>Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class='modal fade' role='dialog' id='fileModal'>
+  <div class='modal-dialog modal-dialog-centered' role='document'>
+    <div class='modal-content'>
+      <div class='modal-header'>
+        <h5 class='modal-title' id='fileModalTitle'></h5>
+        <button type='button' class='close modalClose' data-dismiss='modal' aria-label='Close'>
+          <span aria-hidden='true'>&times;</span>
+        </button>
+      </div>
+      <div class='modal-body' id='Modal-body'>
+        <form id="fileForm" style="background: unset!important;">
+          <label for="hearingDate">Date/time of hearing:</label><input type="datetime-local" class="form-control fileFields" required name="hearingDate" id="hearingDate">
+          <label for="effectiveDate">Date effective from:</label><input type="date" class="form-control fileFields" required name="effectiveDate" id="effectiveDate">
+          <label for="warningType">Warning type:</label><select class="form-control fileFields" data-width="100%" name="warningType" id="warningType">
+            <option value="First">First written warning</option>
+            <option value="Final">Final written warning</option>
+          </select>
+          <label for="appealName">Appeal to:</label><select class="form-control fileFields" data-width="100%" name="appealName" id="appealName" title="Who can the agent appeal the decision to?">
+            <%managers.forEach((s,i)=>{%>
+              <option value="<%=s.staffName+" ("+s.staffEmail+")"%>"><%=s.staffName+" ("+s.staffEmail+")"%></option>
+            <%})%>
+          </select>
+        </form>
+      </div>
+      <div class='modal-footer'>
+        <button type='button' class='btn btn-primary' id="fileModalAddBtn">Download doc</button>
+        <button type='button' class='btn btn-secondary modalClose' data-dismiss='modal'>Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script src="/js/agentTables.js" charset="utf-8"></script>
+<link rel="stylesheet" href="/css/agentTables.css">
+<script type="text/javascript">
+  var bfStages=<%-JSON.stringify(actionTypes)%>
+  function mailto(em){
+    window.location.href = "mailto:"+em;
+    $('body').removeClass('loading')
+  }
+  function tel(t){
+    window.location.href = "callto:"+t;
+    $('body').removeClass('loading')
+  }
+  function refreshReport(){
+    let s=$('#shift_search').val()?$('#shift_search').val():0
+    let t=$('#team_search').val().length>0?$('#team_search').val():0
+    window.location.href="/attendance-hub/"+s+"/"+t
+  }
+  function downloadTableXlsx(id,name){
+    let table=Tabulator.prototype.findTable("#"+id)[0]
+    table.download("xlsx", name+" - "+moment().format()+".xlsx")
+  }
+
+  var outcomeContextMenu = [
+    {
+      label:"View disciplinary",
+      disabled:(cell)=>!cell.getValue(),
+      action:function(e, cell){
+        window.open(cell.getValue().reportURL)
+      }
+    },
+    {
+      label:"Remove from JA2",
+      disabled:(cell)=>!cell.getValue(),
+      action:function(e, cell){
+        removeAction(cell,cell.getValue().actionID)
+      }
+    },
+  ]
+  function updateNote(note,table,agentID){
+    var data =[]
+    var jsonData={};
+    var vals=[]
+    jsonData.tableName=table
+    jsonData.agentID=agentID
+    jsonData.page='attendance-hub'
+    jsonData.note=note
+    data.push(jsonData)
+    $.ajax({
+      url: '/update-note',
+      type: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify(data),
+      success: function (response) {
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  function removeAction(cell,actionID){
+    if ($(cell.getElement()).find(".cellSpinner").length==0) {
+      $(cell.getElement()).find('svg').css('visibility','hidden')
+      $(cell.getElement()).append('<img src="/spinner.gif" class="cellSpinner">')
+      $(cell.getElement()).find('.actionBtn').hide()
+      $.ajax({
+        url: '/update-absence-action',
+        type: 'POST',
+        data: {actionID:actionID,delete:true},
+        global:false,
+        success: function (response) {
+          Tabulator.prototype.findTable("#agentTable")[0].replaceData()
+        },
+        error: function (jqXHR, exception) {
+          console.log(jqXHR, exception)
+          alert(getErrorMessage(jqXHR, exception))
+        },
+      });
+    }
+  }
+  function updateAction(cell,typeID,absenceType,score,actionDate,url){
+    var data ={}
+    data.agentID=cell.getData().agentID
+    data.actionTypeID=typeID
+    data.actionID=cell.getValue()
+    data.type=absenceType
+    data.score=score
+    data.actionDate=actionDate
+    data.reportURL=url
+    if ($(cell.getElement()).find(".cellSpinner").length==0) {
+      $(cell.getElement()).append('<img src="/spinner.gif" class="cellSpinner">')
+      $(cell.getElement()).find('.actionBtn').hide()
+      $.ajax({
+        url: '/update-absence-action',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        global:false,
+        success: function (response) {
+          Tabulator.prototype.findTable("#agentTable")[0].replaceData()
+        },
+        error: function (jqXHR, exception) {
+          console.log(jqXHR, exception)
+          alert(getErrorMessage(jqXHR, exception))
+        },
+      });
+    }
+  }
+  function downloadFile(url){
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download="";
+    document.body.appendChild(a);
+    console.log(url)
+    a.click();
+    window.URL.revokeObjectURL(url);
+  }
+  function getHRletter(fileName,cell,details,formFields,newFileName){
+    $('.fileFields').hide()
+    $('#fileModal').find('label').hide()
+    formFields.forEach((id, i) => {
+      $('#'+id).show()
+      $('[for="'+id+'"]').show()
+    });
+    if (formFields.length) {
+      $('#fileModalTitle').text(fileName)
+      $('#fileModal').modal('show')
+      $('#fileModalAddBtn').on('click',function(){
+        getDoc().then(e=>{
+          $('#fileModal').modal('hide')
+          $('#fileModalAddBtn').off('click')
+        })
+      })
+    }else {
+      getDoc()
+    }
+    function getDoc(){
+      let data={}
+      let d=cell.getTable().getData().find(a=>a.agentID==cell.getData().agentID)
+      data.fileName=fileName
+      data.newFileName=newFileName?newFileName:fileName
+      data.data={
+        isSick:cell.getValue().type=='sickness',
+        isLate:cell.getValue().type=='lateness',
+        isNoShow:cell.getValue().type=='no shows',
+        agentName:d.agentName,
+        type:cell.getValue().type,
+        today:moment().format("DD/MM/YYYY"),
+        effectiveDate:moment($('#effectiveDate').val()).format("DD/MM/YYYY"),
+        hearingDate:moment($('#hearingDate').val()).format("DD/MM/YYYY"),
+        hearingTime:moment($('#hearingDate').val()).format("HH:mm"),
+        details:details,
+        tlName:d.staffName,
+        score:d[cell.getValue().scoreField],
+        count:d[cell.getValue().countField],
+        days:cell.getValue().days,
+        bradfordStage:bfStages.find(el=>el.actionTypeID==d.bradfordStage)?bfStages.find(el=>el.actionTypeID==d.bradfordStage).actionName:'',
+        appealName:$('#appealName').val(),
+        warningType:$('#warningType').prop('disabled',false).val(),
+      }
+      return $.ajax({
+        url: '/get-hr-letter',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          downloadFile(response)
+        },
+        error: function (jqXHR, exception) {
+          console.log(jqXHR, exception)
+          alert(getErrorMessage(jqXHR, exception))
+        },
+      });
+    }
+  }
+  let hrFilesMenu=[
+    {
+      label:"Invitation to disciplinary",
+      action:function(e, cell){
+        let allegations=[
+          {
+            count:cell.getData()[cell.getValue().countField],
+            type:cell.getValue().type,
+            days:cell.getValue().days
+          }
+        ]
+        let formFields=['hearingDate']
+        getHRletter('ISO Doc 112 v1 - Letter Inviting to a Disciplinary Hearing',cell,allegations,formFields)
+      }
+    },
+    {
+      label:"Documented discussion",
+      action:function(e, cell){
+        let rollingDays=0
+        let type=cell.getValue().type
+        let detail=cell.getData()[cell.getValue().detailField].map((el,i)=>{
+          rollingDays=rollingDays+Number(el.deducted)
+          return {
+            rollingSpells:i+1,
+            startDate:moment(el.start_date).format("DD/MM/YYYY"),
+            endDate:moment(el.end_date).format("DD/MM/YYYY"),
+            reason:el.reason,
+            duration:el.deducted,
+            rollingDays:type=='sickness'?rollingDays:i+1,
+            score:(i+1)*(i+1)*rollingDays,
+            inputDate:moment(el.absenceDate).format("DD/MM/YYYY"),
+            dayPart:['n/a','Start of shift','Returning from break','Returning from lunch'][el.stage?el.stage:0],
+            minutesLate:el.detail?el.detail:'n/a',
+          }
+        })
+        getHRletter('ISO Doc 110 v2 - Documented Discussion Form',cell,detail,[])
+      }
+    },
+    {
+      label:"Lateness letter of concern",
+      disabled:cell=>cell.getValue().type!='lateness',
+      action:function(e, cell){
+        let lates=cell.getData().lates.map((el,i)=>{
+          return {
+            inputDate:moment(el.absenceDate).format("DD/MM/YYYY"),
+            dayPart:['n/a','Start of shift','Returning from break','Returning from lunch'][el.stage?el.stage:0],
+            minutesLate:el.detail?el.detail:'n/a',
+            rollingDays:i+1
+          }
+        })
+        getHRletter('ISO doc 106 v1 - Lateness Letter of Concern',cell,lates,[])
+      }
+    },
+    {
+      label:"Bradford Factor letter of concern",
+      disabled:cell=>cell.getValue().type!='sickness',
+      action:function(e, cell){
+        let rollingDays=0
+        let absences=cell.getData().sicks.map((el,i)=>{
+          rollingDays=rollingDays+Number(el.deducted)
+          return {
+            rollingSpells:i+1,
+            startDate:moment(el.start_date).format("DD/MM/YYYY"),
+            endDate:moment(el.end_date).format("DD/MM/YYYY"),
+            duration:el.deducted,
+            rollingDays:rollingDays,
+            score:(i+1)*(i+1)*rollingDays
+          }
+        })
+        getHRletter('ISO doc 105 v2 - Bradford Factor Letter of Concern',cell,absences,[])
+      }
+    },
+    {
+      label:"First written warning",
+      action:function(e, cell){
+        let formFields=['warningType','hearingDate','appealName']
+        $('#warningType').prop('disabled',false).val('First').prop('disabled',true)
+        getHRletter('ISO Doc 133 v2 - First & Final Written Warning Letter',cell,[],formFields,'ISO Doc 133 v2 - First Written Warning Letter')
+      }
+    },
+    {
+      label:"Final written warning",
+      action:function(e, cell){
+        let formFields=['warningType','hearingDate','appealName']
+        $('#warningType').prop('disabled',false).val('Final').prop('disabled',true)
+        getHRletter('ISO Doc 133 v2 - First & Final Written Warning Letter',cell,[],formFields,'ISO Doc 133 v2 - Final Written Warning Letter')
+      }
+    },
+    {
+      label:"Termination",
+      action:function(e, cell){
+        let formFields=['hearingDate','effectiveDate']
+        getHRletter('ISO Doc 134 v1 - Dismissal Letter - Zero Hours Contract',cell,[],formFields)
+      }
+    },
+  ]
+  var lineChart
+  function buildChart(data){
+    console.log(data)
+    const config = {
+      type: 'line',
+      data: {
+        labels: data.map(el=>moment(el.wk).format("DD/MM/YYYY")),
+        datasets: [
+          // {
+          //   label: 'Absence %',
+          //   data: data.map(el=>Math.round((el.absenceCount/el.bookingCount)*100)),
+          //   backgroundColor: 'rgb(255 255 255 / 0%)',
+          // },
+          {
+            label: 'Booked hours lost to absence (%)',
+            data: data.map(el=>Math.round((el.lostHours/el.bookedHours)*100)),
+            backgroundColor: 'rgb(255 255 255 / 0%)',
+          },
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'top',
+          },
+          title: {
+            display: false,
+          },
+          datalabels: {
+            display:false
+          },
+        }
+      },
+    }
+    if (lineChart) {
+      lineChart.destroy()
+    }
+    lineChart = new Chart($('#attendanceKPIs')[0], config)
+  }
+  function copyTxt(txt){
+    const el = document.createElement('textarea');
+    el.value=txt
+    el.style.top = "0";
+    el.style.left = "0";
+    el.style.position = "fixed";
+    $(el).appendTo('body')
+    el.focus();
+    el.select();
+    document.execCommand('copy')
+    window.FlashMessage.success('Copied to clipboard');
+    $(el).remove()
+  }
+  function addAction(cell,type,scoreField){
+    $('#Modal').modal("show")
+    $('#modalAddBtn').on('click',function(){
+      if ($('#actionForm')[0].reportValidity()) {
+        updateAction(cell,$('#actionTypeID').val(),type,cell.getData()[scoreField]?cell.getData()[scoreField]:null,$('#actionDate').val(),$('#breatheURL').val())
+        $('#Modal').modal("hide")
+        $('.actionFields').val(null)
+        $('.actionFields.selectpicker').selectpicker('refresh')
+        $(this).off('click')
+      }
+    })
+    $('.modalClose').on('click',function(){
+      $('.actionFields').val(null)
+      $('.actionFields.selectpicker').selectpicker('refresh')
+      $(this).off('click')
+    })
+  }
+  $(document).ready(function(e){
+    $('.selectFilters').on('change',function(e){
+      $('#updateReportBtn').show()
+    })
+    let s=$('#shift_search').val()?$('#shift_search').val():0
+    let t=$('#team_search').val().length>0?$('#team_search').val():0
+    let actionOver=(e,cell)=>{
+      if($(cell.getElement()).find('.cellSpinner').length==0){
+        $(cell.getElement()).append('<span class="hoverSymbols"><i class="fas fa-'+(cell.getValue()?'times':'check')+'"></i></span>')
+      }
+    }
+    let actionOut=(e,cell)=>{
+      $(cell.getElement()).find('.hoverSymbols').remove()
+    }
+    function shorten(str,len){
+      return str.length>len+3?str.substring(0,len)+"...":str
+    }
+    let sinceLastFormatter=cell=>cell.getValue()!=null?`<span style="color:var(--`+(cell.getValue()<=0?'success':'danger')+`)">`+(cell.getValue()>0?'+':'')+cell.getValue()+`</span>`:''
+    let getActionCols=(count,type,scoreCol)=>{
+      let cols=[]
+      for (var i = 1; i <= count; i++) {
+        cols.push({field:'actions.'+type+'.a'+i,contextMenu:outcomeContextMenu,accessorDownload:val=>val?"Y":"N",formatterParams:{allowTruthy:true},hozAlign:"center",maxWidth:40,cellClick:(e,cell)=>cell.getValue()?window.open(cell.getValue().reportURL):false,title:bfStages.find(el=>el.actionTypeID==i).actionName,formatter:'tickCross',headerVertical:true,tooltip:(cell)=>cell.getValue()?"Started: "+moment(cell.getValue().actionDate).format("DD/MM/YYYY")+" | Expires: "+moment(cell.getValue().expiry).format("DD/MM/YYYY")+"<br><i>(click to view in Breathe)</i>":false,sorter:(a,b)=>(a==null?0:1)-(b==null?0:1),severity:bfStages.find(el=>el.actionTypeID==i).severity})
+      }
+      return cols.sort((a,b)=>a.severity-b.severity)
+    }
+    var latesTable=new Tabulator("#latesTable",{
+      autoResize:true,
+      height:'50vh',
+      layout:"fitColumns",
+      index:'agentID',
+      initialFilter:[
+        {field:"lateCount", type:">", value:0}
+      ],
+      initialSort:[
+        {column:"lateCount", dir:"desc"}, //sort by this first
+      ],
+      rowFormatter:(row)=>{
+        $(row.getElement()).find('.tabulator-cell[title*="Started"]').tooltip({html:true,sanitize:false})
+      },
+      columns:[
+        {field:'agentName',minWidth:120,title:'Agent',formatter:nameHover,accessorData:redactedAccessor,accessor:redactedAccessor},
+        {field:'isWorkingNow',visible:false,title:'',titleDownload:'Working now?',width:83,mutator:(val,data)=>{
+          let time=(t)=>t?Number(t.split("T")[1].split(":")[0])*60+Number(t.split("T")[1].split(":")[1]):null
+          return time(moment().format())>time(data.startTime) && time(moment().format())<time(data.endTime)
+        },formatter:cell=>cell.getValue()?'<span class="badge badge-warning">Working now</span>':''},
+        {field:'teamName',title:'Team'},
+        {field:'isEve',title:'Shift',formatter:cell=>cell.getValue()==1?'Eve':'Day',accessor:val=>val==1?'Eve':'Day'},
+        {field:'lateCount',sorter:"number",title:'Lates',formatter:(cell,p,onRendered)=>{
+          onRendered(()=>{
+            let nsTable=cell.getData().lates.map(el=>moment(el.absenceDate).format("DD/MM/YYYY")+": "+el.detail+" mins").join("<br>")
+            $(cell.getElement()).tooltip({title:nsTable,html:true,sanitize:false,boundary:'window'})
+          })
+          return cell.getValue()
+        }},
+        {field:'latesSince',title:'Since last action',mutator:(val,data)=>data.lateLastActionID?(val?val:0):data.lateCount,formatter:sinceLastFormatter},
+        {title:'HR forms',download:false,headerSort:false,field:'hrForms',mutator:(val,data)=>({days:30,countField:'lateCount',scoreField:'latesSince',type:'lateness',detailField:'lates'}),clickMenu:hrFilesMenu,width:47,formatter:cell=>'<button class="btn btn-sm btn-secondary actionBtn"><i class="far fa-file-alt"></i></span>'},
+        {title:'Add outcome',download:false,headerSort:false,width:76,cellClick:(e,cell)=>addAction(cell,'lateness'),formatter:cell=>'<button class="btn btn-sm btn-primary actionBtn"><i class="fas fa-plus"></i></span>'},
+        {title:'Outcomes',headerHozAlign:'center',columns:getActionCols(6,'lateness','lateCount')},
+      ]
+    })
+    var noShowsTable=new Tabulator("#noShowsTable",{
+      autoResize:true,
+      height:'50vh',
+      layout:"fitColumns",
+      index:'agentID',
+      initialFilter:[
+        {field:"noShowCount", type:">", value:0}
+      ],
+      initialSort:[
+        {column:"noShowCount", dir:"desc"},
+      ],
+      rowFormatter:(row)=>{
+        $(row.getElement()).find('.tabulator-cell[title*="Started"]').tooltip({html:true,sanitize:false})
+      },
+      columns:[
+        {field:'agentName',minWidth:120,title:'Agent',formatter:nameHover,accessor:redactedAccessor},
+        {field:'isWorkingNow',title:'',visible:false,titleDownload:'Working now?',width:83,mutator:(val,data)=>{
+          let time=(t)=>t?Number(t.split("T")[1].split(":")[0])*60+Number(t.split("T")[1].split(":")[1]):null
+          return time(moment().format())>time(data.startTime) && time(moment().format())<time(data.endTime)
+        },formatter:cell=>cell.getValue()?'<span class="badge badge-warning">Working now</span>':''},
+        {field:'teamName',title:'Team'},
+        {field:'isEve',title:'Shift',formatter:cell=>cell.getValue()==1?'Eve':'Day',accessor:val=>val==1?'Eve':'Day'},
+        {field:'noShowCount',sorter:"number",title:'No shows',formatter:(cell,p,onRendered)=>{
+          onRendered(()=>{
+            let nsTable=cell.getData().noShows.map(el=>moment(el.absenceDate).format("DD/MM/YYYY")).join("<br>")
+            $(cell.getElement()).tooltip({title:nsTable,html:true,sanitize:false,boundary:'window'})
+          })
+          return cell.getValue()
+        }},
+        {field:'noShowsSince',title:'Since last action',mutator:(val,data)=>Math.min(data.noShowCount,val),formatter:sinceLastFormatter},
+        {title:'HR forms',download:false,headerSort:false,field:'hrForms',mutator:(val,data)=>({days:365,countField:'noShowCount',scoreField:'noShowsSince',type:'no shows',detailField:'noShows'}),clickMenu:hrFilesMenu,width:47,formatter:cell=>'<button class="btn btn-sm btn-secondary actionBtn"><i class="far fa-file-alt"></i></span>'},
+        {title:'Add outcome',download:false,headerSort:false,width:76,cellClick:(e,cell)=>addAction(cell,'noShow'),formatter:cell=>'<button class="btn btn-sm btn-primary actionBtn"><i class="fas fa-plus"></i></span>'},
+        {title:'Outcomes',headerHozAlign:'center',columns:getActionCols(6,'noShow','noShowCount')},
+      ]
+    })
+    var agentTable=new Tabulator("#agentTable",{
+      ajaxURL:'/attendance-hub-data/'+s+"/"+t,
+      ajaxResponse:(url,params,resp)=>{
+        let tableData=resp.attendance
+        if ($('#shift_search').val()) {
+          tableData=tableData.filter(el=>el.Shift==$('#shift_search').val())
+        }
+        if ($('#team_search').val().length>0) {
+          tableData=tableData.filter(el=>$('#team_search').val().includes(el.agentTeamID.toString()))
+        }
+        buildChart(resp.kpis)
+        let data=tableData.map(agent=>{
+          let agentActions=resp.actions.filter(el=>el.agentID==agent.agentID && new Date()<new Date(el.expiry))
+          let action=(id,t)=>agentActions.find(a=>a.actionTypeID==id && a.absenceType==t)?agentActions.find(a=>a.actionTypeID==id && a.absenceType==t):null
+          let getActions=(count,type)=>{
+            let cols={}
+            for (var i = 1; i <= count; i++) {
+              cols['a'+i]=action(i,type)
+            }
+            return cols
+          }
+          let actions={}
+          actions.sickness=getActions(6,'sickness')
+          actions.lateness=getActions(6,'lateness')
+          actions.noShow=getActions(6,'noShow')
+          agent.isAdmin=resp.thisUser?([3,59,36,32,agent.managerID].includes(Number(resp.thisUser.staffID))):false
+          return {
+            ...agent,
+            noShows:resp.absences.filter(el=>el.absenceType=='No show' && el.agentID==agent.agentID),
+            lates:resp.absences.filter(el=>el.absenceType=='Late' && el.agentID==agent.agentID),
+            actions:actions
+          }
+        })
+        latesTable.replaceData(data)
+        noShowsTable.replaceData(data)
+        return data
+      },
+      autoResize:true,
+      height:'50vh',
+      layout:"fitColumns",
+      index:'agentID',
+      initialSort:[
+        {column:"bradfordFactor", dir:"desc"}, //sort by this first
+      ],
+      rowFormatter:(row)=>{
+        $(row.getElement()).find('.tabulator-cell[title*="Started"]').tooltip({html:true,sanitize:false})
+      },
+      columns:[
+        {field:'agentName',minWidth:150,title:'Agent',formatter:nameHover,accessor:redactedAccessor},
+        {field:'isWorkingNow',title:'',visible:false,width:83,mutator:(val,data)=>{
+          let time=(t)=>t?Number(t.split("T")[1].split(":")[0])*60+Number(t.split("T")[1].split(":")[1]):null
+          return time(moment().format())>time(data.startTime) && time(moment().format())<time(data.endTime)
+        },formatter:cell=>cell.getValue()?'<span class="badge badge-warning">Working now</span>':''},
+        {field:'teamName',title:'Team'},
+        {field:'isEve',title:'Shift',formatter:cell=>cell.getValue()==1?'Eve':'Day',accessor:val=>val==1?'Eve':'Day'},
+        {field:'breatheAbsences',minWidth:94,title:'Breathe Absences',mutator:(val,data)=>data.sicks?data.sicks.length:0,formatter:(cell,p,onRendered)=>{
+          if (cell.getData().sicks) {
+            onRendered(()=>{
+              let nsTable=cell.getData().sicks.map(el=>moment(el.start_date).format("DD/MM/YYYY")+" ("+el.deducted+" days): "+_.truncate(el.reason,20)).join("<br>")
+              $(cell.getElement()).tooltip({title:nsTable,html:true,sanitize:false,boundary:'window'})
+            })
+          }
+          return cell.getValue()
+        }},
+        {field:'bradfordFactor',title:'Bradford score'},
+        // {field:'sickLastActionID',title:'Most recent action',mutator:(val,data)=>val?bfStages.find(b=>val==b.actionTypeID).actionName:''},
+        {field:'bradfordStage',minWidth:120,title:'Suggested action',titleDownload:'Suggested action',accessorDownload:val=>val?bfStages.find(el=>el.actionTypeID==val).actionName:'',mutator:(val,data)=>{
+          let stage=bfStages.find(b=>data.bradfordFactor>=b.scoreTrigger && b.scoreTrigger!==null)
+          return stage?stage.actionTypeID:null
+        },formatter:cell=>cell.getValue()?`<span class="badge `+(cell.getValue()<=cell.getData().sickLastActionID?'actionDone':'')+` badge-`+bfStages.find(el=>el.actionTypeID==cell.getValue()).cssClass+`">`+bfStages.find(el=>el.actionTypeID==cell.getValue()).actionName+`</span>`:''},
+        {title:'HR forms',download:false,headerSort:false,field:'hrForms',mutator:(val,data)=>({days:365,countField:'breatheAbsences',scoreField:'bradfordFactor',type:'sickness',detailField:'sicks'}),clickMenu:hrFilesMenu,width:47,formatter:cell=>'<button class="btn btn-sm btn-secondary actionBtn"><i class="far fa-file-alt"></i></span>'},
+        {title:'Add outcome',download:false,headerSort:false,width:76,cellClick:(e,cell)=>addAction(cell,'sickness','bradfordStage'),formatter:cell=>'<button class="btn btn-sm btn-primary actionBtn"><i class="fas fa-plus"></i></span>'},
+        {title:'Outcomes',headerHozAlign:'center',columns:getActionCols(6,'sickness','bradfordFactor')},
+        {title:'',columns:[
+          {title:'',field:'email',accessor:redactedAccessor,visible:false,download:true,titleDownload:'Email',headerSort:false,formatter:cell=>cell.getValue()?`<button class="aBtn" onclick='mailto("`+cell.getValue()+`")'>`+cell.getValue()+`</button>`:''},
+          {title:'',field:'telnum',accessor:redactedAccessor,titleDownload:'Mob',visible:false,download:true,headerSort:false,formatter:cell=>cell.getValue()?`<button class="aBtn" onclick='tel("`+cell.getValue()+`")'>`+cell.getValue()+`</button>`:''},
+        ]},
+        {field:'note',width:200,title:'Notes',headerSort:false,accessor:val=>val?val:'',editor:'input',cellEdited:cell=>{
+          updateNote(cell.getValue(),'agentTable',cell.getData().agentID)
+        }}
+      ]
+    })
+    $('#table_filters').on('change',function(e){
+      let filters=[]
+      let sel=$(this).val()
+      agentTable.clearFilter()
+      agentTable.setFilter(function(data){
+        let checks=[]
+        if (sel.includes('notBooked')) {
+          checks.push(data.shiftsBooked<1)
+        }
+        if (sel.includes('usuallyBooks')) {
+          checks.push(data.avgShifts>0)
+        }
+        if (sel.includes('bookedLess')) {
+          checks.push(data.hoursBooked<data.avgHours && data.hoursBooked>0)
+        }
+        if (sel.includes('noAbsence')) {
+          checks.push(data.absenceCount==0)
+        }
+        if (sel.includes('notAllAbsence')) {
+          checks.push(data.absenceCount<5)
+        }
+        if (sel.includes('underMinimum')) {
+          checks.push(data.hoursBooked<16 && data.hoursBooked>0)
+        }
+        if (sel.includes('workingNow')) {
+          checks.push(data.isWorkingNow)
+        }
+        if (sel.includes('notWorkingNow')) {
+          checks.push(!data.isWorkingNow)
+        }
+        return (checks.filter(el=>!el).length?false:true)
+      })
+    })
+  })
+</script>
+</body>
+</html>

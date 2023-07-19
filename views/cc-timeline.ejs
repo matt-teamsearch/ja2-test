@@ -1,0 +1,536 @@
+<%- include('partials/'+versionPages.header) %>
+<div id="contentContainer">
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<div id="myTimeline">
+
+</div>
+<style media="screen">
+  .timeline-container {
+    width: 97%;
+    margin: auto;
+    position:relative;
+  }
+  .timeline-viewport {
+    height: 90vh;
+    width: 100%;
+    overflow: scroll;
+    position:relative;
+  }
+  .event-block {
+    position: absolute;
+    bottom:0;
+    background: #ebebeb;
+    height: 64%;
+    padding: 1px 3px;
+    display: flex;
+    align-items: center;
+    font-size: small;
+    overflow: hidden;
+  }
+  .job-block {
+    position: absolute;
+    top: 23%;
+    background: #f8f9fb;
+    height: 13%;
+    font-size: small;
+    border: 2px solid black;
+    border-bottom: none;
+    text-align: center;
+  }
+  .job-block::after {
+    font-size: 12px;
+    content: attr(title);
+    position: absolute;
+    bottom: -1px;
+    background: inherit;
+    padding: 0px 8px;
+    max-width: -webkit-fill-available;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+  .event-grid{
+    position:relative;
+  }
+  .row-title {
+      position: sticky;
+      background: #f8f9fb;
+      z-index: 1;
+      left: 0;
+      height: 100%;
+  }
+  .topleft-cell{
+    position: sticky;
+    left: 0px;
+    height: 100%;
+    background: inherit;
+  }
+  .event-row {
+    width: 100%;
+    height: 60px;
+    border-bottom: 1px solid gainsboro;
+    position: relative;
+    display:flex;
+  }
+  <!-- .event-block:hover {
+    opacity: 0.7;
+    cursor: pointer;
+  } -->
+  .header-cell {
+    border-left: 1px solid gainsboro;
+    height: 100%;
+    display: flex;
+    align-items: center;
+  }
+  .event-row.event-header {
+      display: flex;
+      width: fit-content;
+      justify-content: flex-start;
+      position: sticky;
+      top: 0px;
+      z-index: 2;
+      background: #f8f9fb;
+  }
+  .event-hoverline{
+    position: absolute;
+    height: 100%;
+    width: 1px;
+    z-index:1;
+    background: red;
+    left: 0px;
+    pointer-events:none;
+    top: 0px;
+  }
+  .event-hovertime {
+    position: absolute;
+    top: 0px;
+    z-index:1;
+    left: 0px;
+    color: red;
+    font-size: small;
+  }
+  .row-title .details-btn {
+    position: absolute;
+    left: 0;
+    bottom: 5px;
+  }
+  .hover-scroller {
+    position: absolute;
+  }
+  .details-table thead th {
+    text-align: left;
+  }
+</style>
+<link href="https://cdn.jsdelivr.net/gh/ka215/jquery.timeline@master/dist/jquery.timeline.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/gh/ka215/jquery.timeline@master/dist/jquery.timeline.min.js"></script>
+<script type="text/javascript">
+  let startdate="2023-05-25"
+  function getActivity(params){
+    $.ajax("/forsta-activity?"+Object.keys(params).filter(k=>params[k]).map(k=>k+"="+params[k]).join("&")).done(e=>{
+      let colors={
+        "Call":"#0cd90c8f",
+        "Login":"rgb(197 197 197)",
+        "Break":"#ff000075"
+      }
+      let getTodayTime=(h,m)=>{
+        let d=new Date()
+        if (params.st) {
+          d=new Date(params.st)
+        }
+        d.setHours(h,(m||0),0)
+        return d
+      }
+      function checkAgents(){
+        return new Promise(res=>{
+          if(e.missing.agents.length){
+            let matchupDiv=document.createElement("div")
+            matchupDiv.style.width="100%"
+            // console.log(e.agents,e.missing,e.missing.agents.map(a=>({forstaID:a})))
+            $().getModal({
+              title:"Missing agents",
+              body:matchupDiv,
+              footer:"Close this popup to continue. Any unmatched agents will not be shown on the report",
+              onLoad:()=>{
+                let listVals=e.agents.map(a=>({value:a.agentID,label:a.agentName}))
+                let matchup=new Tabulator(matchupDiv,{
+                  data:e.missing.agents.map(a=>({forstaID:a,agentID:null})),
+                  layout:"fitColumns",
+                  columns:[
+                  {field:"forstaID",title:"Forsta Interviewer ID"},
+                  {field:"agentID",title:"JA2 Agent Name",cellEdited:c=>{
+                    console.log(c.getValue())
+                    let fid=c.getData().forstaID
+                    e.activity=e.activity.map(agent=>{
+                      if (agent.InterviewerId==fid) {
+                        agent.agentName=listVals.find(v=>v.value==c.getValue()).agentName
+                      }
+                      return agent
+                    })
+                    $.ajax({method:"POST",url:"/save-live-report-names",data:{type:"ForstaAgent",id:c.getValue(),vistaName:c.getData().forstaID}})
+                  },editor:"list",editorParams:{values:listVals,multiselect:false,clearable:true,autocomplete:true,freetext:false,listOnEmpty:true}}
+                  ]
+                })
+              },
+              onClose:()=>{
+                res()
+              }
+            })
+          }else {
+            res()
+          }
+        })
+      }
+      function checkJobs(){
+        return new Promise(res=>{
+          if(e.missing.jobs.length){
+            let matchupDiv=document.createElement("div")
+            $().getModal({
+              title:"Missing jobs",
+              body:matchupDiv,
+              footer:"Close this popup to continue. Any unmatched agents will not be shown on the report",
+              onLoad:()=>{
+                let listVals=e.jobs.map(a=>({value:a.jobID,label:a.jobName}))
+                let matchup=new Tabulator(matchupDiv,{
+                  data:e.missing.jobs.map(a=>({forstaID:a,jobID:null})),
+                  layout:"fitColumns",
+                  columns:[
+                  {field:"forstaID",title:"Forsta Survey ID"},
+                  {field:"jobID",title:"JA2 Job Name",cellEdited:c=>{
+                    let fid=c.getData().forstaID
+                    let jid=c.getValue()
+                    e.activity=e.activity.map(agent=>{
+                      agent.timeline=agent.timeline.map(ev=>{
+                        if(ev.info.SurveyId==fid){
+                          ev.info.jobName=listVals.find(v=>v.value==jid).jobName
+                        }
+                        return ev
+                      })
+                      return agent
+                    })
+                    $.ajax({method:"POST",url:"/save-live-report-names",data:{type:"Job",id:c.getValue(),vistaName:c.getData().forstaID}})
+                  },editor:"list",editorParams:{values:listVals,multiselect:false,clearable:true,autocomplete:true,freetext:false,listOnEmpty:true}}
+                  ]
+                })
+              },
+              onClose:()=>{
+                res()
+              }
+            })
+          }else {
+            res()
+          }
+        })
+      }
+      checkJobs().then(()=>{
+        checkAgents().then(()=>{
+          e.activity.sort((a,b)=>a.agentName&&b.agentName?a.agentName.localeCompare(b.agentName):0)
+          getTimeline(e.activity.filter(a=>a.agentName).map(agent=>{
+            return {title:agent.agentName,shiftStart:getTodayTime(9),events:agent.timeline.filter(ev=>ev.info.jobName).map(ev=>{
+              return {title:ev.type,showTitle:ev.type!="Call",time:ev.time,info:ev.info,duration:ev.duration,color:colors[ev.type],groupable:ev.type=="Call"}
+            })}
+          }),params.st)
+        })
+      })
+    })
+  }
+  $(document).ready(function(e){
+    getActivity({
+      st:"2023-05-25T08:00:00Z",
+      en:"2023-05-25T22:00:00Z"
+    })
+  })
+  function getTimeline(eventsRows,dte){
+    console.log(eventsRows)
+    let st=new Date(dte)
+    st.setHours(8,0,0)
+    let en=new Date(dte)
+    en.setHours(22,0,0)
+    let timelineContainer=$("#myTimeline")[0]
+    timelineContainer.textContent=""
+    timelineContainer.classList.add("timeline-container")
+    let div=$(document.createElement("div"))
+    div[0].classList.add("timeline-viewport")
+    let settings={
+      titleWidth:200,
+      minuteWidth:5,
+      eventsStart:st.getTime(),
+      eventsEnd:en.getTime()
+    }
+    let header=document.createElement("div")
+    header.classList.add("event-row","event-header")
+    let totalMinutes=(settings.eventsEnd-settings.eventsStart)/1000/60
+    let topLeftCell=document.createElement("div")
+    topLeftCell.classList.add("topleft-cell")
+    topLeftCell.style.minWidth=settings.titleWidth+"px"
+    header.append(topLeftCell)
+    let eventGrid=document.createElement("div")
+    eventGrid.classList.add("event-grid")
+    eventGrid.style.width=(settings.minuteWidth*60*14)+settings.titleWidth+"px"
+    let h=0
+    let hourCell=document.createElement("div")
+    hourCell.classList.add("header-cell")
+    hourCell.style.minWidth=(settings.minuteWidth*60)+"px"
+    while (h<totalMinutes/60) {
+      let hc=hourCell.cloneNode()
+      hc.innerHTML=new Date(settings.eventsStart+(h*60*60*1000)).toLocaleTimeString("en-GB",{timeStyle:"short"})
+      header.append(hc)
+      h++
+    }
+    timelineContainer.append(div[0])
+    div.append(header,eventGrid)
+    let hoverline=document.createElement("div")
+    hoverline.classList.add("event-hoverline")
+    let hovertime=document.createElement("div")
+    hovertime.classList.add("event-hovertime")
+    let mouseX=0
+    let mouseY=0
+    let lineX=0
+    let timeY=0
+    function animateLine(){
+      let speed=0.5
+      let distX = mouseX - lineX;
+      let distY = mouseY - timeY;
+      lineX = lineX + (distX * speed);
+      timeY = timeY + (distY * speed);
+      hoverline.style.left = lineX + "px";
+      hovertime.style.left = (lineX+5) + "px";
+      hovertime.style.top = (timeY-20) + "px";
+      requestAnimationFrame(animateLine);
+    }
+    animateLine()
+    eventGrid.append(hoverline,hovertime)
+    div[0].addEventListener("mousemove", function(e){
+      var rect = div[0].getBoundingClientRect();
+      var x = (e.clientX+(div[0].scrollLeft||0)) - rect.left;
+      var y = ((e.clientY+(div[0].scrollTop||0)) - rect.top)-60;
+      if (x>settings.titleWidth) {
+        let minutes=((x-settings.titleWidth)/settings.minuteWidth)
+        mouseX = x;
+        mouseY = y;
+        hovertime.innerHTML=new Date(new Date(settings.eventsStart).getTime()+(minutes*60*1000)).toLocaleTimeString("en-GB",{timeStyle:"short"})
+      }
+    })
+    let scrollerSize="20%"
+    let bottomScroller=document.createElement("div")
+    bottomScroller.classList.add("hover-scroller")
+    let topScroller=bottomScroller.cloneNode()
+    topScroller.style.top="60px"
+    topScroller.style.left=0
+    topScroller.style.width="calc(100% - 10px)"
+    topScroller.style.height=scrollerSize
+    let leftScroller=bottomScroller.cloneNode()
+    leftScroller.style.top=0
+    leftScroller.style.left=settings.titleWidth+"px"
+    leftScroller.style.width=scrollerSize
+    leftScroller.style.height="calc(100% - 10px)"
+    let rightScroller=bottomScroller.cloneNode()
+    rightScroller.style.top=0
+    rightScroller.style.right="10px"
+    rightScroller.style.width=scrollerSize
+    rightScroller.style.height="calc(100% - 10px)"
+    bottomScroller.style.bottom="10px"
+    bottomScroller.style.left=0
+    bottomScroller.style.width="calc(100% - 10px)"
+    bottomScroller.style.height=scrollerSize
+    let hoverintervalX
+    let hoverintervalY
+    let setScroller=(el,axis,rev)=>{
+      let interval=hoverintervalX
+      if (axis=="y") {
+        interval=hoverintervalY
+      }
+      el.addEventListener("mouseout", function(e){
+        clearInterval(interval)
+      })
+      var objDem
+
+      var pos
+      let speed=50
+      el.addEventListener("mousemove", function(e){
+        var rect = el.getBoundingClientRect();
+        objDem=rect.height
+        if (axis=="x") {
+          objDem=rect.width
+        }
+
+        if (interval) {
+          clearInterval(interval)
+        }
+        if (axis=="x") {
+          if (rev) {
+            pos = rect.right-e.clientX
+          }else {
+            pos = (e.clientX - rect.left);
+          }
+        }
+        if (axis=="y") {
+          if (rev) {
+            pos = rect.bottom-e.clientY
+          }else {
+            pos = (e.clientY - rect.top);
+          }
+        }
+        let scroll=((speed)*(pos/objDem))
+        if (rev) {
+          scroll=-scroll
+        }
+        interval=setInterval(()=>{
+          if (axis=="y") {
+            div[0].scrollBy(0,scroll)
+          }else {
+            div[0].scrollBy(scroll,0)
+          }
+        },50)
+      })
+    }
+    setScroller(topScroller,"y",true)
+    setScroller(leftScroller,"x",true)
+    setScroller(bottomScroller,"y")
+    setScroller(rightScroller,"x")
+    // bottomScroller.addEventListener("mouseout", function(e){
+    //   clearInterval(hoverinterval)
+    // })
+
+    timelineContainer.append(bottomScroller,topScroller,leftScroller,rightScroller)
+    // $("body").on("mousemove",function(e){
+    //   if ($(eventGrid).is(":hover")) {
+    //     console.log(e.pageX,eventGrid.clientLeft,(e.pageX-eventGrid.clientLeft-200)/5)
+    //     hoverline.setAttribute("data-time",new Date(((e.pageX-eventGrid.clientLeft-200)/5)*60*1000).toLocaleTimeString("en-GB",{timeStyle:"short"}))
+    //     hoverline.style.display="block"
+    //     hoverline.style.left=e.pageX+"px"
+    //   }else {
+    //     hoverline.style.display="none"
+    //   }
+    // })
+    eventsRows.forEach((erow, i) => {
+      let row=document.createElement("div")
+      row.classList.add("event-row")
+      let titleCell=document.createElement("div")
+      titleCell.classList.add("row-title")
+      titleCell.innerHTML=erow.title
+      titleCell.style.minWidth=settings.titleWidth+"px"
+      titleCell.style.maxWidth=titleCell.style.minWidth
+      let rowInfoBtn=document.createElement("button")
+      rowInfoBtn.classList.add("btn","btn-secondary","btn-sm","details-btn")
+      rowInfoBtn.innerHTML="Details"
+      titleCell.append(rowInfoBtn)
+      $(rowInfoBtn).click(function(e){
+        let detailedEvents=erow.events.reduce((curr,next) => {
+          let last=_.last(curr)
+          // console.log(curr,next,last)
+          if (!last) {
+            if (new Date(next.time).getTime()>new Date(erow.shiftStart).getTime()) {
+              last={time:erow.shiftStart,title:"Shift start",duration:0}
+            }
+          }
+          if (last) {
+            let inactive={title:"Inactive",time:new Date(last.time).getTime()+(last.duration*1000)}
+            inactive.duration=(new Date(next.time).getTime()-inactive.time)/1000
+            // console.log(new Date(inactive.time),new Date(next.time),inactive.duration)
+            if (inactive.duration>=10) {
+              curr.push(inactive)
+            }
+          }
+          curr.push(next)
+          return curr
+        },[]);
+        detailedEvents.sort((a,b)=>new Date(a.time).getTime()-new Date(b.time).getTime())
+        let getDuration=(type,job)=>detailedEvents.filter(ev=>ev.title==type&&(!job||ev.info.jobName==job)).reduce((a,b)=>a+b.duration,0)*1000
+        let msToDur=(ms)=>new Date(new Date(ms).getTime()+(new Date().getTimezoneOffset()*1000*60)).toLocaleTimeString()
+        let details=`<table class="details-table table table-sm table-striped"><thead><th>Time</th><th>Duration (s)</th><th>Event</th><th>Details</th></thead>`+detailedEvents.map(ev=>"<tr><td>"+new Date(ev.time).toLocaleTimeString()+"</td><td>"+msToDur(ev.duration*1000)+"</td><td>"+ev.title+"</td><td>"+Object.keys(ev.info||{}).map(k=>k+":"+ev.info[k]).join(", ")+"</td></tr>").join("")+"</table>"
+        let summary=`<table class="details-table table table-striped">
+          <tr><th>Time logged in</th><td>`+msToDur(getDuration("Login"))+`</td></tr>
+          <tr><th>Time on break</th><td>`+msToDur(getDuration("Break"))+`</td></tr>
+          <tr><th>Time on calls</th><td>`+msToDur(getDuration("Call"))+`</td></tr>
+          <tr><th>Time inactive</th><td>`+msToDur(getDuration("Inactive"))+`</td></tr>
+        </table>`
+        let jobsGrouped=_.groupBy(detailedEvents.filter(e=>e.title=="Call"),e=>e.info.jobName)
+        let jobSummary=`<table class="details-table table table-striped">
+          <thead><th>Job</th><th>Working time</th><th>Calls</th><th>Calls per hour</th><th>Completes</th><th>AHR</th></thead>
+          `+Object.keys(jobsGrouped).map((job, i) => `
+          <tr>
+            <th>`+job+`</th>
+            <td>`+msToDur(getDuration("Call",job))+`</td>
+            <td>`+jobsGrouped[job].length+`</td>
+            <td>`+Math.round((jobsGrouped[job].length/(getDuration("Call",job)/1000/60/60))*100)/100+`</td>
+            <td>`+jobsGrouped[job].filter(ev=>ev.info.ExtendedStatus==13).length+`</td>
+            <td>`+Math.round((jobsGrouped[job].filter(ev=>ev.info.ExtendedStatus==13).length/(getDuration("Call",job)/1000/60/60))*100)/100+`</td>
+          </tr>
+          `).join("")+`</table>`
+        let cont=document.createElement("div")
+        cont.insertAdjacentHTML("beforeEnd",summary)
+        cont.insertAdjacentHTML("beforeEnd",jobSummary)
+        cont.insertAdjacentHTML("beforeEnd",details)
+        cont.style.maxHeight="70vh"
+        cont.style.overflow="scroll"
+        $().getModal({
+          title:erow.title,
+          body:cont,
+          maxWidth:"700px"
+        })
+      })
+      row.append(titleCell)
+      eventGrid.append(row)
+      let addEventBlock=(ev)=>{
+        let block=document.createElement("div")
+        block.classList.add("event-block")
+        block.style.minWidth=((ev.duration/60)*settings.minuteWidth)+"px"
+        block.style.maxWidth=block.style.minWidth
+        block.style.left=((((Math.max(new Date(ev.time).getTime(),new Date(settings.eventsStart).getTime())-new Date(settings.eventsStart).getTime())/1000/60)*settings.minuteWidth)+settings.titleWidth)+"px"
+        block.style.backgroundColor=ev.color
+        block.innerHTML=ev.showTitle?ev.title:""
+        row.append(block)
+      }
+      let addJobBlock=(ev)=>{
+        let block=document.createElement("div")
+        block.classList.add("job-block")
+        block.style.minWidth=((ev.duration/60)*settings.minuteWidth)+"px"
+        block.style.maxWidth=block.style.minWidth
+        block.style.left=((((Math.max(new Date(ev.time).getTime(),new Date(settings.eventsStart).getTime())-new Date(settings.eventsStart).getTime())/1000/60)*settings.minuteWidth)+settings.titleWidth)+"px"
+        block.title=ev.info.jobName
+        row.append(block)
+      }
+      let jobs=[]
+      erow.events.filter(e=>e.title=="Call").forEach((ev, i) => {
+        let last=jobs[jobs.length-1]
+        if (last) {
+          if (last.info.SurveyId!=ev.info.SurveyId) {
+            jobs.push(ev)
+          }else {
+            last.duration=((new Date(ev.time).getTime()+(ev.duration*1000))-new Date(last.time).getTime())/1000
+          }
+        }else {
+          jobs.push(ev)
+        }
+      })
+      // console.log(jobs)
+      jobs.forEach((job, i) => {
+        addJobBlock(job)
+      });
+      erow.events.forEach((ev, i) => {
+        addEventBlock(ev)
+      });
+    });
+  }
+  $().reportFilter({
+    filters:{
+      team:true,
+      job:true,
+      shift:true,
+      stDate:startdate,
+      enDate:null,
+    },
+    onRefresh:vals=>{
+      console.log(vals)
+      getActivity({
+        st:moment(vals.stDate).format("YYYY-MM-DD")+"T08:00:00Z",
+        en:moment(vals.stDate).format("YYYY-MM-DD")+"T22:00:00Z",
+        j:vals.job,
+        t:vals.team,
+        s:vals.shift=="d"?"Day":"Eve",
+      })
+    }
+  })
+</script>
+</body>
+</html>

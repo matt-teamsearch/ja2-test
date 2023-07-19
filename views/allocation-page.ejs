@@ -1,0 +1,307 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  $(document).ready(function () {
+    var table = $('#allocation-table').DataTable( {
+      ordering: false,
+      scrollY: 500,
+      scrollX: 500,
+      scrollCollapse: true,
+      paging: false,
+      fixedHeader: true,
+      fixedColumns:   {
+            leftColumns: 1
+      },
+      bFilter: false,
+      info: false
+    } );
+    $('.dataTables_length').addClass('bs-select');
+  });
+</script>
+<style>
+  label{
+    color:black
+  }
+
+  .highligted_row{
+    background-color:yellow;
+  }
+
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type=number] {
+    -moz-appearance:textfield;
+  }
+
+  .hour_counter {
+    font-size:16px;
+  }
+  table{
+    margin: 0 auto;
+    width: 100%;
+    clear: both;
+    border-collapse: collapse;
+    table-layout:fixed;
+  }
+  table.dataTable thead th, table.dataTable tbody td{
+    white-space: nowrap;
+  }
+
+</style>
+<%
+var viewType = 2;
+var horseDay = 8;
+var horseEve = 4;
+var shiftType = "shifts";
+var notShift = "hours"
+var viewDays = 2;
+if(viewType == 2){
+  horseDay = 1;
+  horseEve = 1;
+  shiftType = "hours"
+  notShift = "shifts";
+  viewDays = 1;
+}
+
+const dateIf = (inDate, seperator, order) => {
+  let day =''
+  if (new Date(inDate).getDate() < 10) {
+    day = '0' + new Date(inDate).getDate()
+  } else {
+    day = new Date(inDate).getDate()
+  }
+  let month =''
+  if (new Date(inDate).getMonth()+1 < 10) {
+    month = '0' + (new Date(inDate).getMonth()+1)
+  } else {
+    month = (new Date(inDate).getMonth()+1)
+  }
+  let year = new Date(inDate).getFullYear()
+  if(order=="f"){
+  return(day+seperator+month+seperator+year)
+  }
+  if(order=="r"){
+  return(year+seperator+month+seperator+day)
+  }
+}
+
+      const getBusinessDatesCount = (sDate, eDate) => {
+        var count = 0;
+        var curDate = sDate
+        while (curDate <= eDate) {
+          var dayOfWeek = curDate.getDay();
+          if(!((dayOfWeek == 6) || (dayOfWeek == 0)))
+          count++;
+          curDate.setDate(curDate.getDate() + 1);
+        }
+        return count;
+      };
+
+      function ProjectStats(id, interviewsLeft, strikeRate, daysLeft, jobName) {
+        this.id = id;
+        this.jobName = jobName;
+        this.interviewsLeft = interviewsLeft;
+        this.strikeRate = strikeRate;
+        this.daysLeft = daysLeft;
+      };
+
+      let projectsArray = [];
+
+    jobs.forEach((job , index) => {
+     var today = new Date()
+      today = new Date(today.setHours(0,0,0,0));
+      var pStart = new Date(job.startDate);
+      var endDate = new Date(job.endDate).setHours(0,0,0,0);
+      var jname=job.fullJobName
+      var intTarget = (job.interviewsTarget - job.CATI_Completes)
+      var strikeRate = (job.CATI_Completes > 0 ? job.CATI_Completes / job.CATI_Hours : job.hourlyTarget)
+      var daysLeft = (pStart > today ? getBusinessDatesCount(pStart, endDate) : getBusinessDatesCount(today, endDate))
+      let projectToAdd = new ProjectStats(job.jobID, intTarget, strikeRate, daysLeft+1, jname);
+      projectsArray.push(projectToAdd)
+   });
+%>
+
+<div class="table-wrapper">
+  <div class="card-header text-center py-2" style="border-radius:0px!important;">
+    <strong>
+      <h4>
+        Allocation sheet for <%= dateIf(date,"/","f") %>
+      </h4>
+    </strong>
+  </div>
+  <a href="/view-planner/1/14" class="list-group-item list-group-item-action text-center btn-secondary">Back to resource planner</a>
+
+<% if (interviewers.length > 0) {%>
+  <% if (projectsArray.length > 0) {%>
+    <form class="allocation-form" action="" method="post" enctype="multipart/form-data" style="overflow-x:auto;">
+      <input type="text" name="user" id="user" style="display:none;">
+      <table id="allocation-table" class="table table-sm hover display compact cell-border" style="width:100%">
+      <thead>
+        <% var HrsNeeded=new Array();%>
+    <tr>
+      <th width="200px">Interviewers</th>
+      <%
+        projectsArray.forEach((pArray, index) =>{
+        dataDisplay = ((pArray.interviewsLeft / pArray.strikeRate) / pArray.daysLeft)
+        HrsNeeded[pArray.id]=Math.ceil(dataDisplay)
+        allocations.forEach((allocation, index) =>{
+          if (allocation.jobID == pArray.id){
+              HrsNeeded[pArray.id]=Math.ceil(HrsNeeded[pArray.id]-allocation.hours);
+          }
+        })%>
+        <th colspan="2" style="text-align:center; white-space: normal;" id="<%= pArray.jobName %>"><%= pArray.jobName %><br><span class="hour_counter" id="hour_counter_<%= pArray.id %>"><%if(pArray.id<8){%>0<%}else{%><%=HrsNeeded[pArray.id]%><%}%></span><br>hours needed</th>
+      <%})%>
+  </tr>
+  <tr>
+    <th style=""></th>
+  <%projectsArray.forEach((pArray, index) =>{%>
+        <th> </th>
+        <th> </th>
+    <%})%>
+  </tr>
+</thead>
+<tbody>
+  <% interviewers.forEach((interviewer, index) => { %>
+    <tr>
+      <td style=""><%= interviewer.agentName %></td>
+      <% projectsArray.forEach((pArray, index) =>{
+             //variable counting how many hours already allocated on this job for this interviewer;
+             var allocatedIntHours=0
+             var avgPH=""
+             //loops through allocated hours, checks if relevent to this agent, job and date;
+             allocations.forEach((allocationInt, index) =>{
+               if(allocationInt.agentID == interviewer.agentID && allocationInt.jobID == pArray.id) {
+                 allocatedIntHours=allocatedIntHours+allocationInt.agentAllocationHours
+                 avgPH=allocationInt.AHR
+               }})
+             dailys.forEach((daily, index) =>{
+               if(daily.agentID == interviewer.agentID && daily.jobID == pArray.id) {
+                 avgPH=daily.Interviews/daily.Hours
+               }}) %>
+      <td style="border-right:none;">
+        <%= ((avgPH=="" || avgPH==null) ? "" : avgPH.toFixed(2)+"ph") %>
+        </td>
+        <td style="border-left:none;">
+        <input style="" value="<%=allocatedIntHours%>" type="number" placeholder="Hours" class="form-control inp_<%= pArray.id %>" name="alloHours_<%= pArray.id %>_<%= interviewer.agentID %>" id="allocated_<%= pArray.id %>_<%= interviewer.agentID %>" min="0" step="0.25">
+      </td>
+      <%
+  }) %>
+  </tr>
+<% })%>
+
+</tbody>
+</table>
+<button type="submit" class="btn btn-success tally" style="width:100%; border-radius:0px;">Submit Allocation</button>
+</form>
+</div>
+
+<% } else { %>
+  <br><br>
+  <p class="text-center">No projects found.</p>
+<% }
+ } else { %>
+  <br><br>
+  <p class="text-center">No interviewers found.</p>
+<% } %>
+
+</div>
+<script>
+
+  $(document).ready(function () {
+      <%  interviewers.forEach((interviewer , index) => { %>
+        var sum = 0;
+        <% projectsArray.forEach((pArray, index) =>{ %>
+          if ($("#allocated_<%= pArray.id %>_<%= interviewer.agentID %>").val()>0){
+            sum=sum+1;
+          };
+          if (sum>1) {
+            $("#allocated_<%= pArray.id %>_<%= interviewer.agentID %>").css("background-color","orange");
+          }
+        <% });%>
+      <% });%>
+    });
+
+  $(document).on("change", "input", function() {
+    var sum = [];
+    <%  interviewers.forEach((interviewer , index) => { %>
+      sum[<%= interviewer.agentID %>] = 0;
+      <% projectsArray.forEach((pArray, index) =>{ %>
+        if ($("#allocated_<%= pArray.id %>_<%= interviewer.agentID %>").val()>0){
+          sum[<%= interviewer.agentID %>]++;
+        };
+        <% });%>
+    <% });%>
+    <%  interviewers.forEach((interviewer , index) => { %>
+      <% projectsArray.forEach((pArray, index) =>{ %>
+        if (sum[<%= interviewer.agentID %>]>1 && $("#allocated_<%= pArray.id %>_<%= interviewer.agentID %>").val()>0) {
+          $("#allocated_<%= pArray.id %>_<%= interviewer.agentID %>").css("background-color","orange");
+        }
+        else{
+          if ($("#allocated_<%= pArray.id %>_<%= interviewer.agentID %>").val()>0){
+            $("#allocated_<%= pArray.id %>_<%= interviewer.agentID %>").css("background-color","yellow");
+          }
+          else{
+            $("#allocated_<%= pArray.id %>_<%= interviewer.agentID %>").css("background-color","inherit")
+          }
+        }
+      <% });%>
+    <% });%>
+    });
+
+<% projectsArray.forEach((pArray, index) =>{ %>
+  var currentCounter_<%= pArray.id %> = 0;
+  $(document).ready(function () {
+    var sum = 0;
+
+    $(".inp_<%= pArray.id %>").each(function(){
+        sum += +$(this).val();
+        if($(this).val()>0){
+          $(this).css("background-color","yellow");
+        }else{$(this).css("background-color","inherit")}
+        //move changed row to top
+        var $this = $(this);
+         var row = $this.closest('table').closest('tr');
+         if ( $this.val()>0 ){ // move to top
+            row.insertBefore( row.parent().find('tr:first-child')[0] )
+         }
+
+    });
+    currentCounter_<%= pArray.id %> = sum;
+    if(parseInt($("#hour_counter_<%= pArray.id %>").text(),10) < 1){
+      $("#hour_counter_<%= pArray.id %>").css("color","green");
+    }
+    else {
+      $("#hour_counter_<%= pArray.id %>").css("color","red");
+    }
+  });
+
+  $(document).on("change", ".inp_<%= pArray.id %>", function() {
+    var sum = 0;
+
+
+    //move changed row to top
+    var $this = $(this);
+     var row = $this.closest('table').closest('tr');
+     if ( $this.val()>0 ){ // move to top
+        row.insertBefore( row.parent().find('tr:first-child')[0] )
+     }
+
+     //sum all in changed column & update counter
+    $(".inp_<%= pArray.id %>").each(function(){
+        sum += +$(this).val();
+    });
+    $("#hour_counter_<%= pArray.id %>").text((<%= HrsNeeded[pArray.id] %>-sum)+currentCounter_<%= pArray.id %>);
+    if(parseInt($("#hour_counter_<%= pArray.id %>").text(),10) < 1){
+      $("#hour_counter_<%= pArray.id %>").css("color","green");
+    }
+    else {
+      $("#hour_counter_<%= pArray.id %>").css("color","red");
+    }
+  });
+<% }) %>
+</script>
+</body>
+</html>

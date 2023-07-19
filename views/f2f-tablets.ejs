@@ -1,0 +1,553 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  $(document).ready(function () {
+    var buttonCommon = {
+      exportOptions: {
+        format: {
+          body: function (data, row, column, node) {
+            let val=data
+            if (column === 1) {
+              val=data.replace( /\n.*|<[^>]*>/g, '' )
+            }
+            return val;
+          }
+        }
+      }
+    };
+    $('.card-header').hover(function(e){
+      $(this).find('.tabName').css('transform','rotateX(-90deg)')
+      $(this).find('.tabEdit').css('transform','rotateX(0deg)')
+    },function(e){
+      $(this).find('.tabName').css('transform','rotateX(0deg)')
+      $(this).find('.tabEdit').css('transform','rotateX(90deg)')
+    })
+    filterStatus()
+  });
+  function addClick(isAcc){
+    window.location.href="/add-f2f-tablet/"
+  }
+  function editClick(id,isAcc){
+    window.location.href="/edit-f2f-tablet/"+id
+  }
+  function expandBox(id){
+    if ($('#tabletBox-'+id).height()<600) {
+      $('#tabletBox-'+id).css('height','640px')
+      $('#tabletBox-'+id).css('background-color','#faeaf0').css('color','black')
+      $('#boxExpand-'+id).html('<i class="fas fa-chevron-up"></i>')
+      $('#allocTable-'+id).DataTable({
+        order: [[ 0, "desc" ]],
+        scrollY:250,
+        dom: 'Bfrtip',
+      });
+    }else {
+      $('#tabletBox-'+id).css('height','44px')
+      $('#tabletBox-'+id).css('background-color','var(--subtle)')
+      setTimeout(function(e){
+        $('#allocTable-'+id).DataTable().destroy()
+      },1000)
+      $('#boxExpand-'+id).html('<i class="fas fa-chevron-down"></i>')
+    }
+  }
+  function expandAccBox(id){
+    if ($('#accBox-'+id).height()<600) {
+      $('#accBox-'+id).css('height','640px')
+      $('#accBox-'+id).css('background-color','#faeaf0').css('color','black')
+      $('#accBoxExpand-'+id).html('<i class="fas fa-chevron-up"></i>')
+      $('#accAllocTable-'+id).DataTable({
+        order: [[ 0, "desc" ]],
+        scrollY:250,
+        dom: 'Bfrtip',
+      });
+    }else {
+      $('#accBox-'+id).css('height','44px')
+      $('#accBox-'+id).css('background-color','var(--subtle)')
+      setTimeout(function(e){
+        $('#accAllocTable-'+id).DataTable().destroy()
+      },1000)
+      $('#accBoxExpand-'+id).html('<i class="fas fa-chevron-down"></i>')
+    }
+  }
+  function filterStatus(){
+    $('.tabletBox').hide()
+    let tabletCount={
+      total:$('.tabletBox.tablet').length,
+      shown:0
+    }
+    let accCount={
+      total:$('.tabletBox.accessory').length,
+      shown:0
+    }
+    if ($('#statusFilter option:selected').length==0) {
+      $('.tabletBox').show()
+      accCount.shown=accCount.total
+      tabletCount.shown=tabletCount.total
+    }else {
+      $('#statusFilter option:selected').each(function(e){
+        let search=$(this).attr('value')
+        $('.tabletBox').each(function(e){
+          let el=this
+          if($(el).find('.'+search).length>0){
+            $(el).show()
+            if ($(el).hasClass('tablet')) {
+              tabletCount.shown++
+            }else {
+              accCount.shown++
+            }
+          }
+        })
+      })
+    }
+    $('#filterInfo').html('Showing <b>'+tabletCount.shown+'</b> of '+tabletCount.total+' tablets and <b>'+accCount.shown+'</b> of '+accCount.total+' accessories.')
+  }
+  function tabAction(id,action,allocID){
+    $('#actionModal').find('.modal-title').html(action+" tablet")
+    $('#tabletID').attr('value',id)
+    $('#actionModal').find('#allocationID').selectpicker('destroy')
+    $.ajax({
+      url: '/get-f2f-tablet-allocations/',
+      type: 'GET',
+      contentType: 'application/json',
+      success: function (response) {
+        let allocations=action=="Check in"?response.allocations.filter(el=>el.tabletID==id):response.allocations.filter(el=>el.tabletID===null)
+        if (allocations.length>0) {
+          let sel=$('#actionModal').find('#allocationID')
+          sel.html('');
+          allocations.forEach((alloc, i) => {
+            var o = new Option(alloc.fullJobName+" -> "+alloc.agentName, alloc.allocationID);
+            $(o).html(alloc.fullJobName+" -> "+alloc.agentName);
+            if (action=="Check in" && alloc.allocationID==allocID) {
+              $(o).attr('selected',true)
+              $(sel).attr('readonly',true)
+            }
+            sel.append(o);
+          });
+          $(sel).attr("title",allocations.length+" requests to fulfil...")
+          $('#askiaID').attr('required',true)
+          if (action=="Check in") {
+            $('#checkinNote').show()
+            $('#checkoutNote').hide()
+            $('#checkOutTabletBtn').attr("data-type",'tablet').hide()
+            $('#checkInTabletBtn').attr("data-type",'tablet').show()
+            $('#askiaID').hide()
+          }else {
+            $('#checkinNote').hide()
+            $('#checkoutNote').show()
+            $('#checkOutTabletBtn').attr("data-type",'tablet').show()
+            $('#checkInTabletBtn').attr("data-type",'tablet').hide()
+            $('#askiaID').show()
+          }
+          $('#printAddressBtn').hide()
+          $(sel).selectpicker({style:action=="Check in"?'disabled':''})
+          $(sel).on('change',function(e){
+            if ($(this).val()) {
+              $('#printAddressBtn').show()
+            }else {
+              $('#printAddressBtn').hide()
+            }
+          })
+          $('#actionModal').modal('show')
+        }else {
+          alert('There are no outstanding requests for tablets. Please ensure the CM has requested a new tablet, in order to allocate one.')
+        }
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  function accAction(id,action,allocID){
+    $('#actionModal').find('.modal-title').html(action+" accessory")
+    $('#tabletID').attr('value',id)
+    $('#actionModal').find('#allocationID').selectpicker('destroy')
+    $.ajax({
+      url: '/get-f2f-tablet-allocations/',
+      type: 'GET',
+      contentType: 'application/json',
+      success: function (response) {
+        let allocations=action=="Check in"?response.accAllocations.filter(el=>el.accID==id):response.allocations.filter(el=>el.returnedDate==null)
+        if (allocations.length>0) {
+          let sel=$('#actionModal').find('#allocationID')
+          sel.html('');
+          allocations.forEach((alloc, i) => {
+            var o = new Option(alloc.fullJobName+" -> "+alloc.agentName, alloc.allocationID);
+            $(o).html(alloc.fullJobName+" -> "+alloc.agentName);
+            if (action=="Check in" && alloc.allocationID==allocID) {
+              $(o).attr('selected',true)
+              $(sel).attr('readonly',true)
+            }
+            sel.append(o);
+          });
+          $(sel).attr("title",allocations.length+" requests to fulfil...")
+          $('#askiaID').attr('required',false).hide()
+          if (action=="Check in") {
+            $('#checkinNote').show()
+            $('#checkoutNote').hide()
+            $('#checkOutTabletBtn').attr("data-type",'accessory').hide()
+            $('#checkInTabletBtn').attr("data-type",'accessory').show()
+          }else {
+            $('#checkinNote').hide()
+            $('#checkoutNote').show()
+            $('#checkOutTabletBtn').attr("data-type",'accessory').show()
+            $('#checkInTabletBtn').attr("data-type",'accessory').hide()
+          }
+          $('#printAddressBtn').hide()
+          $(sel).selectpicker({style:action=="Check in"?'disabled':''})
+          $(sel).on('change',function(e){
+            if ($(this).val()) {
+              $('#printAddressBtn').show()
+            }else {
+              $('#printAddressBtn').hide()
+            }
+          })
+          $('#actionModal').modal('show')
+        }else {
+          alert('There are no tablet allocations. You must first check out a tablet for someone before you can check out an accessory for them.')
+        }
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  function checkInTablet(){
+    let data={
+      allocation:{
+        tabletID:$('#tabletID').attr("value"),
+        accID:$('#tabletID').attr("value"),
+        returnedDate:moment.utc().format("YYYY-MM-DD HH:mm:ss"),
+        receivedBy:<%=user.staffID%>,
+        allocationID:$('#allocationID').val(),
+      },
+      note:$('#checkinNote').val()
+    }
+    $.ajax({
+      url: '/check-in-f2f-'+$('#checkInTabletBtn').attr("data-type")+'/',
+      type: 'POST',
+      data:JSON.stringify(data),
+      contentType: 'application/json',
+      success: function (response) {
+        location.reload();
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  function checkOutTablet(){
+    let data={
+      allocation:{
+        tabletID:$('#tabletID').attr("value"),
+        accID:$('#tabletID').attr("value"),
+        postedDate:moment.utc().format("YYYY-MM-DD HH:mm:ss"),
+        postedBy:'<%=user.staffID%>',
+        askiaID:$('#askiaID').val(),
+        allocationID:$('#allocationID').val(),
+      },
+      note:$('#checkoutNote').val()
+    }
+    $.ajax({
+      url: '/check-out-f2f-'+$('#checkInTabletBtn').attr("data-type")+'/',
+      type: 'POST',
+      data:JSON.stringify(data),
+      contentType: 'application/json',
+      success: function (response) {
+        location.reload();
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  function printAddress(){
+    $.ajax({
+      url: '/get-f2f-agent/0/'+$('#allocationID').val(),
+      type: 'GET',
+      contentType: 'application/json',
+      success: function (response) {
+        var prtContent = "<div style='font-size:xx-large;text-align:left;margin:30px;'>"+response.agentName+"<br>"
+          +response.add1+"<br>"
+          +response.add2+"<br>"
+          +response.add3+"<br>"
+          +response.add4+"<br>"
+          +response.postcode+"</div>"
+        var WinPrint = window.open('', '', 'left=0,top=0,width=800,height=900,toolbar=0,scrollbars=0,status=0');
+        WinPrint.document.write(prtContent);
+        WinPrint.document.close();
+        WinPrint.focus();
+        WinPrint.print();
+        WinPrint.close();
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+</script>
+
+<%
+ const dateIf = (inDate, seperator, order) => {
+   if(new Date(inDate).getDate() > -1)
+   {
+     let day =''
+     if (new Date(inDate).getDate() < 10) {
+       day = '0' + new Date(inDate).getDate()
+     } else {
+       day = new Date(inDate).getDate()
+     }
+     let month =''
+     if (new Date(inDate).getMonth()+1 < 10) {
+       month = '0' + (new Date(inDate).getMonth()+1)
+     } else {
+       month = (new Date(inDate).getMonth()+1)
+     }
+     let year = new Date(inDate).getFullYear()
+     if(order=="f"){
+       return(day+seperator+month+seperator+year)
+     }
+     if(order=="r"){
+       return(year+seperator+month+seperator+day)
+     }
+   }
+   else{
+     return ""
+   }
+ }
+%>
+   <style>
+    table.dataTable tbody tr {
+      cursor: pointer;
+    }
+    div.dt-button-collection {
+      width: max-content!important;
+    }
+    table.dataTable thead th, table.dataTable thead td, table.dataTable tbody th, table.dataTable tbody td{
+      padding: 3px 3px;
+      font-size: small;
+    }
+    .tabletBox{
+      transition: all 1s ease-out;
+      height:44px;
+      overflow:hidden;
+      border: 1px solid #bab8b8;
+      border-radius: 6px;
+      margin-bottom: 5px;
+      background-color: var(--subtle);
+    }
+    .boxExpand {
+      position: absolute;
+      right: 8px;
+      top: 4px;
+      border:none;
+    }
+    .tabStatus {
+      position: absolute;
+      left: 0px;
+      bottom: -4px;
+      font-size: x-large;
+    }
+    div.card-header {
+      position: relative;
+      transition: background-color 1s ease-out;
+      background:none!important
+    }
+    .alloc {
+      margin: 3px;
+    }
+    .allocations {
+      position: absolute;
+      left: -6px;
+      top: -6px;
+      border: none;
+    }
+    .tabEdit{
+      transform: rotateX(90deg);
+      position: absolute;
+      width: 100%;
+      left: 0%;
+      top: 2px;
+      transition: all 0.5s ease-out;
+    }
+    .tabName{
+      transform: rotateX(0deg);
+      display:block;
+      transition: all 0.5s ease-out;
+    }
+    .tabletBox.inactive{
+      background-color: #dc35452e!important;
+    }
+    .checkedout{
+      color:var(--secondary)
+    }
+    .available{
+      color:var(--success)
+    }
+    .inactive{
+      color:var(--danger)
+    }
+    .tabletBox.available {
+      background-color: #28a7451c!important;
+    }
+    .tabletBox.checkedout {
+      background-color: #bbbbbb!important
+      color:grey;
+    }
+  </style>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center viewerHeight">
+    <div class="card-body">
+      <h5 class="card-title">F2F Tablets</h5>
+      <select id="statusFilter" onChange="filterStatus()" multiple title="Filter by status..." multiple class="selectpicker customfilters" data-container="body" data-live-search="true">
+        <option value='available' selected>Available</option>
+        <option value='checkedout' selected>Checked out</option>
+        <option value='inactive'>Inactive</option>
+      </select>
+      <div id="filterInfo" style="margin-top:10px;font-style:italic;">
+        Showing <b><%tablets.length%></b> of <%tablets.length%> tablets and <b><%accessories.length%></b> of <%accessories.length%> accessories.
+      </div>
+      <br>
+        <% tablets.forEach((tab, i) => {
+          let status=tab.isActive==0?'inactive':(tab.lastPosted===null?'available':(moment.utc(tab.lastReturned).valueOf()>=moment.utc(tab.lastPosted).valueOf()?'available':'checkedout'))
+        %>
+        <div class="tabletBox tablet <%= status %>" id="tabletBox-<%=tab.tabletID%>">
+        <div class="card-header">
+          <span class="tabName"><%=tab.tabletName%> - <%=tab.tabletModel%><span class="tabStatus <%= status %>"><i class="fas fa-tablet-alt"></i></span></span>
+          <span class="tabEdit">
+            <button type="button" class="btn btn-warning" onclick="editClick(<%=tab.tabletID%>)">Edit <%=tab.tabletName%></button>
+            <% if(status=="checkedout"){%>
+              <button type="button" class="btn btn-success" onclick="tabAction(<%=tab.tabletID%>,'Check in',<%=tab.allocationID%>)">Check in</button>
+            <%}else if (status=="available") {%>
+              <button type="button" class="btn btn-primary" onclick="tabAction(<%=tab.tabletID%>,'Check out')">Check out</button>
+            <%}%>
+          </span>
+          <button type="button" class="btn btn-outline-secondary boxExpand btn-flat" id="boxExpand-<%=tab.tabletID%>" onclick="expandBox(<%=tab.tabletID%>)"><i class="fas fa-chevron-down"></i></button>
+        </div>
+          <table class="table table-striped table-compact table-hover table-sm allocTable" id="allocTable-<%=tab.tabletID%>">
+            <thead class="thead">
+              <tr>
+                <th scope="col">Posted out date</th>
+                <th scope="col">Sent by</th>
+                <th scope="col">CAPI ID</th>
+                <th scope="col">Check-out notes</th>
+                <th scope="col">Agent</th>
+                <th scope="col">Job</th>
+                <th scope="col">Received date</th>
+                <th scope="col">Received by</th>
+                <th scope="col">Check-in notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% allocations.filter(el=>el.tabletID==tab.tabletID).forEach((tab, i) => {
+              %>
+              <tr>
+                <td data-sort="<%= moment(tab.postedDate).valueOf() %>"><%= moment(tab.postedDate).format("DD/MM/YYYY") %></td>
+                <td><%= tab.postedBy %></td>
+                <td><%= tab.askiaID %></td>
+                <td><%= tab.checkoutNote %></td>
+                <td><%= tab.agentName %></td>
+                <td><%= tab.fullJobName %></td>
+                <td><%= tab.returnedDate?moment(tab.returnedDate).format("DD/MM/YYYY"):'' %></td>
+                <td><%= tab.receivedBy %></td>
+                <td><%= tab.checkinNote %></td>
+              </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <% }) %>
+      <button type="button" onclick="addClick()" style="display:none;" class="btn btn-success btn-block" id="addTab"><i class="fas fa-plus"></i> Add new tablet</button>
+      </div>
+      <div class="card-body">
+        <h6>F2F Accessories</h6>
+        <br><br>
+          <% accessories.forEach((acc, i) => {
+            let status=acc.isActive==0?'inactive':(acc.lastPosted===null?'available':(moment.utc(acc.lastReturned).valueOf()>=moment.utc(acc.lastPosted).valueOf()?'available':'checkedout'))
+          %>
+          <div class="tabletBox accessory <%= status %>" id="accBox-<%=acc.accID%>">
+          <div class="card-header">
+            <span class="tabName"><%=acc.accName%> - <%=acc.accModel%><span class="tabStatus <%= status %>"><i class="fas fa-tablet-alt"></i></span></span>
+            <span class="tabEdit">
+              <a class="btn btn-warning" href="/edit-f2f-accessory/<%=acc.accID%>">Edit <%=acc.accName%></a>
+              <% if(status=="checkedout"){%>
+                <button type="button" class="btn btn-success" onclick="accAction(<%=acc.accID%>,'Check in',<%=acc.allocationID%>)">Check in</button>
+              <%}else if (status=="available") {%>
+                <button type="button" class="btn btn-primary" onclick="accAction(<%=acc.accID%>,'Check out')">Check out</button>
+              <%}%>
+            </span>
+            <button type="button" class="btn btn-outline-secondary btn-flat boxExpand" id="accBoxExpand-<%=acc.accID%>" onclick="expandAccBox(<%=acc.accID%>)"><i class="fas fa-chevron-down"></i></button>
+          </div>
+            <table class="table table-striped table-compact table-hover table-sm allocTable" id="accAllocTable-<%=acc.accID%>">
+              <thead class="thead">
+                <tr>
+                  <th scope="col">Posted out date</th>
+                  <th scope="col">Sent by</th>
+                  <th scope="col">Check-out notes</th>
+                  <th scope="col">Agent</th>
+                  <th scope="col">Job</th>
+                  <th scope="col">Received date</th>
+                  <th scope="col">Received by</th>
+                  <th scope="col">Check-in notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% accAllocations.filter(el=>el.accID==acc.accID).forEach((a, i) => {
+                %>
+                <tr>
+                  <td data-sort="<%= moment(a.postedDate).valueOf() %>"><%= moment(a.postedDate).format("DD/MM/YYYY") %></td>
+                  <td><%= a.postedBy %></td>
+                  <td><%= a.checkoutNote %></td>
+                  <td><%= a.agentName %></td>
+                  <td><%= a.fullJobName %></td>
+                  <td><%= a.returnedDate?moment(a.returnedDate).format("DD/MM/YYYY"):'' %></td>
+                  <td><%= a.receivedBy %></td>
+                  <td><%= a.checkinNote %></td>
+                </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+          <% }) %>
+        <button type="button" onclick="addClick()" style="display:none;" class="btn btn-success btn-block" id="addTab"><i class="fas fa-plus"></i> Add new tablet</button>
+        </div>
+    </div>
+  </div>
+  <div class='modal fade' role='dialog' id='actionModal'>
+    <div class='modal-dialog modal-dialog-centered' role='document'>
+      <div class='modal-content'>
+        <div class='modal-header'>
+          <h5 class='modal-title'></h5>
+          <button type='button' class='close modalClose' data-dismiss='modal' aria-label='Close'>
+            <span aria-hidden='true'>&times;</span>
+          </button>
+        </div>
+        <div class='modal-body'>
+          <input type="text" name="tabletID" id="tabletID" style="display:none;" value="">
+          <input type="text" name="tabletAction" id="tabletAction" style="display:none;" value="">
+          <div class="form-group row">
+            <div class="col-sm-12">
+              <select title="Select a request to fulfil" required class="form-control" name="allocationID" id="allocationID">
+              </select>
+            </div>
+          </div>
+          <div class="form-group row">
+            <div class="col-sm-12">
+              <input type="text" class='form-control' id='askiaID' name="askiaID" placeholder='Askia ID' required>
+            </div>
+          </div>
+          <div class="form-group row">
+            <div class="col-sm-12">
+              <textarea class='form-control' id='checkoutNote' name="checkoutNote" rows="5" cols="80" placeholder='Check-out notes'></textarea>
+              <textarea class='form-control' id='checkinNote' name="checkinNote" rows="5" cols="80" placeholder='Check-in notes'></textarea>
+            </div>
+          </div>
+        </div>
+        <div class='modal-footer'>
+          <button type='button' class='btn btn-info' id='printAddressBtn' onclick="printAddress()">Print label</button>
+          <button type='button' class='btn btn-primary' id='checkInTabletBtn' onclick="checkInTablet()">Check in</button>
+          <button type='button' class='btn btn-primary' id='checkOutTabletBtn' onclick="checkOutTablet()">Check out</button>
+          <button type='button' class='btn btn-secondary modalClose' data-dismiss='modal'>Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

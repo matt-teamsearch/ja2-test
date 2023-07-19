@@ -1,0 +1,331 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  var stDate=moment.utc().startOf('d')
+  var enDate=moment.utc().startOf('d').add(30,'d')
+  var dates=moment.range(stDate,enDate)
+  var bankHols=[]
+  var bookedHours=[]
+  var topCalc = function(cell, formatterParams, onRendered){
+    var val=cell.getValue()
+    var shift=cell.getData().Shift.charAt(0)=='e'?'Eve':'Day'
+    var dte=formatterParams.date
+    var booking=bookedHours.find(el=>el['is'+shift]==1 && moment.utc(el.bookingDate).format("YYYY-MM-DD")==dte)
+    var html='<div>'+(booking?booking.Hours:0)+'</div>'
+    +'<div>'+val+'</div>'
+    +'<div>'+((booking?booking.Hours:0)-val)+'</div>'
+    return html
+  }
+  var topBtnCalc = function(cell, formatterParams, onRendered){
+    var shift=cell.getData().Shift.charAt(0)=='e'?'Eve':'Day'
+    var dte=formatterParams.date
+    var html='<div><a href="/staff-booking/'+shift.charAt(0).toLowerCase()+'/0/ejs" class="btn btn-warning grpBtn">Book.'+shift.toLowerCase()+'</a></div>'
+    +'<div><a href="/tally-sheet/'+dte+'/'+shift.charAt(0).toLowerCase()+'/0/1" class="btn btn-primary grpBtn">Tally.'+shift.toLowerCase()+'</a></div>'
+    +'<div> </div></div>'
+    return html
+  }
+  var sparkLineCalc=function(cell, formatterParams, onRendered){
+    var shift=cell.getData().Shift.charAt(0)
+    var shiftTxt=(shift=='e'?'Eve':'Day')
+    var barData=[]
+    for (let day of dates.by('day')) {
+      if (![0,6].includes(day.day())) {
+        var tdyNeeded=0
+        var booking=bookedHours.find(el=>el['is'+shiftTxt]==1 && moment.utc(el.bookingDate).format("YYYY-MM-DD")==day.format("YYYY-MM-DD"))
+        cell.getTable().getData().filter(el=>el.Shift==shift).forEach((row, i) => {
+          tdyNeeded=tdyNeeded+row[day.valueOf()].needed
+        });
+        var okBar=Math.min((booking?booking.Hours:0),tdyNeeded)
+        var redBar=Math.max(tdyNeeded-(booking?booking.Hours:0),0)
+        barData.push({
+          vals: okBar+":"+redBar,
+          needed: tdyNeeded,
+          booked: (booking?booking.Hours:0),
+          dte:day
+        })
+      }
+    }
+    onRendered(function(){
+      $(cell.getElement()).sparkline(barData.map(el=>el.vals), {
+        type: 'bar',
+        barWidth:$(cell.getElement()).width()/barData.length,
+        height:"100%",
+        tooltipFormatter:function(sparkline, options, fields){
+          console.log(sparkline)
+          console.log(sparkline.getCurrentRegionFields())
+          // return fields.dte.format("DD/MMM")+"<br>Needed: "+fields.needed+"<br>Booked:"+fields.booked
+          return ""
+        },
+      });
+    })
+  }
+  var sparklineSum = function(values, data, calcParams){
+    var calc = 0;
+    values.forEach(function(value){
+      calc=calc+Number(value.needed);
+    });
+    return calc;
+  }
+  var topSum = function(values, data, calcParams){
+    var calc = 0;
+    values.forEach(function(value){
+      calc=calc+Number(value.needed);
+    });
+    return calc;
+  }
+  function getBooked(dte){
+    return $.ajax({
+      url: '/get-booked',
+      type: 'POST',
+      data: JSON.stringify({date:dte}),
+      contentType: 'application/json',
+      success: function (e) {
+        bookedHours=e
+      },
+      error: function (jqXHR, exception) {
+        console.log(jqXHR)
+      },
+    })
+  }
+  function getBankHols(){
+    return $.ajax({
+      url: '/get-bank-hols',
+      type: 'GET',
+      contentType: 'application/json',
+      beforeSend:function(){
+        if (bankHols.length>0) {
+          return bankHols
+        }
+      },
+      success: function (e) {
+        bankHols=e['england-and-wales'].events.filter(el=>moment.utc(el.date).valueOf()>=moment.utc().startOf('day').valueOf())
+        return bankHols
+      },
+      error: function (jqXHR, exception) {
+        console.log(jqXHR)
+      },
+    })
+  }
+  $(document).ready(function () {
+    getBooked()
+    var table=new Tabulator("#resourceTable",{
+      autoResize:true,
+      layout:"fitData",
+      height:'78vh',
+      resizableColumns:false,
+      ajaxURL:"/resource-planner-ajax/",
+      layout:"fitDataTable",
+      groupBy:'Shift',
+      columnCalcs:"group",
+      headerSort:false,
+      // ajaxParams:{enDate:enDate.format("YYYY-MM-DD")},
+      ajaxResponse:function(url, params, response){
+        return getBankHols().then(function(e){
+          var tdy=moment.utc().startOf('d')
+          var tableData=response.jobs.filter(job=>moment.utc(job.startDate).valueOf()<enDate.valueOf()).map(job=>{
+            var obj={}
+            var jobID=job.jobID[0]
+            var st=moment.max(moment.utc().startOf('d'),moment.utc(job.startDate))
+            var en=moment.utc(job.endDate)
+            obj["Shift"]=job.isJobEve[0]==1?'e':'d'
+            obj["Project"]=job.fullJobName
+            obj.CM=job.CM?job.CM.split(" ").map(el=>el.charAt(0).toUpperCase()).join(""):''
+            obj["Starts"]=moment.utc(job.startDate)
+            obj["Ends"]=en
+            obj["To do"]=job.intsLeft
+            obj["AHR"]={ahr:job.ahr,type:job.resourceTarget?'planned':'calc'}
+            var note=response.notes.find(el=>el.jobID==jobID)
+            obj["Notes"]=note?note.note:''
+            var bankHolsForJob=bankHols?bankHols.filter(el=>moment.utc(el.date).valueOf()>=st.valueOf() && moment.utc(el.date).valueOf()<=en.valueOf()):null
+            var bankHolCount=bankHolsForJob?bankHolsForJob.length:0
+            var neededRound=(job.calcHours/(job.calcDays-bankHolCount))
+            neededRound=(Math.ceil(neededRound * 2) / 2);
+            var allo=response.allo.filter(el=>el.jobID==jobID)
+            for (let day of dates.by('day')) {
+              if (day.valueOf()>=st.valueOf() && day.valueOf()<=en.valueOf()) {
+                var planned=response.planned.find(el=>el.jobID==jobID && moment.utc(el.plannerDate).valueOf()==day.valueOf())
+                if(day.valueOf()==tdy.valueOf()){
+                  obj[day.valueOf()]={needed:Math.round(job.todayHours),type:'planned'}
+                }else if (planned) {
+                  obj[day.valueOf()]={needed:Math.round(planned.plannerHours),type:'planned'}
+                }else {
+                  obj[day.valueOf()]={needed:Math.max(0,neededRound),type:'calc'}
+                }
+              }else {
+                obj[day.valueOf()]={needed:null,type:'notin'}
+              }
+              var dayAllo=allo?allo.find(el=>moment.utc(el.agentAllocationDate).valueOf()==day.valueOf()):null
+              if (dayAllo) {
+                obj[day.valueOf()+'-allo']=dayAllo.Hours
+              }else {
+                obj[day.valueOf()+'-allo']=0
+              }
+            }
+            return obj
+          })
+          return tableData;
+        })
+      },
+      autoColumns:true,
+      autoColumnsDefinitions:function(definitions){
+        var origDef=definitions.filter(el=>el.field.indexOf('-allo')<0)
+        var newDef=[]
+        for (var i = 0; i < origDef.length; i++) {
+          if (i>7) {
+            var day=moment.utc(Number(origDef[i].field))
+            newDef.push({
+              title:day.format("ddd"), columns:[
+                {title:day.format("DD/MM/YYYY"), columns:[
+                  {field:day.valueOf().toString(), title:'Needed', headerSort:false, hozAlign:'center', headerHozAlign:'center',
+                    formatter:function(cell, formatterParams, onRendered){
+                      if (cell.getValue().type=='notin') {
+                        $(cell.getElement()).addClass('notin')
+                      }
+                      return cell.getValue().type=='notin'?'':cell.getValue().needed
+                    },topCalc:topSum,topCalcFormatter:topCalc, topCalcFormatterParams:{date:day.format("YYYY-MM-DD")}
+                  },
+                  {field:day.valueOf()+"-allo", title:'Alloc.', headerSort:false, hozAlign:'center', headerHozAlign:'center',
+                    formatter:function(cell, formatterParams, onRendered){
+                      let allo=cell.getData()[cell.getField().replace('-allo','')]
+                      if (allo.type=='notin') {
+                        $(cell.getElement()).addClass('notin')
+                      }else if (cell.getValue()>=allo.needed) {
+                        $(cell.getElement()).addClass('success')
+                      }else {
+                        $(cell.getElement()).addClass('danger')
+                      }
+                      return allo.type=='notin'?'':cell.getValue()
+                    },topCalc:'sum',topCalcFormatter:topBtnCalc, topCalcFormatterParams:{date:day.format("YYYY-MM-DD")}
+                  },
+                ]}
+              ], headerSort:false, hozAlign:'center', headerHozAlign:'center', cssClass:(day.format("dd")=='Su'?'weekEnd':'')})
+          }else if (origDef[i].field=='AHR') {
+            newDef.push({
+              title:"AHR",field:"AHR",formatter:function(cell, formatterParams, onRendered){return '<span class="'+cell.getValue().type+'">'+cell.getValue().ahr+'</span>'}
+            })
+          }else {
+            newDef.push(origDef[i])
+          }
+        }
+        newDef[0].visible=false
+        newDef[0].frozen=true
+        newDef[0].topCalc="concat"
+        newDef[1].frozen=true
+        newDef[1].maxWidth=200
+        newDef[1].topCalc='sum'
+        newDef[1].topCalcFormatter=sparkLineCalc
+        newDef[2].frozen=true
+        newDef[3].formatter="datetime"
+        newDef[3].formatterParams={
+          inputFormat:"YYYY-MM-DD",
+          outputFormat:"DD/MM/YYYY",
+          invalidPlaceholder:"TBC",
+        }
+        newDef[3].frozen=true
+        newDef[4].formatter="datetime"
+        newDef[4].formatterParams={
+          inputFormat:"YYYY-MM-DD",
+          outputFormat:"DD/MM/YYYY",
+          invalidPlaceholder:"TBC",
+        }
+        newDef[4].frozen=true
+        newDef[5].frozen=true
+        newDef[6].formatter=function(cell, formatterParams, onRendered){return '<span class="'+cell.getValue().type+'">'+cell.getValue().ahr+'</span>'}
+        newDef[6].frozen=true
+        newDef[7].frozen=true
+        newDef[7].maxWidth=120
+        console.log(newDef)
+        return newDef;
+      },
+      rowFormatter:function(row){
+        // row.getCells().forEach((cell, i) => {
+        //   cell.getElement().style.padding= "4px";
+        //   cell.getElement().style.fontSize= "smaller";
+        // })
+        // row.getElement().style.height="25px"
+        if (row.getData().Shift=='e') {
+          $(row.getElement()).addClass('eveRow')
+        }else {
+          $(row.getElement()).addClass('dayRow')
+        }
+        // console.log(row.getData().Project+" formatted")
+      },
+      dataLoaded:function(data){
+        table.setSort("Shift", "desc");
+      }
+    })
+    $('#downloadToExcel').click(function(e){
+      table.download("xlsx", "Resource Planner "+moment().format()+".xlsx", {
+        documentProcessing:function(workbook){
+          workbook.Props = {
+            Title: "JA2 Interviewer Snapshot",
+            CreatedDate: new Date()
+          };
+          return workbook;
+        }
+      })
+    })
+  })
+</script>
+<style>
+  .planned{
+    color:#007bff;
+    font-weight:bold;
+  }
+  .eveRow{
+    background-color:#f7f2e1!important
+  }
+  .dayRow{
+    background-color:#efc128!important
+  }
+  .notin{
+    background-color:#d8d3d3;
+    cursor:inherit;
+    border-color:#d8d3d3;
+  }
+  .tabulator-calcs-top{
+    height:unset!important;
+  }
+  .topCalc{
+    min-width:90px;
+  }
+  .topCalc div{
+    width:50%;
+    display:inline-block;
+  }
+  .grpBtn{
+    width: 100%;
+    font-size: smaller;
+    padding: 1px;
+  }
+  .danger{
+    color:var(--danger)
+  }
+  .success{
+    color:var(--success)
+  }
+  .jqstooltip {
+   width: 75px !important;
+   height: 3em !important;
+  }
+  .tabulator-cell,.tabulator-col-content {
+    padding: 3px!important;
+  }
+</style>
+<div class="table-wrapper">
+<div id="record-filters" style="padding-top:8px" class="btn-group" data-toggle="buttons">
+  <label id="gridDisplayDayLabel" class="btn btn-primary" style="">
+    <input type="radio" name="GridDisplay" id="gridDisplayDay" autocomplete="off" value="Day" /> Day
+  </label>
+  <label id="gridDisplayEveLabel" class="btn btn-primary">
+    <input type="radio" name="GridDisplay" id="gridDisplayEve" autocomplete="off" value="EveOnly" /> Eve
+  </label>
+  <label id="gridDisplayAllLabel" class="btn btn-primary active">
+    <input type="radio" name="GridDisplay" id="gridDisplayAll" autocomplete="off" value="all" /> All
+  </label>
+</div>
+<span id="btnExport"></span>
+<div id="resourceTable">
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,66 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .container{
+  animation: fadeInAnimation ease 1s;
+            animation-iteration-count: 1;
+            animation-fill-mode: forwards;
+            display:none;
+  }
+  </style>
+  <div id="loading" width="100%" style="text-align:center"><img src="/spinner.gif"></div>
+  <div class="container" id="container" style="padding-top:70px;">
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body viewerHeight">
+        <h5 class="card-title">Client Satisfaction</h5>
+
+        <div style="display:inline-block; padding-top:10px;" id="kf-embed-container-c2312ec496669feb457f3dc02a36eb1f"></div>
+        <script type="text/javascript" src="https://embed.klipfolio.com/a/js/embed.api"></script>
+        <script type="text/javascript">
+        KF.embed.embedKlip({
+           profile : "c2312ec496669feb457f3dc02a36eb1f",
+           settings : {"width":1060,"theme":"light"},
+           title : "Last 90 days"
+        });
+        </script>
+
+        <div style="display:inline-block; padding-top:10px;" id="kf-embed-container-a58eb2847fd5271600b9c535c0dca7a1"></div>
+        <script type="text/javascript" src="https://embed.klipfolio.com/a/js/embed.api"></script>
+        <script type="text/javascript">
+        KF.embed.embedKlip({
+           profile : "a58eb2847fd5271600b9c535c0dca7a1",
+           settings : {"width":1060,"theme":"light"},
+           title : "Last 6 months"
+        });
+        </script>
+
+        <div style="display:inline-block; padding-top:10px;" id="kf-embed-container-e910c7e4358d4fce52fae8335e37862e"></div>
+        <script type="text/javascript" src="https://embed.klipfolio.com/a/js/embed.api"></script>
+        <script type="text/javascript">
+        KF.embed.embedKlip({
+           profile : "e910c7e4358d4fce52fae8335e37862e",
+           settings : {"width":1060,"theme":"light"},
+           title : "Latest feedback"
+        });
+        </script>
+        <script>
+          $(document).ready(function() {
+            var targetNode1 = document.getElementById('kf-embed-spinner-c2312ec496669feb457f3dc02a36eb1f');
+            var targetNode2 = document.getElementById('kf-embed-spinner-a58eb2847fd5271600b9c535c0dca7a1');
+            var targetNode3 = document.getElementById('kf-embed-spinner-e910c7e4358d4fce52fae8335e37862e');
+            var observer = new MutationObserver(function(){
+                if(targetNode1.style.display == 'none' && targetNode2.style.display == 'none' && targetNode3.style.display == 'none'){
+                    $(".container").css("display", "block");
+                    $('#loading').hide()
+                }
+            });
+            observer.observe(targetNode1, { attributes: true, childList: true });
+            observer.observe(targetNode2, { attributes: true, childList: true });
+            observer.observe(targetNode3, { attributes: true, childList: true });
+          });
+        </script>
+      </div>
+    </div>
+  </div>
+
+        </body>
+        </html>

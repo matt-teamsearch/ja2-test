@@ -1,0 +1,175 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  $(document).ready(function () {
+    var buttonCommon = {
+      exportOptions: {
+        format: {
+          body: function (data, row, column, node) {
+            let val=data
+            if (column < 7 && column >2) {
+              val=data.replace( /\n.*|<[^>]*>/g, '' )
+            }
+            return val;
+          }
+        }
+      }
+    };
+    $('#interviewer-table').DataTable({
+      paging: true,
+      order: [[ 2, "asc" ]],
+      pageLength:15,
+      columnDefs:[{
+        targets: [6,7],
+        orderable: false
+      }],
+      dom: 'Bfrtip',
+      buttons: [
+          $.extend( true, {}, buttonCommon, {
+             extend: 'copyHtml5'
+         } ),
+         $.extend( true, {}, buttonCommon, {
+             extend: 'excelHtml5'
+         } ),
+         {
+           extend: 'collection',
+           text: 'Filter',
+           className: 'btn dropdown-toggle',
+           buttons: [
+           {
+             text: "All",
+             action: function( e, dt, button, config ) {
+               filterTable(":contains(Left)","",button)
+             }
+           },
+           {
+             text: "Active",
+             action: function( e, dt, button, config ) {
+               filterTable(":contains(Left)","-",button)
+             }
+           },
+           {
+             text: "Left",
+             action: function( e, dt, button, config ) {
+               filterTable(":contains(Left)",'/',button)
+             }
+           },
+           ]
+         }
+       ]
+    });
+  });
+  function filterTable(col,val,button){
+    $(button).parent().children('.dt-button').removeClass('activeFilter')
+    if (val==="") {
+      $("[aria-expanded='true']").removeClass('activeFilter')
+    }else {
+      $("[aria-expanded='true']").addClass('activeFilter')
+      $(button).addClass('activeFilter')
+    }
+    $('#interviewer-table').DataTable()
+      .columns(col)
+      .search(val)
+      .draw();
+    $(".dt-button-background").trigger("click");
+  }
+  function searchInterviewer(interviewer) {
+    if ($('#start_date').val()==undefined || $('#end_date').val()==undefined)
+    {
+      window.location.href=("/int-performance/<%= currPayPeriodSt %>/<%= tdy %>/" + interviewer + "/0")
+    }
+    else if  ($('#start_date').val() > $('#end_date').val())
+    {
+      alert("Start date can't be higher than end date")
+    }
+    else
+    {
+      window.location.href=("/int-performance/" + $('#start_date').val() + "/" + $('#end_date').val() + "/" + interviewer + "/0")
+    }
+  };
+
+</script>
+
+<%
+ const dateIf = (inDate, seperator, order) => {
+   if(new Date(inDate).getDate() > -1)
+   {
+     let day =''
+     if (new Date(inDate).getDate() < 10) {
+       day = '0' + new Date(inDate).getDate()
+     } else {
+       day = new Date(inDate).getDate()
+     }
+     let month =''
+     if (new Date(inDate).getMonth()+1 < 10) {
+       month = '0' + (new Date(inDate).getMonth()+1)
+     } else {
+       month = (new Date(inDate).getMonth()+1)
+     }
+     let year = new Date(inDate).getFullYear()
+     if(order=="f"){
+       return(day+seperator+month+seperator+year)
+     }
+     if(order=="r"){
+       return(year+seperator+month+seperator+day)
+     }
+   }
+   else{
+     return ""
+   }
+   }
+   %>
+   <style>
+     .avatar{
+       border-radius: 60px;
+
+       border: 2px solid #ffffff70;
+     }
+     #interviewer-table td{
+       padding:2px;
+       vertical-align: middle;;
+     }
+
+  </style>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <p class="text-center text-danger"><%= message %></p>
+    <div class="card-body">
+      <h5 class="card-title">Interviewers</h5>
+        <% if (interviewers.length > 0) {%>
+          <table class="table table-striped table-compact table-sm" id="interviewer-table">
+            <thead class="thead">
+              <tr>
+                <th scope="col"> </th>
+                <th scope="col"> </th>
+                <th scope="col">Interviewer name</th>
+                <th scope="col">Interviewer DOB</th>
+                <th scope="col">Joined</th>
+                <th scope="col">Left</th>
+                <th scope="col" style="width:7%;"> </th>
+                <th scope="col" style="width:7%;"> </th>
+              </tr>
+            </thead>
+            <tbody>
+              <% interviewers.forEach((interviewer, index) => { if(interviewer.agentID > 1) {%>
+                <tr>
+                  <td><img src='/BreatheCloud.png' height='15px' <%if(!interviewer.breatheID){%>class='disabledImg'<%}%>></td>
+                  <td><img src='/RingCentralIcon.png' height='20px' <%if(!interviewer.ringCentralID){%>class='disabledImg'<%}%>></td>
+                  <td><%= interviewer.agentName %></td>
+                  <td data-sort="<%=interviewer.agentDOB%>"><%= dateIf(interviewer.agentDOB,"/","f") %></td>
+                  <td data-sort="<%=interviewer.agentJoined%>"><%= dateIf(interviewer.agentJoined,"/","f") %></td>
+                  <td data-sort='<%= interviewer.agentLeft?interviewer.agentLeft:0 %>'><%= interviewer.agentLeft?dateIf(interviewer.agentLeft,"/","f"):"-" %></td>
+                  <td><button href="/int-performance/" rel="noopener" class="btn btn-sm btn-block btn-secondary" onclick="searchInterviewer('<%= interviewer.agentID %>')">Overview</button></td>
+                  <td><a href="/editint/<%= interviewer.agentID %>" rel="noopener" class="btn btn-sm btn-block btn-secondary">Edit</a></td>
+                </tr>
+                <% }}) %>
+              </tbody>
+            </table>
+            <% } else { %>
+              <Br><br>
+                <p class="text-center">No interviewers found. Go <a href="/add-interviewers" >here</a> to add interviewers.</p>
+                <% } %>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>

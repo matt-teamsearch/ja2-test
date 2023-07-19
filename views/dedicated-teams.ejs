@@ -1,0 +1,48 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="tablesCont">
+  <%jobs.forEach(job=>{%>
+    <div class="tableWrapper">
+      <h5><%=(projectID?'':job.quoteNo+" "+job.quoteName+" - ")+job.jobName%></h5>
+      <div class="teamsTable" data-jobID="<%=job.jobID%>" data-isJobDay="<%=job.isJobDay%>" data-endDate="<%=moment(job.endDate).format("YYYY-MM-DD")%>" data-startDate="<%=moment(job.startDate).format("YYYY-MM-DD")%>">
+      </div>
+    </div>
+  <%})%>
+</div>
+<script src='/js/JA2dedicatedTeamsTable.js'></script>
+<link rel='stylesheet' href='/css/JA2tables.css'>
+<style media="screen">
+  .tableWrapper {
+    width: 50%;
+    text-align: center;
+    padding: 7px;
+  }
+  .tablesCont {
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .ui-state-selected .ui-state-default {
+    background: inherit;
+    border: none;
+    color: inherit;
+  }
+  .ui-state-selected .ui-state-active {
+    background: inherit;
+    border: none;
+    color: inherit;
+  }
+  td:not(.ui-state-selected) a.ui-state-default.ui-state-active {
+    border: 1px solid #c5c5c5;
+    background: #f6f6f6;
+    font-weight: normal;
+    color: #454545;
+  }
+  td.ui-state-selected {
+    background: var(--secondary);
+    color: white;
+  }
+  .ui-state-disabled {
+    pointer-events: all;
+  }
+</style>
+</body>
+</html>

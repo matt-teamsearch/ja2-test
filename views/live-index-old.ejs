@@ -1,0 +1,386 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="table-wrapper">
+  <% if (projects.length > 0) {%>
+    <script>
+      $(document).ready(function () {
+        var table = $('#Project-table').DataTable( {
+          "ordering": false,
+          "paging": false,
+          "orderCellsTop": true,
+          "searching": true,
+          info:false,
+          "columnDefs": [
+            { "visible": false, "targets": 0 }
+          ],
+          "fixedHeader": true,
+          scrollY: 700,
+          scrollX: true,
+          "initComplete": function( settings, json ) {
+            $('#Project-table').css("visibility","visible");
+            $('#loading').hide()
+          }
+        });
+        $('.dataTables_length').addClass('bs-select');
+        table.draw();
+        var toggleActive = function(activate)
+        {
+          //return; // uncomment this line to see the de-coupled (broken) Bootstrap state
+          // de-activate any existing selection
+          $('#record-filters').find('.btn-primary').each(function(index, element) {
+            $(element).removeClass('active');
+          });
+          activate.addClass('active');
+        }
+
+        $.fn.dataTable.ext.search.push(
+            function(settings, data, dataIndex) {
+              var live = $('#gridDisplayLive')[0].checked;
+              var finished = $('#gridDisplayFinished')[0].checked;
+              var notStarted = $('#gridDisplayNotStarted')[0].checked;
+              var all = $('#gridDisplayAll')[0].checked;
+              var condition = String(data[0]); // check condition
+              if (all) {
+                 toggleActive($('#gridDisplayAllLabel'));
+                 return true;
+              } else if (live) {
+                 toggleActive($('#gridDisplayLiveLabel'));
+                 return ("LIVE" == condition);
+              } else if (finished) {
+                 toggleActive($('#gridDisplayFinishedLabel'));
+                 return ("FINISHED" == condition);
+              } else if (notStarted) {
+                 toggleActive($('#gridDisplayNotStartedLabel'));
+                 return ("NOT STARTED" == condition);
+              }
+              return false;
+            }
+          );
+
+          $(document).on("click", "#record-filters", function() {
+            table.draw();
+          });
+          $('#myInputTextField').keyup(function(){
+                table.search($(this).val()).draw() ;
+          })
+      });
+      function fnExcelReport()
+      {
+          var tab_text="<table border='2px'><tr bgcolor='#87AFC6'>";
+          var textRange; var j=0;
+          tab = document.getElementById('Project-table'); // id of table
+
+          for(j = 0 ; j < tab.rows.length ; j++)
+          {
+              tab_text=tab_text+tab.rows[j].innerHTML+"</tr>";
+              //tab_text=tab_text+"</tr>";
+          }
+
+          tab_text=tab_text+"</table>";
+          tab_text= tab_text.replace(/<A[^>]*>|<\/A>/g, "");
+          tab_text= tab_text.replace(/<a[^>]*>|<\/a>/g, "");
+          tab_text= tab_text.replace(/<img[^>]*>/gi,"");
+          tab_text= tab_text.replace(/<input[^>]*>|<\/input>/gi, "");
+
+          var ua = window.navigator.userAgent;
+          var msie = ua.indexOf("MSIE ");
+
+          if (msie > 0 || !!navigator.userAgent.match(/Trident.*rv\:11\./))
+          {
+              txtArea1.document.open("txt/html","replace");
+              txtArea1.document.write(tab_text);
+              txtArea1.document.close();
+              txtArea1.focus();
+              sa=txtArea1.document.execCommand("SaveAs",true,"Project_Deadlines.xls");
+          }
+          else
+              sa = window.open('data:application/vnd.ms-excel,' + encodeURIComponent(tab_text));
+
+          return (sa);
+      }
+    </script>
+    <style>
+      #Project-table{visibility:hidden;}
+      input[type=radio] {
+        display:none;
+      }
+      .dataTables_filter {
+        display: none;
+      }
+      label{
+        color:white
+      }
+      a {
+        color: #050049;
+      }
+      table.dataTable thead th, table.dataTable tbody td{
+        padding:3px!important;
+        white-space: nowrap;
+        font-size:0.8em;
+      }
+      .hourly>tr, .hourly>td{
+        background-color: inherit;
+        background-image: url('/black.png')!important;
+        background-blend-mode: soft-light;
+      }
+    </style>
+    <iframe id="txtArea1" style="display:none"></iframe>
+    <div id="record-filters" style="padding-top:8px" class="btn-group" data-toggle="buttons">
+      <label id="gridDisplayLiveLabel" class="btn btn-primary" style="">
+        <input type="radio" name="GridDisplay" id="gridDisplayLive" autocomplete="off" value="LIVE" /> Live today
+      </label>
+      <label id="gridDisplayFinishedLabel" class="btn btn-primary" style="">
+        <input type="radio" name="GridDisplay" id="gridDisplayFinished" autocomplete="off" value="FINISHED" /> Ended
+      </label>
+      <label id="gridDisplayNotStartedLabel" class="btn btn-primary" style="">
+        <input type="radio" name="GridDisplay" id="gridDisplayNotStarted" autocomplete="off" value="NOT STARTED" /> Not started
+      </label>
+      <label id="gridDisplayAllLabel" class="btn btn-primary active">
+        <input type="radio" name="GridDisplay" id="gridDisplayAll" autocomplete="off" value="all" checked/> All
+      </label>
+    </div><br>
+    <input type="text" id="myInputTextField" style="margin-bottom:8px;" placeholder="Search in table....">
+    <div id="loading" width="100%" style="text-align:center"><img src="/spinner.gif"></div>
+    <table class="table table-sm table-striped table-bordered" id="Project-table" style="width:100%; overflow-y:scroll; z-index:0;">
+      <thead class="thead">
+        <tr>
+          <th scope="col">Status</th>
+          <th scope="col">Project number</th>
+          <th scope="col">Project name</th>
+          <th scope="col">Job name</th>
+          <th scope="col">Client</th>
+          <th scope="col">CM</th>
+          <th scope="col">PM</th>
+          <th scope="col">TL</th>
+          <th scope="col">Starts</th>
+          <th scope="col">Ends</th>
+          <th scope="col">Target</th>
+          <th scope="col">Complete</th>
+          <th scope="col">Progress</th>
+          <th scope="col">Cont.</th>
+          <%
+          var i;
+          var day = (24*60*60*1000)
+          var d = new Date();
+          d.setTime(d.getTime() - (day*11));
+          for (i = 0; i < 21; i++) {
+            %><th scope="col"><%= d.getDate() %>/<%= d.getMonth()+1 %></th>
+            <%d.setTime(d.getTime()+day);
+          }
+          %>
+        </tr>
+        <tr style="display:none">
+          <th scope="col">Status</th>
+          <th scope="col">Project number</th>
+          <th scope="col">Project name</th>
+          <th scope="col">Job name</th>
+          <th scope="col">Client</th>
+          <th scope="col">CM</th>
+          <th scope="col">PM</th>
+          <th scope="col">TL</th>
+          <th scope="col">Starts</th>
+          <th scope="col">Ends</th>
+          <th scope="col">Target</th>
+          <th scope="col">Complete</th>
+          <th scope="col">Progress</th>
+          <th scope="col">Cont.</th>
+          <%
+          var i;
+          var s;
+          for (i = 0; i < 21; i++) {
+            %><th scope="col"> </th><%
+          }
+          %>
+        </tr>
+      </thead>
+      <tbody>
+        <% projects.forEach((project, index) => {
+          let displayProject = false %>
+          <% jobs.forEach((job , index) => { %>
+          <% if (project.jobID == job.jobID && (project.interviewsTarget - (job.Interviews+job.OnlineInts)) > 0) { displayProject = true; }%>
+          <% });
+          if(displayProject){ %>
+          <tr <% if (project.isJobHourly == 1) {%>class="hourly"<%}%> style="background:<% if (project.isJobDay == 1) {%>#efc128<%}%><% if (project.isJobEve == 1) {%>#f7f2e1<%}%><% if (project.isJobOnline == 1 && project.isJobInternational == 0) {%>#c7ceff;<%}%><% if (project.isJobInternational == 1) {%>#a6fcff;<%}%><% if (project.isJobFace == 1) {%>#f6c7ff;<%}%><% if (project.isJobDP == 1) {%>#ACDEEB<%}%>">
+            <td ><%
+              var day = (24*60*60*1000);
+              var d = new Date();
+              var st = new Date(project.FstartDate.split('/')[2], project.FstartDate.split('/')[1] - 1, project.FstartDate.split('/')[0])
+              st.setHours(0,0,0,0)
+              var en = new Date(project.FendDate.split('/')[2], project.FendDate.split('/')[1] - 1, project.FendDate.split('/')[0])
+              en.setHours(0,0,0,0)
+              var tdy = new Date(d)
+              tdy.setHours(0,0,0,0)
+              d.setHours(0,0,0,0)
+              if (en < d) {
+                %>FINISHED<%
+              }
+              else if (st <= d) {
+                %>LIVE<%
+              }
+              else {
+                %>NOT STARTED<%
+              }%></td>
+            <td ><%= project.quoteNo %> </td>
+            <td ><a href="/overview/<%= project.quoteID %>"><%= project.quoteName %></a></td>
+            <td ><%= project.jobName %></td>
+            <td ><%= project.clientName %></td>
+            <td >
+              <% ClientManagers.forEach((ClientManager , index) => {%>
+              <% if (project.projectCM == ClientManager.staffID) {%> <%= (ClientManager.staffName).match(/\b\w/g).join('') %> <%}%>
+              <% }) %>
+            </td>
+            <td >
+              <% ProductionManagers.forEach((ProductionManager , index) => { %>
+              <% if (project.projectDP == ProductionManager.staffID) {%> <%= (ProductionManager.staffName).match(/\b\w/g).join('') %> <%}%>
+              <% }) %>
+            </td>
+            <td >
+              <% TeamLeaders.forEach((TeamLeader , index) => { %>
+              <% if (project.projectTL == TeamLeader.staffID) {%> <%= (TeamLeader.staffName).match(/\b\w/g).join('') %> <%}%>
+              <% }) %>
+            </td>
+            <td >
+              <% if (project.FstartDate == '01/01/1900') {} else {%><%= project.FstartDate %><%} %>
+            </td>
+            <td >
+              <% if (project.FendDate == '01/01/1900') {} else {%><%= project.FendDate %><%} %>
+            </td>
+            <td >
+              <%= project.interviewsTarget %>
+            </td>
+            <td >
+              <%
+              var intsDone=0
+              var jobCPI=0
+              var projectTarget=0
+              jobs.forEach((job , index) => {
+                if (job.projectID == project.projectID) {
+                  projectTarget=projectTarget+job.interviewsTarget;
+                }
+                 %>
+              <% if (project.jobID == job.jobID) {%> <%= job.Interviews+job.OnlineInts %>
+                <%
+                intsDone=job.Interviews+job.OnlineInts;
+              }%>
+              <% })
+              jobCPI=project.jobCPI;
+              jobCPI=(jobCPI+(project.setupCost/projectTarget)).toFixed(2); %>
+            </td>
+            <td width="7%">
+              <% var progPerc = intsDone/project.interviewsTarget %>
+              <div style="background-color:gray; text-align:center; width:<%=Math.floor(progPerc*100)%>%"><%=Math.floor(progPerc*100)%>%</div>
+            </td>
+            <td>
+              <%
+              var pay=0
+              var sales=0
+              dailys.forEach((daily, i) => {
+                var inpDate = new Date(daily.inputDate)
+                inpDate.setHours(0,0,0,0);
+                if (project.jobID == daily.jobID) {
+                  pay=pay+daily.Pay
+                  if (project.isJobHourly == 1) {
+                    charge=daily.Hours
+                  }else {
+                    charge=daily.Ints
+                  }
+                  sales=sales+(charge*jobCPI)
+                }
+              });%>
+              <%if(pay>0){
+                if (sales>0) {%>
+                  <%=((pay/sales)*100).toFixed(0)%>%
+                <%}
+                else {%>
+                  Inf%
+                <%}%>
+              <%}%>
+              <% if (project.isJobHourly == 1) {%> <i class="far fa-clock"></i><%}%>
+            </td>
+            <%
+            var i;
+            var dur = ((en.getTime()-st.getTime())/day)+1
+            var greenBlocks = Math.ceil(dur*progPerc)
+            d.setTime(d.getTime() - (day*11));
+            var passedBlocks = ((d.getTime()-st.getTime())/day)
+            var cnt=0
+
+            for (i = 0; i < 21; i++) {
+              var txtColour="white"
+              var pay=0
+              var sales=0
+              var charge=0
+              dailys.forEach((daily, i) => {
+                if (project.jobID == daily.jobID && daily.inputDate.toISOString().split("T")[0] == d.toISOString().split("T")[0]) {
+                  pay=pay+daily.Pay
+                  if (project.isJobHourly == 1) {
+                    charge=daily.Hours
+                  }else {
+                    charge=daily.Ints
+                  }
+                  sales=sales+(charge*jobCPI)
+                }
+              })
+              if (pay>0) {
+                if (((pay/((sales==0) ? 1 : sales) > 0.35 && project.isJobEve) || (pay/((sales==0) ? 1 : sales) > 0.40 && project.isJobDay))) {
+                  cnt++
+                  if (cnt==3) {
+                    txtColour="#ffd0d0"
+                    cnt=0
+                  }
+                }else{
+                  cnt=0
+                }
+              }
+              %>
+              <td style="text-align:center; color:<%=txtColour%>; background:<%
+                  if (st <= d && en >= d) {
+                    if ((passedBlocks+(i))<greenBlocks) {
+                      %>green;<%
+                    }else {
+                      %>black;<%
+                    }
+                    if (d.getTime() == tdy.getTime()){
+                      %>border-left-color:red; border-right-color:red;<%
+                      }
+                      else {
+                        %>border-left:none; border-right:none;<%
+                      }
+                  }
+                  else {
+                    %>white;<%
+                    if (d.getTime() == tdy.getTime()){
+                      %>border-left-color:red; border-right-color:red;<%
+                      }
+                      else {
+                        %>border-left:none; border-right:none;<%
+                      }
+                  }
+                  %>">
+                  <%if(pay>0){
+                    if (sales>0) {%>
+                      <%=((pay/sales)*100).toFixed(0)%>%
+                    <%}
+                    else {%>
+                      Inf%
+                    <%}%>
+                  <%}
+                  else if (d.getTime() < tdy.getTime()){%>
+                    -
+                  <%}%>
+                </td>
+            <%d.setTime(d.getTime()+day);
+            }
+            %>
+            </tr>
+          <% }}) %>
+        </tbody>
+      </table>
+      <button class="btn btn-sm btn-secondary" id="btnExport" onclick="fnExcelReport();" style="float:left;"> Download to excel </button>
+      <% } else { %>
+        <br><br>
+        <p class="text-center">No projects found.</p>
+        <% } %>
+      </div>
+    </div>
+  </body>
+  </html>

@@ -1,0 +1,48 @@
+<%- include('partials/'+versionPages.header) %>
+<div id="contentContainer">
+  <input type="text" name="" value="" id="targetSID">
+  <button id="need-help">Get screen</button>
+  <video id="client-screen" autoplay muted playsinline></video>
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<link rel="stylesheet" href="/css/virtual-select.min.css">
+<script src="/js/virtual-select.min.js"></script>
+<style media="screen">
+</style>
+<script type="text/javascript">
+  // https://javascript.plainenglish.io/how-to-share-screens-with-webrtc-and-socket-io-9e0691dc1ebc
+  const socket = io();
+  const peer = new RTCPeerConnection();
+  const btn=document.getElementById("need-help")
+  const targetSID=document.getElementById("targetSID")
+  btn.onclick=function(e){
+    //send a request to the target socket ID
+    socket.emit('screenshare-request', targetSID.value);
+  }
+  const video = document.getElementById('client-screen');
+  peer.addEventListener('track', (track) => {
+    video.srcObject = track.streams[0];
+  });
+
+  socket.on('offer', async (offer) => {
+    //received
+    await peer.setRemoteDescription(offer.pld);
+    const sdp = await peer.createAnswer();
+    await peer.setLocalDescription(sdp);
+    socket.emit('answer', {pld:peer.localDescription,target:offer.source});
+  });
+  socket.on('screenshare-end', async (offer) => {
+    peer.close()
+  });
+  peer.addEventListener('icecandidate', (event) => {
+    if (event.candidate) {
+      console.log(event.candidate)
+      socket.emit('icecandidate', {candidate:event.candidate,target:targetSID.value});
+    }
+  });
+  socket.on('icecandidate', async (candidate) => {
+    await peer.addIceCandidate(new RTCIceCandidate(candidate));
+  });
+</script>
+</body>
+</html>

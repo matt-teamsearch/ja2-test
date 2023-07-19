@@ -1,0 +1,601 @@
+<%- include('partials/'+versionPages.header) %>
+<script type="text/javascript">
+  var buttonCommon = {
+    exportOptions: {
+      columns: [':not(:empty) :not(.viewOnly)'],
+      format: {
+        body: function (data, row, column, node) {
+          var val=""
+          if (column === 1) {
+            val=data.replace(/<br>/g, ', ' );
+          }else if (data.indexOf("input") >= 0) {
+            val=$(data).val()
+          }else {
+            val=data.replace( /\n.*|<[^>]*>/g, '' );
+          }
+          return val
+        },
+        header: function (data, index, node) {
+          var val=""
+          if (index>1) {
+            val=(Math.floor((index+2)/4)+8)+":00 "+data
+          }
+          return $(node).attr("data-head")
+        }
+      }
+    }
+  };
+  $(document).ready(function () {
+    const phoneSystem="RingCentral"
+    if (phoneSystem=="Avaya") {
+      $(".loadFromRC").hide()
+      $(".uploadForm").show()
+    }else {
+      $(".loadFromRC").show()
+      $(".uploadForm").hide()
+    }
+    let table = $('#league_table').DataTable({
+      paging: false,
+      order: [[ 0, "asc" ]],
+      dom: 'Bfrtip',
+      info: false,
+      scrollY: '60vh',
+      scrollX: true,
+      fixedColumns:   {
+        leftColumns: 3,
+      },
+      buttons: [
+        $.extend(true, {}, buttonCommon, {
+          extend: 'excelHtml5',
+          titleAttr: 'Download to Excel',
+          text: 'Download to Excel',
+          customize: function ( xlsx ) {
+            var sheet = xlsx.xl.worksheets['sheet1.xml'];
+            $('row', sheet).each( function () {
+              var c=1
+              let lastThis
+              $('c', this).each( function () {
+                let cell=$(this).text()
+                if (Number.isInteger(cell/1) && cell!="") {
+                  if(c%3==0){
+                    if (parseInt(cell)<50) {
+                      $(this).attr( 's', '10' );
+                    }else if (parseInt(cell)<60) {
+                      $(this).attr( 's', '5' );
+                    }else {
+                      $(this).attr( 's', '15' );
+                    }
+                  }else{
+                    $(this).attr( 's', $(lastThis).attr("s") );
+                  }
+                }
+                c++
+                lastThis=this
+              })
+            });
+          }
+        })
+      ],
+      drawCallback: function( settings ) {
+        setTimeout(function(){
+          $('.DTFC_LeftBodyWrapper,.DTFC_LeftBodyLiner').height(($('.DTFC_ScrollWrapper').height()-$('.DTFC_LeftHeadWrapper').height())-17)
+          $('body').removeClass('loading')
+        },2000)
+      },
+      rowCallback: function(row, data, index){
+        data.forEach((cell, i) => {
+          if (i>2 && cell!="" && i%3==0) {
+            if (cell<50) {
+              $(row).find('td:eq('+i+')').css('color', 'var(--danger)').css('background-color', 'rgb(247 211 214)')
+              $(row).find('td:eq('+(i+1)+')').css('color', 'var(--danger)').css('background-color', 'rgb(247 211 214)')
+              $(row).find('td:eq('+(i+2)+')').css('color', 'var(--danger)').css('background-color', 'rgb(247 211 214)')
+            }else if (cell<60) {
+              $(row).find('td:eq('+i+')').css('color', 'var(--warning)').css('background-color', 'rgb(255 248 229)')
+              $(row).find('td:eq('+(i+1)+')').css('color', 'var(--warning)').css('background-color', 'rgb(255 248 229)')
+              $(row).find('td:eq('+(i+2)+')').css('color', 'var(--warning)').css('background-color', 'rgb(255 248 229)')
+            }else {
+              $(row).find('td:eq('+i+')').css('color', 'var(--success)').css('background-color', 'rgb(208 236 214)')
+              $(row).find('td:eq('+(i+1)+')').css('color', 'var(--success)').css('background-color', 'rgb(208 236 214)')
+              $(row).find('td:eq('+(i+2)+')').css('color', 'var(--success)').css('background-color', 'rgb(208 236 214)')
+            }
+          }
+        });
+      }
+    });
+    var extList=<%-JSON.stringify(dials.filter(el=>el.phoneSystem=="Avaya").filter((dial,i,self)=>{
+      return self.map(el=>el.extensionName).indexOf(dial.extensionName) == i;
+    }).map(el=>el.extensionName))%>
+    var extListR=<%-JSON.stringify(extListR)%>
+    $(document).on('click','.extSelectBtn',function(e){
+      let el=this
+      let agentID=$(el).attr('data-agentID')
+      let hr=$(el).attr('data-hr')
+      let selectHtml=`
+      <select class="extSelect" data-container="body" data-live-search="true" name="extSelect`+agentID+`" id="extSelect`+agentID+`">
+        <option value=""></option>
+        `
+      extList.forEach((ext, i) => {
+        selectHtml=selectHtml+"<option value='"+ext+"' "+(ext==$(el).html()?'selected':'')+">"+ext+"</option>"
+      });
+      selectHtml=selectHtml+`
+      </select>
+      `
+      let selectHtmlR=`
+      <select class="selectpicker form-control extSelect" data-live-search="true" data-style="form-control" title="Select an extension..." name="extSelect`+agentID+`" id="extSelect`+agentID+`">
+        <option value=""></option>
+        `
+      extListR.forEach((ext, i) => {
+        selectHtmlR=selectHtmlR+`<option `+(ext.id==$(el).attr('data-extID')?'selected':'')+` data-content="<img class='rcIcon' src='/RingCentralIcon.png'> `+ext.name+`" value="`+ext.id+`">`+ext.name+`</option>`
+      });
+      selectHtmlR=selectHtmlR+`
+      </select>
+      `
+      $(el).hide()
+      $(el).parent().append(phoneSystem=="Avaya"?selectHtml:selectHtmlR)
+      $('#extSelect'+agentID).selectpicker({
+        liveSearch:true,
+        container:'body',
+        width:'100%'
+      })
+      $('#extSelect'+agentID).on('loaded.bs.select', function (e, clickedIndex, isSelected, previousValue) {
+        $('#extSelect'+agentID).selectpicker('toggle')
+      })
+      $('#extSelect'+agentID).on('hidden.bs.select', function (e, clickedIndex, isSelected, previousValue) {
+        $('#extSelect'+agentID).selectpicker('destroy')
+        $('#extSelect'+agentID).remove()
+        $(el).show()
+      });
+      $('#extSelect'+agentID).change(function(evt){
+        evt.preventDefault();
+        var data =[]
+        var jsonData={};
+        jsonData.overide=0
+        jsonData.extension=$(this)[0].value
+        jsonData.extensionName=$(this).children(':selected').text()
+        jsonData.agentID=$(this)[0].id.replace("extSelect","")
+        jsonData.phoneSystem=phoneSystem
+        data.push(jsonData)
+        if (phoneSystem=='Avaya') {
+          $.ajax({
+            url: '/update-dial-IDs',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function (response) {
+              location.reload();
+            },
+            error: function (jqXHR, exception) {
+              if (confirm(getErrorMessage(jqXHR, exception))) {
+                data[0].overide=1
+                $.ajax({
+                  url: '/update-dial-IDs',
+                  type: 'POST',
+                  contentType: 'application/json',
+                  data: JSON.stringify(data),
+                  success: function (response) {
+                    location.reload();
+                  },
+                });
+              }else {
+                location.reload();
+              }
+            },
+          });
+        }else {
+          $('[data-agentID="'+jsonData.agentID+'"]').attr("data-extID",jsonData.extension)
+          $('[data-agentID="'+jsonData.agentID+'"].extSelectBtn').removeClass('btn-danger')
+          $('[data-agentID="'+jsonData.agentID+'"].extSelectBtn').addClass('btn-light')
+          $('[data-agentID="'+jsonData.agentID+'"].extSelectBtn').html(jsonData.extensionName)
+          $.ajax({
+            url: '/update-agent-rcid',
+            type: 'POST',
+            data: {agentID:jsonData.agentID,rcid:jsonData.extension},
+            success: function (response) {
+            },
+            error: function (jqXHR, exception) {
+              alert(getErrorMessage(jqXHR, exception));
+            },
+          });
+        }
+      });
+    })
+    $(window).resize(function() {
+      $('.DTFC_LeftBodyWrapper,.DTFC_LeftBodyLiner').height(($('.DTFC_ScrollWrapper').height()-$('.DTFC_LeftHeadWrapper').height())-17)
+    });
+    // $('.selectpicker:last').on('loaded.bs.select',function(e){
+    //   $('body').addClass('loading')
+    //   table.draw()
+    // })
+
+    $('.dials').popover({
+      html: true,
+      sanitize: false,
+      title: function(){
+        return "Edit dials <span class='close pop-close' data-id='"+$(this).attr('id')+"'>&times;</span>"
+      },
+      content: function() {
+        let cont="<input type='number' class='dialEditor form-control' data-id='"+$(this).attr('id')+"' data-hr='"+$(this).attr('data-hr')+"' data-agentID='"+$(this).attr('data-agentID')+"' data-extID='"+$(this).attr('data-extID')+"' value='"+$(this).html()+"'>"
+        return cont;
+      }
+    })
+    $('.dials').on('shown.bs.popover', function () {
+      $('#'+$(this).attr('aria-describedby')).find('.dialEditor').focus().select()
+    })
+  });
+
+  $(document).on('click','.pop-close',function(e){
+    $('#'+$(this).attr('data-id')).popover('hide')
+  })
+  $(document).on('keypress', '.dialEditor', function (e) {
+   var key = e.which;
+   let agentID=$(this).attr('data-agentID')
+   let hr=$(this).attr('data-hr')
+   let val=Number($(this).val())
+   let id=$(this).attr('data-id')
+   if(key == 13){
+     $.ajax({
+       url: "/update-sql-dials/",
+       type: 'POST',
+       data: {extID:$(this).attr('data-extID'),agentID:$(this).attr('data-agentID'),date:'<%=moment.utc(date).format("YYYY-MM-DD")%>',dials:val,hr:hr},
+       success: function (response) {
+         $('[data-agentID="'+agentID+'"][data-hr="'+hr+'"].dials').html(val)
+         $('[data-agentID="'+agentID+'"][data-hr="'+hr+'"].talkTime').html(0)
+         $('[data-agentID="'+agentID+'"][data-hr="'+hr+'"].calls').html(val)
+         $('#'+id).popover('hide')
+       },
+       error: function (jqXHR, exception) {
+         alert(getErrorMessage(jqXHR, exception));
+       },
+     });
+    }
+  });
+  </script>
+  <style>
+    table.dataTable td {
+      padding:0px!important;
+      width: 1px;
+      white-space: nowrap;
+      }
+    .jobs{
+      white-space: normal;
+      font-size: small;
+    }
+    .DTFC_LeftBodyLiner{
+      overflow-x:hidden;
+      z-index:1;
+    }
+    /* .dataTables_wrapper {
+      padding-top: 30px;
+    } */
+    .DTFC_LeftBodyWrapper{
+      background:white;
+    }
+    .dropdown.bootstrap-select.extSelect > .dropdown-menu.show{
+      width: 230px!important;
+    }
+    .h6, h6 {
+      font-size: 2rem;
+    }
+
+    .dataTables_filter {
+      display: none;
+    }
+    .lastFifteen{
+      background-color: #a93c3c!important;
+      color: white;
+    }
+    .extSelectBtn{
+      width:100%;
+    }
+    .dropdown.bootstrap-select.extSelect > .btn{
+      width: 100%!important;
+      padding:2px!important;
+      font-size: smaller!important;
+    }
+    .btn-danger {
+      color: #ffc1c1!important;
+      opacity: 0.6;
+      font-style: italic;
+    }
+    .inner.show {
+      font-size: 15px;
+    }
+    .rcIcon{
+      height: 22px;
+      margin-bottom: 2px;
+      border-radius: 5px;
+    }
+    .loadFromRC{
+      display:none;
+    }
+    .dialEditor{
+      width:75px;
+    }
+    .pop-close {
+      line-height: 0.4em;
+      margin-right: -6px;
+      padding-left: 10px;
+    }
+    .dials {
+      cursor: pointer;
+    }
+  </style>
+  <div class="container" style="padding-top:70px; max-width: min-content;">
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body viewerHeight">
+        <h5 class="card-title">Dial report</h5>
+        <input type="date" style="display:inline; width:auto;" class="form-control" id="inputdate" name="inputdate" style="width:200px; margin:auto;" value="<%=moment.utc(date).format("YYYY-MM-DD")%>" onchange="findReport()"><a href="/dial-report/<%=moment.utc(date).format("YYYY-MM-DD")%>" class="btn btn-secondary btn-sm" id="dailyMode" style="position: absolute;right: 16px;">Switch to daily view</a>
+        <!-- <canvas id="dialChart" height="50" style=""></canvas> -->
+        <div id="unmatchedAgents"></div>
+              <table class="table table-sm table-striped table-bordered" id="league_table" style="width:100%;">
+                <thead>
+                  <tr>
+                    <td></td>
+                    <td></td>
+                    <td></td>
+                    <%
+                    var hrLabels=[]
+                    var ix=0
+                    for (var i = 0; i < 12; i++) {
+                      var dte=moment.utc(date).startOf('d').add(9+i,'hours')
+                      var dteTo=moment.utc(dte).add(1,'hours')
+                      var hr=dte.hour()
+
+                      hrLabels.push("'"+dte.format("HH:mm")+"'")
+                      %>
+                    <td colspan="3">
+                      <h6><%=dte.format("HH:mm")%>-<%=dteTo.format("HH:mm")%></h6>
+                      <form class="league-table-select uploadForm" id="uploadForm<%=hr%>" data-hour="<%=hr%>" action="/dial-report/<%=dte.format("YYYY-MM-DD")%>" method="post" enctype="multipart/form-data" style="border:1px solid #ced4da; border-radius:5px; padding:10px;">
+                        <input type="file" class="form-control" id="dialUpload<%=hr%>" name="dialUpload">
+                        <button type="submit" name="submit" class="form-control btn btn-sm btn-primary" style="">Upload</button>
+                        <div class="spinner upload_spinner" id="upload_spinner<%=hr%>">
+                          <div id="upload_msg<%=hr%>"></div>
+                        </div>
+                      </form>
+                      <form id="SQLform<%=hr%>" action="/hourly-dials-to-SQL/<%=dte.format("YYYY-MM-DD")%>/<%=hr%>" method="post" enctype="multipart/form-data" style="display:none;">
+                        <input type="text" id="SQLinput<%=hr%>" name="SQLinput<%=hr%>"></input>
+                      </form>
+                      <button type="button" class="btn btn-sm btn-primary submit loadFromRC" onclick="getRCdials(<%=hr%>)"><img src="/RingCentralIcon.png" class="rcIcon"> Refresh dials</button>
+                    </td>
+                    <%
+                    if (i==11) {
+                      hrLabels.push("'20:45'")
+                      %>
+                      <td class="lastFifteen" colspan="3">
+                        <h6>20:45-21:00</h6>
+                        <form class="lastFifteen league-table-select uploadForm" id="uploadForm1" data-hour="1" action="/dial-report/<%=dte.format("YYYY-MM-DD")%>" method="post" enctype="multipart/form-data" style="border:1px solid #ced4da; border-radius:5px; padding:10px;">
+                          <input type="file" class="form-control" id="dialUpload1" name="dialUpload">
+                          <button type="submit" name="submit" class="form-control btn btn-sm btn-primary" style="">Upload</button>
+                          <div class="spinner upload_spinner" id="upload_spinner1">
+                            <div id="upload_msg1"></div>
+                          </div>
+                        </form>
+                        <form id="SQLform1" action="/hourly-dials-to-SQL/<%=dte.format("YYYY-MM-DD")%>/1" method="post" enctype="multipart/form-data" style="display:none;">
+                          <input type="text" id="SQLinput1" name="SQLinput1"></input>
+                        </form>
+                        <button type="button" class="btn btn-primary loadFromRC" onclick="getRCdials(1)"><img src="/RingCentralIcon.png" class="rcIcon"> Refresh dials</button>
+                      </td>
+                      <%
+                    }
+                    if (i==7) {
+                      hrLabels.push("'16:45'")
+                      %>
+                      <td class="lastFifteen" colspan="3">
+                        <h6>16:45-17:00</h6>
+                        <form class="lastFifteen league-table-select uploadForm" id="uploadForm0" data-hour="0" action="/dial-report/<%=dte.format("YYYY-MM-DD")%>" method="post" enctype="multipart/form-data" style="border:1px solid #ced4da; border-radius:5px; padding:10px;">
+                          <input type="file" class="form-control" id="dialUpload0" name="dialUpload">
+                          <button type="submit" name="submit" class="form-control btn btn-sm btn-primary" style="">Upload</button>
+                          <div class="spinner upload_spinner" id="upload_spinner0">
+                            <div id="upload_msg0"></div>
+                          </div>
+                        </form>
+                        <form id="SQLform0" action="/hourly-dials-to-SQL/<%=dte.format("YYYY-MM-DD")%>/0" method="post" enctype="multipart/form-data" style="display:none;">
+                          <input type="text" id="SQLinput0" name="SQLinput0"></input>
+                        </form>
+                        <button type="button" class="btn btn-primary loadFromRC" onclick="getRCdials(0)"><img src="/RingCentralIcon.png" class="rcIcon"> Refresh dials</button>
+                      </td>
+                      <%
+                    }
+                  }%>
+                  </tr>
+                  <tr>
+                    <th data-head="Agent" style="width:30%;">Agent </th>
+                    <th data-head="Team">Team </th>
+                    <th class="viewOnly">Extension</th>
+                    <% for (var i = 0; i < 14; i++) {
+                      let time=(i==8?'16:45-17:00':(i==13?'20:45-21:00':(i>7?(i+8)+':00-'+(i+9)+':00':((i+9)+':00-'+(i+10)+':00'))))
+                      %>
+                    <th data-head="<%=time%> dials">Dials </th>
+                    <th data-head="<%=time%> calls">Calls </th>
+                    <th data-head="<%=time%> talk">Talk time </th>
+                    <%}%>
+                  </tr>
+                </thead>
+                <tbody>
+                  <%
+                  let intMatched=[]
+                  interviewers.forEach((interviewer, index) =>{
+                  %>
+                  <tr>
+                    <td><%=interviewer.agentName%></td>
+                    <td><%=interviewer.teamName%></td>
+                    <td data-agentID="<%=interviewer.agentID%>" data-extID="<%=interviewer.ringCentralID%>">
+                      <button type="button" data-agentID="<%=interviewer.agentID%>" data-extID="<%=interviewer.ringCentralID%>" width="100%" class="extSelectBtn btn btn-sm <%=interviewer.ringCentralID?'btn-light':'btn-danger'%>"><%=extListR.find(el=>el.id==interviewer.ringCentralID)?extListR.find(el=>el.id==interviewer.ringCentralID).name:'Select an extension'%></button>
+                    </td>
+                    <%
+                    var dial=dials.filter(el=>el.agentID==interviewer.agentID)
+                    interviewer.dials=[]
+                    for (var i = 0; i < 12; i++) {
+                      let extmatched=[]
+                      var hr=moment.utc(date).startOf('d').add(9+i,'hours').hour()
+                      var thisDial=dial.find(el=>el.dialHour==hr)
+                      if(!thisDial){thisDial={dialCount:'',talkMins:''}}
+                      interviewer.dials.push(thisDial.dialCount+thisDial.talkMins)
+                      %>
+                    <td data-agentID="<%=interviewer.agentID%>" data-extID="<%=interviewer.ringCentralID%>" data-hr="<%=hr%>" id="dials-<%=hr%>-<%=interviewer.agentID%>" class="dials dials-<%=hr%>"><%=thisDial.dialCount+thisDial.talkMins%></td>
+                    <td data-agentID="<%=interviewer.agentID%>" data-extID="<%=interviewer.ringCentralID%>" data-hr="<%=hr%>" class="calls calls-<%=hr%> calls-<%=hr%>-<%=interviewer.agentID%>"><%=thisDial.dialCount%></td>
+                    <td data-agentID="<%=interviewer.agentID%>" data-extID="<%=interviewer.ringCentralID%>" data-hr="<%=hr%>" class="talkTime talkTime-<%=hr%> talkTime-<%=hr%>-<%=interviewer.agentID%>"><%=thisDial.talkMins%></td>
+                    <%
+                    if (i==7) {
+                      hr=0
+                      var thisDial=dial.find(el=>el.dialHour==hr)
+                      if(!thisDial){thisDial={dialCount:'',talkMins:''}}
+                      interviewer.dials.push(thisDial.dialCount+thisDial.talkMins)
+                      %>
+                      <td data-agentID="<%=interviewer.agentID%>" data-extID="<%=interviewer.ringCentralID%>" data-hr="<%=hr%>" class="dials dials-<%=hr%>-<%=interviewer.agentID%>"><%=thisDial.dialCount+thisDial.talkMins%></td>
+                      <td data-agentID="<%=interviewer.agentID%>" data-extID="<%=interviewer.ringCentralID%>" data-hr="<%=hr%>" class="calls calls-<%=hr%> calls-<%=hr%>-<%=interviewer.agentID%>"><%=thisDial.dialCount%></td>
+                      <td data-agentID="<%=interviewer.agentID%>" data-extID="<%=interviewer.ringCentralID%>" data-hr="<%=hr%>" class="talkTime talkTime-<%=hr%> talkTime-<%=hr%>-<%=interviewer.agentID%>"><%=thisDial.talkMins%></td>
+                    <%
+                    }
+                    if (i==11) {
+                      hr=1
+                      var thisDial=dial.find(el=>el.dialHour==hr)
+                      if(!thisDial){thisDial={dialCount:'',talkMins:''}}
+                      interviewer.dials.push(thisDial.dialCount+thisDial.talkMins)
+                      %>
+                      <td data-agentID="<%=interviewer.agentID%>" data-extID="<%=interviewer.ringCentralID%>" data-hr="<%=hr%>" class="dials dials-<%=hr%>-<%=interviewer.agentID%>"><%=thisDial.dialCount+thisDial.talkMins%></td>
+                      <td data-agentID="<%=interviewer.agentID%>" data-extID="<%=interviewer.ringCentralID%>" data-hr="<%=hr%>" class="calls calls-<%=hr%> calls-<%=hr%>-<%=interviewer.agentID%>"><%=thisDial.dialCount%></td>
+                      <td data-agentID="<%=interviewer.agentID%>" data-extID="<%=interviewer.ringCentralID%>" data-hr="<%=hr%>" class="talkTime talkTime-<%=hr%> talkTime-<%=hr%>-<%=interviewer.agentID%>"><%=thisDial.talkMins%></td>
+                    <%
+                    }
+                  }%>
+                  </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <script>
+          function getRCdials(hr){
+            let fromDate=moment('<%=moment.utc(date).format("YYYY-MM-DD")%>').startOf('day').set('hour', hr);
+            let toDate=moment(fromDate).add(1,'hours')
+            if (hr==0) {
+              fromDate.set('hour',16).set('minute',45)
+              toDate.set('hour',17)
+            }
+            if (hr==1) {
+              fromDate.set('hour',20).set('minute',45)
+              toDate.set('hour',21)
+            }
+            $.ajax({
+              url: '/get-all-dials',
+              type: 'POST',
+              data: {fromDate:fromDate.toISOString(),toDate:toDate.toISOString()},
+              success: function (response) {
+                $('body').addClass("loading")
+                let sqlResp=[]
+                $('.calls-'+hr).each(function(e){
+                  let thisExt=response.find(el=>el.extID==$(this).attr('data-extID'))
+                  if (thisExt) {
+                    let talkDur=moment.duration(thisExt.talkTime,'seconds')
+                    let talkTime=moment.utc(talkDur.as('milliseconds'))
+                    if (talkDur+thisExt.calls>0) {
+                      $(this).html(thisExt.calls)
+                      let talkTimeNum=Math.round(talkDur.minutes()+(talkDur.hours()*60)+(talkDur.seconds()/60))
+                      $(this).parent().find('.talkTime-'+hr).html(talkTimeNum)
+                      $(this).parent().find('.dials-'+hr).html(Number(talkTimeNum)+Number(thisExt.calls))
+                      sqlResp.push({
+                        "Out Calls":thisExt.calls,
+                        "Duration":talkTime.format("HH:mm:ss"),
+                        "Extension (Name)":$(this).attr("data-extID"),
+                        "phoneSystem":"Ring Central",
+                        agentID:$(this).attr("data-agentID")
+                      })
+                    }
+                  }
+                })
+                let sqlData={}
+                sqlData["SQLinput"+hr]=JSON.stringify(sqlResp)
+                $.ajax({
+                  url: "/hourly-dials-to-SQL/<%=dte.format("YYYY-MM-DD")%>/"+hr,
+                  type: 'POST',
+                  data: sqlData,
+                  success: function (response) {
+                  },
+                  error: function (jqXHR, exception) {
+                    alert(getErrorMessage(jqXHR, exception));
+                  },
+                });
+              },
+              error: function (jqXHR, exception) {
+                alert(getErrorMessage(jqXHR, exception));
+              },
+            });
+          }
+         $(".uploadForm").submit(function(evt){
+          var hr=$(this).attr('data-hour')
+          evt.preventDefault();
+          var formData = new FormData($(this)[0]);
+          $("#upload_spinner"+hr).show();
+          if ($("#dialUpload"+hr).val()=="") {
+            $("#upload_spinner"+hr).hide();
+            alert("No file selected")
+          }else {
+           $.ajax({
+               url: '/dial-report/<%=moment.utc(date).format("YYYY-MM-DD")%>',
+               type: 'POST',
+               data: formData,
+               async: false,
+               cache: false,
+               contentType: false,
+               enctype: 'multipart/form-data',
+               processData: false,
+               success: function (response) {
+                if (response=='') {
+                  $("#upload_spinner"+hr).hide();
+                }else {
+                  $("#SQLinput"+hr).val(JSON.stringify(response));
+                  $("#upload_spinner"+hr).hide();
+                  $("#SQLform"+hr).submit();
+              }
+              },
+              error: function (jqXHR, exception) {
+                $("#upload_spinner"+hr).hide();
+                alert(getErrorMessage(jqXHR, exception));
+              },
+           });
+         }
+           return false;
+         });
+         function getErrorMessage(jqXHR, exception) {
+            var msg = '';
+            if (jqXHR.status === 0) {
+                msg = 'Not connect.\n Verify Network.';
+            } else if (jqXHR.status == 404) {
+                msg = 'Requested page not found. [404]';
+            } else if (jqXHR.status == 500) {
+                msg = 'Internal Server Error [500]. '+JSON.parse(jqXHR.responseText).error;
+            } else if (exception === 'parsererror') {
+                msg = 'Requested JSON parse failed.';
+            } else if (exception === 'timeout') {
+                msg = 'Time out error.';
+            } else if (exception === 'abort') {
+                msg = 'Ajax request aborted.';
+            } else {
+                msg = 'Uncaught Error.\n' + jqXHR.responseText;
+            }
+            return msg;
+        }
+         function findReport() {
+           if ($("#inputdate").val()=='')
+           {
+             alert("Please select a date")
+           }
+           else
+           {
+             $('#inputdate').datepicker("option", "dateFormat", "yy/mm/dd" ).val();
+             var datesearch = $("#inputdate").val()
+             var sd = datesearch.replace(/\//g,"-")
+             window.location.href=("/hourly-dial-report/" + sd)
+           }
+         };
+         $(document).ready(function() {
+           if (<%=intMatched.length%>>0) {
+             $("#warningMsg").show()
+           }
+           $(".upload_spinner").hide()
+         });
+        </script>
+        </body>
+        </html>

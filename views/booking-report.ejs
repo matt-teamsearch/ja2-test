@@ -1,0 +1,269 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  #prevWeeksTxt, #prevDaysTxt {
+      line-height: 1em;
+      font-size: inherit;
+      vertical-align: baseline;
+  }
+  .tabulator-cell.dropped {
+    color: var(--danger);
+  }
+  input.shiftsDateRange {
+    display: block;
+    margin: auto;
+  }
+</style>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5 class="card-title">Agent Shifts Report</h5><br>
+      <h6>Next Week<br>(w/c <%=moment.utc(bookingWeek).format("DD/MM/YYYY")%>)</h6>
+      <a href="#" class="btn btn-sm btn-xlsx" onclick="downloadTableXlsx('reportTable','Next Weeks Hours')">Download to Excel</a>
+      <div id="reportTable">
+      </div>
+      <br>
+      <h6>Last <input type="number" name="prevWeeks" id="prevWeeks" value="<%=prevWeeks%>" onblur="reload()" style="width: 45px;display:none;"><span id="prevWeeksTxt" class="btn btn-primary" onclick="$(this).hide();$('#prevWeeks').show().focus().select()"><%=prevWeeks%></span> weeks<br>(<%=moment().isoWeekday(1).subtract(prevWeeks,"weeks").format("DD/MM/YYYY")+" - "+moment().isoWeekday(1).subtract(1,'d').format("DD/MM/YYYY")%>)</h6>
+      <a href="#" class="btn btn-sm btn-xlsx" onclick="downloadTableXlsx('avgHrsTable','Last <%=prevWeeks%> Weeks Hours')">Download to Excel</a>
+      <div id="avgHrsTable">
+      </div>
+      <br>
+      <h6>Last <input type="number" name="prevDays" id="prevDays" value="<%=prevDays%>" onblur="reload()" style="width: 45px;display:none;"><span id="prevDaysTxt" class="btn btn-primary" onclick="$(this).hide();$('#prevDays').show().focus().select()"><%=prevDays%></span> days<br>(<%=moment().subtract(prevDays,"days").format("DD/MM/YYYY")+" - "+moment().subtract(1,'d').format("DD/MM/YYYY")%>)</h6>
+      <a href="#" class="btn btn-sm btn-xlsx" onclick="downloadTableXlsx('prevDaysTable','Last <%=prevDays%> Days Hours')">Download to Excel</a>
+      <div id="prevDaysTable">
+      </div>
+      <br>
+      <h6>All booked shifts</h6>
+      <input type="text" class="shiftsDateRange">
+      <a href="#" class="btn btn-sm btn-xlsx" onclick="downloadTableXlsx('allShiftsTable','All booking data '+$('.shiftsDateRange').prop('stdate')+'-'+$('.shiftsDateRange').prop('endate'))">Download to Excel</a>
+      <div id="allShiftsTable">
+      </div>
+    </div>
+  </div>
+</div>
+<div class='modal fade' role='dialog' id='shiftModal'>
+  <div class='modal-dialog modal-dialog-centered' role='document' style="max-width: 90%;">
+    <div class='modal-content'>
+      <div class='modal-header'>
+        <h5 class='modal-title' id='Modal-title' style="width: 100%;"></h5>
+        <button type='button' class='close modalClose' data-dismiss='modal' aria-label='Close'>
+          <span aria-hidden='true'>&times;</span>
+        </button>
+      </div>
+      <div class='modal-body'>
+        <div class="form-group row">
+          <button type="button" style="margin:auto;" class="btn btn-sm btn-xlsx" onclick="Tabulator.findTable('#shiftTable')[0].download('xlsx','Agent bookings '+$('#Modal-title').text()+'.xlsx')">Download to Excel</button>
+          <div id="shiftTable">
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="text/javascript">
+  let orFilter=(c)=>({
+    multiselect:true,
+    valuesLookup:true,  //lookup all unique values
+    valuesLookupField:c.getField(),
+    clearable:true,
+    itemFormatter:(lab)=>/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z/.test(lab)?(new Date(lab)<new Date("1990-01-01")?moment(lab).format("HH:mm"):moment(lab).format("DD/MM/YYYY")):lab,
+    sort:function(a, b, aRow, bRow, column, dir, sorterParams){
+      let v=0
+      // console.log(aRow)
+      if (/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}.\d{3}Z/.test(a)) {
+        v=(new Date(a)).getTime()-(new Date(b)).getTime()
+      }else if(typeof a =="string") {
+        v=a.localeCompare(b)
+      }else {
+        v=a-b
+      }
+      if (dir=="desc") {
+        v=-v
+      }
+      return v
+    }
+  })
+  let allShiftsTable=new Tabulator("#allShiftsTable",{
+    height:'40vh',
+    layout:"fitColumns",
+    ajaxURL:"/all-booking-data",
+    ajaxParams:{stdate:moment().subtract(1,"month").format("YYYY-MM-DD"),endate:moment().format("YYYY-MM-DD")},
+    ajaxResponse:function(url, params, response){
+      $('.shiftsDateRange').prop("stdate",params.stdate).prop("endate",params.endate)
+      return response.data
+    },
+    columns:[
+      {field:"agentName",title:"Agent",headerFilter:'list',topCalc:"count",headerFilterParams:orFilter,headerFilterFunc:"in"},
+      {field:"bookingDate",title:"Date",headerFilter:'list',headerFilterParams:orFilter,headerFilterFunc:"in",accessorDownload:v=>moment(v).format("DD/MM/YYYY"),formatter:c=>moment(c.getValue()).format("DD/MM/YYYY")},
+      {field:"shift",title:"Shift",headerFilter:'list',headerFilterParams:orFilter,headerFilterFunc:"in",mutator:(v,d)=>d.isEve==1?'Eve':d.isEve==0?"Day":d.isEve},
+      {field:"teamName",title:"Team",headerFilter:'list',headerFilterParams:orFilter,headerFilterFunc:"in"},
+      {field:"startTime",title:"Start time",headerFilter:'list',headerFilterParams:orFilter,headerFilterFunc:"in",accessorDownload:v=>moment(v).format("HH:mm:ss"),formatter:c=>moment(c.getValue()).format("HH:mm")},
+      {field:"endTime",title:"End time",headerFilter:'list',headerFilterParams:orFilter,headerFilterFunc:"in",accessorDownload:v=>moment(v).format("HH:mm:ss"),formatter:c=>moment(c.getValue()).format("HH:mm")},
+      {field:"appliedHours",title:"Hours booked",headerFilter:'list',topCalc:"sum",topCalcFormatterParams:{precision:2},headerFilterParams:orFilter,headerFilterFunc:"in",formatter:c=>Math.round(c.getValue()*100)/100},
+      {field:"workedHours",title:"Hours worked",headerFilter:'list',topCalc:"sum",topCalcFormatterParams:{precision:2},headerFilterParams:orFilter,headerFilterFunc:"in",mutator:v=>v?v:0,formatter:c=>Math.round(c.getValue()*100)/100},
+      {field:"isResourceable",title:"Resourceable?",headerFilter:'list',topCalc:"count",headerFilterParams:orFilter,headerFilterFunc:(h,v)=>h.includes(v.toString()) || h.length==0,mutator:v=>v==1,formatter:"tickCross"},
+      {field:"isAbsent",title:"Absent?",headerFilter:'list',topCalc:"count",headerFilterParams:orFilter,headerFilterFunc:(h,v)=>h.includes(v.toString()) || h.length==0,mutator:v=>v==1,formatter:"tickCross"}
+    ],
+    downloadConfig:{
+        columnCalcs:false, //do not include column calcs in downloaded table
+    },
+  })
+  $('.shiftsDateRange').daterangepicker({
+    locale: {
+      format: "DD/MM/YYYY",
+      seperator:"-"
+    },
+    startDate:moment().subtract(1,"month"),
+    endDate:moment(),
+    showDropdowns:true,
+    buttonClasses:'btn',
+    applyButtonClasses:'btn-primary',
+    cancelButtonClasses:'btn-secondary'
+  }, function(start, end, label) {
+    allShiftsTable.setData("/all-booking-data",{stdate:start.format("YYYY-MM-DD"),endate:end.format("YYYY-MM-DD")})
+
+  })
+  function reload(){
+    window.location.href="/booking-report/"+$('#prevWeeks').val()+"/"+$('#prevDays').val()
+  }
+  function downloadTableXlsx(id,name){
+    let table=Tabulator.findTable("#"+id)[0]
+    table.setGroupBy('');
+    table.download("xlsx", "Booking Report - "+name+" - "+moment().format()+".xlsx")
+    table.setGroupBy("Shift");
+  }
+  var reportTable=new Tabulator("#reportTable",{
+    data:<%- JSON.stringify(bookings) %>,
+    autoResize:true,
+    height:'40vh',
+    layout:"fitColumns",
+    autoColumns:true,
+    groupBy:'Shift',
+    groupHeader:function(value, count, data, group){
+      return value+" ("+count+" agents, "+data.reduce((a,b)=>a+Number(b.Hours),0)+" hours, "+data.reduce((a,b)=>a+Number(b.Shifts),0)+" shifts)"
+    },
+    groupHeaderDownload: false,
+    autoColumnsDefinitions:[
+      {field:'Shift',visible:false,download:true},
+    ]
+  })
+  let shiftTable
+  var avgHrsTable=new Tabulator("#avgHrsTable",{
+    data:<%- JSON.stringify(bookingAvgs[0]) %>,
+    autoResize:true,
+    height:'40vh',
+    layout:"fitColumns",
+    groupBy:'Shift',
+    groupHeader:function(value, count, data, group){
+      return value+" ("+count+" agents, "+Math.round(data.reduce((a,b)=>a+Number(b['Dropped']),0)/$('#prevWeeks').val())+" hrs dropped p/week, "+data.reduce((a,b)=>a+Number(b['Absences']),0)+" absences)"
+    },
+    groupHeaderDownload: false,
+    autoColumns:true,
+    autoColumnsDefinitions:[
+      {field:'Joined date',visible:false,formatter:cell=>(cell.getValue()?moment(cell.getValue()).format("DD/MM/YYYY"):'')},
+      {field:'Shift',visible:false,download:true},
+      {field:'Weeks employed',visible:false},
+      {field:'Absences',visible:false},
+      {field:'agentID',visible:false},
+    ]
+  })
+  avgHrsTable.on("rowClick",function(e,row){
+    console.log(e,row,row.getData())
+    if (shiftTable) {
+      shiftTable.destroy()
+    }
+    $("#shiftTable").empty()
+    shiftTable=new Tabulator("#shiftTable",{
+      autoResize:true,
+      height:'40vh',
+      layout:"fitColumns",
+      ajaxURL:'/agent-bookings',
+      ajaxParams:{agentID:row.getData().agentID,stdate:moment().isoWeekday(1).subtract($('#prevWeeks').val(),"weeks").format("YYYY-MM-DD"),endate:moment().isoWeekday(1).subtract(1,'d').format("YYYY-MM-DD")},
+      ajaxResponse:(u,p,data)=>{
+        let grouped=_.uniqWith(data.map(el=>{
+          let allocs=data.filter(d=>d.agentID==el.agentID && d.bookingDate==el.bookingDate)
+          el.jobs=allocs.map(d=>d.fullJobName).join(" | ")
+          el.Hours=allocs.reduce((a,b)=>a+b.Hours,0)
+          el.Ints=allocs.reduce((a,b)=>a+b.Ints,0)
+          el.Pay=allocs.reduce((a,b)=>a+b.Pay,0)
+          el.Sales=allocs.reduce((a,b)=>a+b.sales,0)
+          return el
+        }),(a,b)=>a.agentID==b.agentID && a.bookingDate==b.bookingDate)
+        return grouped
+      },
+      columns:[
+        {field:'bookingDate',title:'Date',formatter:c=>c.getValue()?moment(c.getValue()).format("DD/MM/YYYY"):''},
+        {field:'shift',title:'Shift',mutator:(v,d)=>moment.utc(d.startTime).format("HH:mm")+"-"+moment.utc(d.endTime).format("HH:mm")},
+        {field:'appliedHours',title:"Hours Booked"},
+        {field:'status',title:'Status',mutator:(v,d)=>d.absenceType?d.absenceType:(moment.utc(d.startTime).hour()==0?'Holiday':(d.Hours>0?'Worked':'No show'))},
+        {field:'jobs',title:'Jobs'},
+        {field:'Hours',title:"Hours Worked"},
+        {field:'Dropped',title:"Hours Dropped",cssClass:"dropped",mutator:(v,d)=>d.absenceType=='Cancelled by manager'?0:d.appliedHours-d.Hours,formatter:c=>c.getValue()>0?c.getValue():''},
+        {field:'Ints',title:"Ints"},
+        {field:'Pay',title:"Pay",formatter:'money',formatterParams:{symbol:'£'}},
+        {field:'Sales',title:"Sales",formatter:'money',formatterParams:{symbol:'£'}},
+      ]
+    })
+    $('#shiftModal .modal-title').text(row.getData().Agent+" - Last "+$('#prevWeeks').val()+" weeks")
+    $('#shiftModal').modal("show")
+  })
+  var prevDaysTable=new Tabulator("#prevDaysTable",{
+    data:<%- JSON.stringify(bookingDays) %>,
+    autoResize:true,
+    height:'40vh',
+    layout:"fitColumns",
+    groupBy:'Shift',
+    groupHeaderDownload: false,
+    columns:[
+      {field:'Shift',title:"Shift",visible:false,download:true},
+      {field:'Date',title:"Date",formatter:cell=>moment(cell.getValue()).format("ddd DD/MM/YYYY")},
+      {field:'Booked',title:"Booked",formatter:cell=>Math.round(cell.getValue()*4)/4},
+      {field:'Cancelled',title:"Cancelled",formatter:cell=>Math.round(cell.getValue()*4)/4},
+      {field:'Expected',title:"Expected",mutator:(v,d)=>d.Booked-d.Cancelled,formatter:cell=>Math.round(cell.getValue()*4)/4},
+      {field:'Worked',title:"Worked",formatter:cell=>Math.round(cell.getValue()*4)/4},
+      {field:'Dropped',title:"Dropped",mutator:(v,d)=>Math.max(d.Expected-d.Worked,0),formatter:cell=>Math.round(cell.getValue()*4)/4},
+    ],
+  })
+  prevDaysTable.on("rowClick",function(e,row){
+    console.log(e,row,row.getData())
+    if (shiftTable) {
+      shiftTable.destroy()
+    }
+    $("#shiftTable").empty()
+    shiftTable=new Tabulator("#shiftTable",{
+      autoResize:true,
+      height:'40vh',
+      layout:"fitColumns",
+      ajaxURL:'/agent-bookings',
+      ajaxParams:{stdate:moment(row.getData().Date).format("YYYY-MM-DD"),endate:moment(row.getData().Date).format("YYYY-MM-DD"),shift:row.getData().Shift},
+      ajaxResponse:(u,p,data)=>{
+        let grouped=_.uniqWith(data.map(el=>{
+          let allocs=data.filter(d=>d.agentID==el.agentID && d.bookingDate==el.bookingDate)
+          el.jobs=allocs.map(d=>d.fullJobName).join(" | ")
+          el.Hours=allocs.reduce((a,b)=>a+b.Hours,0)
+          el.Ints=allocs.reduce((a,b)=>a+b.Ints,0)
+          el.Pay=allocs.reduce((a,b)=>a+b.Pay,0)
+          el.Sales=allocs.reduce((a,b)=>a+b.sales,0)
+          return el
+        }),(a,b)=>a.agentID==b.agentID && a.bookingDate==b.bookingDate)
+        return grouped
+      },
+      columns:[
+        {field:'agentName',title:'Agent'},
+        {field:'shift',title:'Shift',mutator:(v,d)=>moment.utc(d.startTime).format("HH:mm")+"-"+moment.utc(d.endTime).format("HH:mm")},
+        {field:'appliedHours',title:"Hours Booked"},
+        {field:'status',title:'Status',mutator:(v,d)=>d.absenceType?d.absenceType:(moment.utc(d.startTime).hour()==0?'Holiday':(d.Hours>0?'Worked':'No show'))},
+        {field:'jobs',title:'Jobs'},
+        {field:'Hours',title:"Hours Worked"},
+        {field:'Dropped',title:"Hours Dropped",cssClass:"dropped",mutator:(v,d)=>d.absenceType=='Cancelled by manager'?0:d.appliedHours-d.Hours,formatter:c=>c.getValue()>0?c.getValue():''},
+        {field:'Ints',title:"Ints"},
+        {field:'Pay',title:"Pay",formatter:'money',formatterParams:{symbol:'£'}},
+        {field:'Sales',title:"Sales",formatter:'money',formatterParams:{symbol:'£'}},
+      ]
+    })
+    $('#shiftModal .modal-title').text(moment(row.getData().Date).format("DD/MM/YYYY")+" "+row.getData().Shift)
+    $('#shiftModal').modal("show")
+  })
+</script>
+</body>
+</html>

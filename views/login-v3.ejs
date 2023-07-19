@@ -1,0 +1,29 @@
+<% include partials/login-header-v2.ejs %>
+<div id="bg-colour">
+  <div style="margin: auto;height: 100%;display: flex;">
+    <form class="login-form" action="" method="post" enctype="multipart/form-data">
+      <% if (message) { %>
+        <p class="text-center text-danger message"><%= message %></p>
+      <% } %>
+      <div class="row">
+        <label for="uName">User Name</label>
+        <input type="text" class="form-control" name="uName" id="uName" value="" required>
+      </div>
+      <div class="row">
+        <label for="pWord">Password</label>
+        <input type="password" class="form-control" name="pWord" id="pWord" value="" required>
+      </div>
+      <div class="row">
+      </div>
+        <div class="login-submit">
+          <button type="submit" class="btn btn-primary submit login-button">Log in</button>
+          <a href="/forgetful" class="forgot btn btn-light btn-sm">Forgot password?</a>
+          <a class="btn btn-light btn-sm" href="https://docs.google.com/spreadsheets/d/1rKmqWDfObGeiExFtDULvewQAUSCbqEWNLoA5MHk6QYI/edit?usp=sharing" target="_blank"><img src="/googleSheets-v2.png" alt="" style="height: 20px;position: absolute;"><span style="margin-left:20px">Tally sheet backup</span></a>
+        </div>
+      </form>
+      <div class="">
+      </div>
+    </div>
+  </div>
+  </body>
+  </html>

@@ -1,0 +1,44 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px;">
+  <% if (message) { %>
+    <p class="text-center text-danger"><%= message %></p>
+    <% } %>
+    <%
+    console.log(vids)
+    function isEven(n) {
+      return n % 2 == 0;
+    }
+    function titleCase(string) {
+      var sentence = string.toLowerCase().split(" ");
+      for(var i = 0; i< sentence.length; i++){
+         sentence[i] = sentence[i][0].toUpperCase() + sentence[i].slice(1);
+      }
+   return sentence.join(" ");
+   }
+   %>
+    <div class="card text-dark bg-light mb-2 text-center viewerHeight">
+    <%vids.forEach((vid, index) => {
+      console.log(vid)
+      if (isEven(index)) {
+        %><div class="row"><%
+      }
+      %>
+      <div class="card text-dark bg-light text-center col-md-6">
+        <div class="card-body">
+          <h5 class="card-title"> <%=titleCase(vid.substring(6,vid.length-4))%> </h5>
+          <video width="320" height="240" controls>
+          <source src="./userguides/<%=vid%>" type="video/mp4">
+          Your browser does not support the video tag.
+          </video>
+        </div>
+      </div><%
+      if (isEven(index+1)) {
+        %></div><%
+      }
+    });
+    %>
+    </div>
+</div>
+</div>
+</body>
+</html>

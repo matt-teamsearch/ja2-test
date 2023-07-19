@@ -1,0 +1,794 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <div class="topSelectors">
+        <div class="form-row">
+          <label for="projectID">Select a project</label>
+          <select class="selectpicker" required data-live-search=true name="projectID" id="projectID">
+            <option value=""></option>
+            <%projects.forEach(project=>{%>
+              <option value="<%=project.projectID%>" data-audience="<%=project.isQuoteAsBusiness?"b2b":"consumer"%>" <%=project.projectID==projectID?"selected":""%>><%=project.quoteNo+" "+project.quoteName%></option>
+              <%})%>
+            </select>
+          </div>
+          <div class="form-row">
+            <label for="pid">Select a Forsta survey</label>
+            <select class="selectpicker" required data-live-search=true name="pid" id="pid">
+              <option value=""></option>
+            </select>
+          </div>
+          <!-- <div class="form-row">
+            <label for="database">Outcome type</label>
+            <select class="selectpicker" data-live-search=true name="database" id="database">
+              <option value="response">Completes</option>
+              <option value="respondent">Sample</option>
+            </select>
+          </div> -->
+          <div class="form-row">
+            <label for="specialistDbQ">Specialist database</label>
+            <select class="selectpicker" data-live-search=true id="specialistDbQ" name="specialistDbQ">
+              <option value="">None</option>
+              <option value="Trades">Trades</option>
+              <option value="IFA">IFA</option>
+              <option value="IT DM">IT Decision Makers</option>
+              <option value="Consumer HNW">Consumer HNW</option>
+              <option value="Internet Non-users">Internet Non-users</option>
+              <option value="Consumer Manchester">Consumer Manchester</option>
+              <option value="Govt Public Sector & MPs">Govt Public Sector & MPs</option>
+            </select>
+          </div>
+      </div>
+      <div class="filters">
+        <h5>Filter by sample</h5>
+        <div class="appliedFilters">
+
+        </div>
+        <div class="filterContainer">
+          <select class="selectpicker" data-live-search=true id="filterQuestion" title="Question...">
+
+          </select>
+          <select class="selectpicker" data-live-search=true id="filterResponse" title="Response/s..." multiple>
+
+          </select>
+          <button class="btn btn-secondary" id="addFilterBtn" disabled>Apply</button>
+        </div>
+      </div>
+      <div class="selectors">
+        <div class="info">
+          <ul>
+            <li>Select the question/s on the survey that relates to each of the demographics</li>
+            <li>You can select more than one question for each demographic, and the value will be taken from the first non-blank selected question in the data</li>
+            <li>If you select more than one question, the order in which you select will be the priority order used</li>
+            <li>You can specify a value to be used for all records by typing it in the box and clicking the plus button, e.g. if the survey is only done with people in Scotland</li>
+          </ul>
+        </div>
+        <div class="section-main">
+        </div>
+        <div class="section-consumer">
+        </div>
+        <div class="section-b2b">
+        </div>
+      </div>
+      <button class="btn btn-sm btn-primary" id="previewBtn" onclick="getData('preview')" disabled>Preview data</button>
+      <div id="previewOutcome" class="recordCounts" style="display:none">
+        <div class="odometer" id="recordsToAdd">
+
+        </div>
+        <span class="infoHover">This figure ignores the response at E2 (agreement to further contact). E2=No respondents will be removed from the records before being uploaded</span>
+      </div>
+      <div id="previewTable">
+
+      </div>
+      <div id="uploadOutcome" class="recordCounts" style="display:none">
+        <div id="infoTable" style="display:none;">
+
+        </div>
+        <div class="odometer" id="recordsAdded">
+
+        </div>
+        <div class="odometer" id="recordsUpdated">
+
+        </div>
+        <div class="odometer" id="outcomesAdded">
+
+        </div>
+        <button class="btn btn-secondary" id="redoBtn" onclick="$('#uploadOutcome').hide()">Re-do upload</button>
+      </div>
+      <button class="btn btn-primary" id="uploadBtn" onclick="getData('upload')" disabled>Upload data</button>
+      <!-- <div class="form-row" style="justify-content: center;">
+        <input type="checkbox" checked id="removeGroups">
+        <label style="margin: 0px 5px;" for="removeGroups">Remove outbound groups <span class="infoHover">If this is checked, any interviewer groups on Forsta being used by this project will be removed</span></label>
+      </div> -->
+      <div class="form-row" style="justify-content: center;">
+        <input type="checkbox" id="overwrite">
+        <label style="margin: 0px 5px;" for="overwrite">Overwrite existing <span class="infoHover">If this is checked, any uploads from this project will be removed from the database before uploading new ones. If it is unchecked, these records will be added to any existing ones</span></label>
+      </div>
+    </div>
+  </div>
+</div>
+<link rel="stylesheet" href="/css/virtual-select.min.css">
+<script src="/js/virtual-select.min.js"></script>
+<script src="/socket.io/socket.io.js"></script>
+<!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/google-libphonenumber/3.2.32/libphonenumber.min.js" integrity="sha512-PAxoBLDYzyMfY0QSWzyYnfKsbgPI4VJjODremlQQ84hMioIseBmF3ibPxUpGLq8kL0Qq99L1xap/BrCAnM7eYQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script> -->
+<script type="text/javascript">
+  let getTitle=(v,full)=>full?v.titles?v.titles[0].text:(v.texts?v.texts[0].text:(v.name?v.name:v.code)):_.truncate(v.titles?v.titles[0].text:(v.texts?v.texts[0].text:(v.name?v.name:v.code)),{length:50})
+  let dataFilters=[{db:"response",q:"status",r:["complete"]}]
+  let qFields=<%- JSON.stringify(columns.map(el=>el.col)) %>
+  var socket = io();
+  let sid
+  socket.on("connect", () => {
+    sid=socket.id
+  });
+  socket.on('sampleOutcomes-progress',response=>{
+    $("body").loader('info',response)
+  })
+  let qData=[
+    {"id":"region","title":"Region","tags":"region,where in the uk,where are you,where is your","section":"main",responseTags:"london,south east,scotland,wales"},
+    {"id":"postcode","title":"Postcode","tags":"postcode","section":"main"},
+    {"id":"gender","title":"Gender","tags":"gender,how do you identify","section":"consumer",responseTags:"male,female"},
+    {"id":"age","title":"Age","tags":"how old are you,your age","section":"consumer",responseTags:"18-34,under 18,18-24,16-34,16 - 34,16 - 24,18 - 24,18 - 34"},
+    {"id":"ethnicity","title":"Ethnicity","tags":"ethnicity,your ethnic","section":"consumer",responseTags:"white british,white (british),white - british,mixed ethnicity,other ethnic group"},
+    {"id":"SEG","title":"Social Grade","tags":"social grade","section":"consumer",responseTags:"abc1,c1,c1c2,de"},
+    {"id":"workingStatus","title":"Working Status","tags":"working status","section":"consumer",responseTags:"full time,working (full time),unemployed,not working"},
+    {"id":"ward","title":"Ward/District","tags":"which ward,which district,district,ward","section":"consumer"},
+    {"id":"company","title":"Company Name","tags":"company name,name of your company","section":"b2b"},
+    {"id":"employees","title":"Employees","tags":"how many employees,are there employed,are employed","section":"b2b",responseTags:"sole trader"},
+    {"id":"turnover","title":"Turnover","tags":"turnover","section":"b2b"},
+    {"id":"industry","title":"Industry","tags":"industry","section":"b2b",responseTags:"construction,other industry,manufacturing"},
+    {"id":"jobTitle","title":"Job Title","tags":"job title","section":"b2b"},
+    {"id":"decisionMaking","title":"Decision Making","section":"b2b"}
+  ]
+  $(document).ready(function(e){
+    buildSelects()
+    getSurveys()
+    getMapping().then(e=>{
+      getCounts()
+    })
+  })
+  function getCounts(){
+    // console.log($("#projectID").val())
+    return new Promise(res=>{
+
+      if ($("#projectID").val()) {
+        $.ajax("/sample-outcome-count?projectID="+$("#projectID").val()).done(e=>{
+          // console.log(e)
+          if (e.all>0) {
+            $("#uploadOutcome").show()
+            $("#uploadOutcome .odometer").hide()
+            $("#outcomesAdded").show().html(e.all)
+            res(e.all)
+          }else if($("#pid").val()=="N/A"){
+            $("#uploadOutcome").show()
+            $("#uploadOutcome .odometer").hide()
+            $("#outcomesAdded").show().html(0)
+            res(0)
+          }else {
+            $("#uploadOutcome").hide()
+            res(0)
+          }
+        })
+      }else {
+        res()
+      }
+    })
+  }
+  let surveySchema=[]
+  function allSel(func){
+    $(".selector").each(function(e){func(this)})
+  }
+  function buildSelects(){
+    qFields.forEach((q, i) => {
+      let info=qData.find(d=>d.id==q)
+      if (info) {
+        let cont=$(document.createElement("div"))
+        cont.addClass("selectorCont")
+        let lab=$(document.createElement("label"))
+        lab.attr("for",info.id).html(info.title).addClass("selectorLabel")
+        let sel=$(document.createElement("div"))
+        sel.attr("title",info.title).attr("name",info.id).attr("id",info.id+"Q").attr("data-tags",info.tags).addClass("selector").attr("data-response-tags",info.responseTags).attr("data-section",info.section)
+        // console.log($('.section-'+info.section),sel)
+        cont.append(lab,sel)
+        $('.section-'+info.section).append(cont)
+        VirtualSelect.init({
+          ele: sel[0],
+          disabled:true,
+          multiple:true,
+          search:true,
+          allowNewOption:true,
+          showSelectedOptionsFirst:true,
+          markSearchResults:true,
+          showValueAsTags:true,
+          setValueAsArray:true,
+          hasOptionDescription:true,
+          optionsCount:10,
+          dropboxWidth:"400px",
+          disableOptionGroupCheckbox:true,
+          labelRenderer: data=>{
+            let prefix=''
+            if (data.customData) {
+              prefix='<svg class="forsta-variableIconCont"><use xlink:href="#forsta-variable-'+data.customData.variableType+'"></use></svg>'
+            }
+            return prefix+" "+data.label
+          }
+        });
+        sel.find(".vscomp-value").sortable({
+          axis: "y",
+          containment: "parent",
+          // cursor: "grabbing",
+          items: "> .vscomp-value-tag",
+          update:(e,ui)=>{
+            let val=ui.item.parent().find("> .vscomp-value-tag").map((e,t)=>$(t).attr("data-value")).get()
+            sel[0].setValue(val)
+          }
+        });
+      }
+    });
+    $("#projectID").change(function(e){
+      getMapping()
+      getCounts()
+    })
+    $(".selector").change(function(e){
+      setMapping()
+      let el=$(this)
+      // $(".popover").remove()
+      if (this.getNewValue().length) {
+        let allnews=[]
+        this.getSelectedOptions().forEach((opt, i) => {
+          if (opt.isNew) {
+            allnews.push(opt.value)
+          }
+        })
+        let removed=allnews.pop()
+        this.setValue(el.val().filter(v=>!allnews.includes(v)),true)
+        el.find("span.vscomp-value-tag[data-value='"+removed+"'] .vscomp-value-tag-content").addClass("manualValTag")
+      }
+      // this.getSelectedOptions().forEach((opt, i) => {
+      //   el.find("span.vscomp-value-tag[data-value='"+opt.value+"']").popover({
+      //     html:true,
+      //     sanitize:false,
+      //     placement:'auto',
+      //     trigger:"hover",
+      //     container:"body",
+      //     content:_.truncate(opt.customData.options.map(o=>o.code+" - "+getTitle(o)).join("<br>"),{length:100})
+      //   })
+      // })
+    })
+  }
+  let globalMapping={}
+  function getMapping(){
+    return new Promise(res=>{
+      if ($("#projectID").val()) {
+        $.ajax({
+          type:'POST',
+          url:'/update-outcomes-map',
+          data:{projectID:$("#projectID").val(),mapping:""},
+          success:data=>{
+            if (data) {
+              let d=JSON.parse(data)
+              console.log(d)
+              d.sample=d.sample.filter(el=>el.name!="projectID")
+              d.sample.forEach((item, i) => {
+                globalMapping[item.name]={value:item.value,newValue:item.newValue}
+              })
+              d.sample.forEach((item, i) => {
+                $("#"+item.name+".selectpicker").selectpicker("val",item.value)
+              });
+              $('.selectpicker').selectpicker("refresh")
+              if (d.dataFilters) {
+                // dataFilters=d.dataFilters
+                d.dataFilters.filter(f=>f.id>1).forEach((filt, i) => {
+                  addDataFilter(filt.q,filt.r)
+                });
+              }
+              res()
+            }else{
+              res()
+            }
+          }
+        })
+      }
+    })
+  }
+  function setMapping(){
+    if ($("#projectID").val()) {
+      let mapping=[]
+      allSel(t=>{
+        mapping.push({
+          name:t.id,
+          value:t.getSelectedOptions().map(v=>v.value),
+          newValue:t.getNewValue()[0]
+        })
+      })
+      mapping.push({
+        name:'pid',
+        value:$('#pid').val()
+      })
+      mapping.push({
+        name:'specialistDbQ',
+        value:$('#specialistDbQ').val()
+      })
+      mapping.push({
+        name:'ignoreOutcomescompletes',
+        value:$('#pid').val()=="N/A"
+      })
+      mapping.push({
+        name:'ignoreOutcomessample',
+        value:$('#pid').val()=="N/A"
+      })
+      $.ajax({
+        type:'POST',
+        url:'/update-outcomes-map',
+        global:false,
+        data:{projectID:$("#projectID").val(),mapping:JSON.stringify({dataFilters:dataFilters,completes:mapping,sample:mapping})},
+      }).done(e=>console.log(e))
+    }
+  }
+  function getSurveys(){
+    $.ajax("/get-forsta-surveys").done(e=>{
+      $("#pid").empty()
+      let vistaName=$("#projectID option:selected").attr("vistaName")
+      $("#pid").append(new Option("",""))
+      $("#pid").append(new Option("No sample to upload","N/A"))
+      e.forEach((survey, i) => {
+        let opt=new Option(survey.name,survey.id)
+        if (vistaName===survey.id && vistaName) {
+          $(opt).attr("selected",true)
+        }
+        $("#pid").append(opt)
+      });
+      $("#pid").selectpicker("refresh")
+    })
+  }
+  $("#pid").change(function(e){
+    dataFilters=[{id:0,query:"((isnull(respondent:callattemptcount,0)<3 AND IN(isnull(respondent:LastCallExtStatusCoded,'16'),'1','2','3','7','16')) OR respondent:LastCallExtStatusCoded='13')"}]
+    $("#filterQuestion,#filterResponse").val("").selectpicker("refresh")
+    allSel(t=>{
+      t.setOptions([])
+      t.setValue([],true)
+    })
+    $(".appliedFilter").each(function(e){
+      $(this).tooltip("dispose")
+      $(this).remove()
+    })
+    if ($("#pid").val() && $("#pid").val()!="N/A") {
+      getQuestions()
+      $("#previewBtn").prop("disabled",false)
+      allSel(t=>t.enable())
+    }else {
+      if ($("#pid").val()=="N/A") {
+        getCounts()
+      }
+      $("#previewBtn").prop("disabled",true)
+      allSel(t=>t.disable())
+    }
+
+  })
+  function getQuestions(){
+    $.ajax("/get-forsta-survey-questions?&respondents=true&pid="+$("#pid").val()).done(e=>{
+      surveySchema=e
+      let qs=e.filter(q=>['singleChoice','multiChoice','text','numeric'].includes(q.variableType))
+      let options=[]
+      qs.forEach((q, i) => {
+        let opt=new Option(q.name+". "+getTitle(q),q.name)
+        $(opt).prop("data-options",q.options || [])
+        if(q.variableType!="multiChoice"){
+          let selOpt={isBackground:q.isBackground,isHidden:q.isHidden,description:getTitle(q,true),label:q.name,value:q.name,alias:(q.texts || []).concat(q.titles || []),customData:{options:q.options || [],variableType:q.variableType}}
+          if (q.fields) {
+            q.fields.forEach((field, i) => {
+              let fopt=JSON.parse(JSON.stringify(selOpt))
+              fopt.value=fopt.value+":"+field.code
+              fopt.label=fopt.label+" - "+getTitle(field)
+              fopt.description=_.truncate(getTitle(q,true))+" - "+getTitle(field)
+              options.push(fopt)
+            })
+          }else {
+            options.push(selOpt)
+          }
+        }
+        if (q.options && q.isBackground) {
+          $("#filterQuestion").append(opt)
+        }
+      });
+      let optGroups=[
+        {label:"In-survey",options:options.filter(o=>!o.isHidden && !o.isBackground)},
+        {label:"Hidden",options:options.filter(o=>o.isHidden).sort((a,b)=>a.label.localeCompare(b.label))},
+        {label:"Background",options:options.filter(o=>o.isBackground).sort((a,b)=>a.label.localeCompare(b.label))},
+      ]
+      allSel(t=>t.setOptions(optGroups))
+      // console.log(options,options.map(d=>d.description))
+      allSel(t=>{
+        if ((globalMapping[t.id] || {}).value.length==0) {
+          let el=$(t)
+          let tags=el.attr("data-tags") || ""
+          let rTags=el.attr("data-response-tags") || ""
+          let matched=[]
+          options.reverse()
+          // options.sort((a,b)=>a.isBackground-b.isBackground)
+          tags.split(",").forEach((tag, i) => {
+            if (tag) {
+              matched=matched.concat(options.filter(q=>q.description.toLowerCase().indexOf(tag)>-1 || q.label.toLowerCase().indexOf(tag)>-1))
+            }
+          });
+          rTags.split(",").forEach((tag, i) => {
+            if (tag) {
+              matched=matched.concat(options.filter(q=>q.customData.options.filter(o=>getTitle(o,true).toLowerCase()==tag).length>0))
+            }
+          });
+          matched.sort((a,b)=>a.isHidden-b.isHidden)
+          matched.sort((a,b)=>a.isBackground-b.isBackground)
+          // console.log(matched)
+          // console.log(tag,t.name,matched)
+          t.setValue(matched.map(m=>m.value),true)
+        }else {
+          let map=globalMapping[t.id]
+          if (map.newValue) {
+            t.virtualSelect.newValues.push(map.newValue)
+            t.addOption({isNew:true,label:map.newValue,value:map.newValue},true)
+          }
+          t.setValue(map.value)
+        }
+      })
+      $("#filterQuestion").selectpicker("refresh")
+
+    })
+  }
+
+  $("#filterQuestion").change(function(e){
+    $("#filterResponse").empty()
+    $("#addFilterBtn").prop("disabled",true)
+    if ($(this).val()) {
+      $(this).find("option:selected").prop("data-options").forEach((resp, i) => {
+        let opt=new Option(getTitle(resp),resp.code)
+        $("#filterResponse").append(opt)
+      });
+    }
+    $("#filterResponse").selectpicker("refresh")
+  })
+  $("#filterResponse").change(function(e){
+    if ($(this).val()) {
+      $("#addFilterBtn").prop("disabled",false)
+    }else {
+      $("#addFilterBtn").prop("disabled",true)
+    }
+  })
+  function addDataFilter(q,r){
+    let newFilt={id:(new Date()).getTime(),db:"respondent",q:q,r:r}
+    dataFilters.push(newFilt)
+    let filt=$(document.createElement("div"))
+    filt.addClass("appliedFilter").tooltip({title:newFilt.q+" IN "+_.truncate(newFilt.r.join(","),{length:200})})
+    let filtText=$(document.createElement("span"))
+    filtText.html(newFilt.q)
+    let filtDel=$(document.createElement("button"))
+    filtDel.addClass("btn btn-secondary btn-sm").html('<i class="fa-solid fa-trash-can"></i>')
+    filtDel.click(e=>{
+      filt.tooltip("dispose")
+      filt.remove()
+      dataFilters=dataFilters.filter(f=>f.id!=newFilt.id)
+      setMapping()
+    })
+    filt.append(filtText,filtDel)
+    $(".appliedFilters").append(filt)
+  }
+  $("#addFilterBtn").click(function(e){
+    addDataFilter($("#filterQuestion").val(),$("#filterResponse").val())
+    setMapping()
+    $("#filterQuestion").selectpicker("val","")
+    $("#filterResponse").selectpicker("val","")
+  })
+  let previewTable
+  function getData(getType){
+    if (previewTable) {
+      previewTable.destroy()
+    }
+    $('#uploadOutcome,#previewTable,#previewOutcome').hide()
+    let isValid=true
+    if (getType=="preview") {
+
+    }else {
+      let invalidCount=0
+      let checkValid=(el,silent)=>{
+        let val=true
+        if(!$(el).val()){
+          if (!silent) {
+            $(el)[0].reportValidity()
+            // $(el).parent().find(".dropdown-toggle").addClass("bs-invalid")
+            $(el).get(0).scrollIntoView({behavior: 'smooth', block: "center", inline: "center"})
+            invalidCount++
+          }
+          val=false
+        }
+        return val
+      }
+      checkValid("#pid")
+
+      let count=$('.selector[data-section="'+$("#projectID option:selected").attr("data-audience")+'"]').map((e,t)=>$(t).val()).get().filter(e=>e).length
+      if (checkValid("#projectID") && count<2) {
+        alert("Must select at least 2 demographics")
+        invalidCount++
+      }
+      if (invalidCount) {
+        isValid=false
+      }
+    }
+    if (isValid) {
+      let dataMapping={
+        projectID:{val:$("#projectID").val()},
+        serial:{surveyQs:["Serial","TSID","respid"]},
+        name:{surveyQs:["FINALNAME","RespondentName"]},
+        telnum:{surveyQs:["FINALTEL","TelephoneNumber"]},
+        email:{surveyQs:["FINALEMAIL","E3_details:4","INC_details:4","Email"]},
+        interviewed:{surveyQs:["interview_end","interview_start","lastinterviewstart"]},
+        sampleSource:{surveyQs:["Sample"]},
+        E3:{surveyQs:["E3"]},
+        E2:{surveyQs:["E2"]},
+        SampleID:{surveyQs:["JA2ID"]},
+        specialistDb:{val:$("#specialistDbQ").val()},
+      }
+      let callDataMapping={
+        result:{surveyQs:["LastExtStatus","LastCallExtStatusCoded"],val:"Fresh sample"},
+        resultDate:{surveyQs:["interview_end","interview_start","lastinterviewstart"]},
+        callCount:{surveyQs:["callattemptcount"],val:0}
+      }
+      $(".selector").each(function(e){
+        if ($(this).val().length) {
+          dataMapping[this.name]={
+            surveyQs:$(this).val().filter(v=>this.getSelectedOptions().find(vv=>vv.value==v && !v.isNew)),
+            val:this.getNewValue()[0]
+          }
+        }
+      })
+      let forstaVars=_.uniq(Object.keys(dataMapping).map(k=>dataMapping[k].surveyQs).flat(2).concat(Object.keys(callDataMapping).map(k=>callDataMapping[k].surveyQs).flat(2))).filter(v=>v)
+      // let exp=dataFilters.map(f=>f.query || ("IN("+f.db+":"+f.q+","+f.r.map(rr=>"'"+rr+"'").join(",")+")")).join(" and ")
+      let colDef={headerSort:false,accessor:v=>(v||{}).val,formatter:c=>c.getValue()?c.getValue().val:"",tooltip:(e,c)=>c.getValue()?c.getValue().sourceQ:""}
+      let params={pid:$("#pid").val(),projectID:$("#projectID").val(),sid:sid,overwriteExisting:$("#overwrite").is(":checked"),surveyVariables:forstaVars,sqlVariables:Object.keys(dataMapping),callVariables:Object.keys(callDataMapping),dataFilters:dataFilters,mapping:{...dataMapping,...callDataMapping}}
+      $("body").loader({fixed:true,top:0,left:0,width:"100%",height:"100%"})
+      let tableCols=Object.keys(params.mapping).map(k=>({...colDef,...{title:k,field:k}}))
+      if (getType=="preview") {
+        $('#previewTable').show()
+        previewTable=new Tabulator("#previewTable",{
+          pagination:true, //enable pagination
+          paginationMode:"remote", //enable remote pagination
+          dataSendParams:{
+            "size":"pageSize", //change page request parameter to "pageNo"
+          },
+          ajaxURL:"/forsta-outcomes-download/"+getType,
+          ajaxConfig:"POST",
+          ajaxContentType:"json",
+          ajaxParams:params,
+          ajaxResponse:function(url, params, response){
+            $("#uploadBtn").prop("disabled",false)
+            $('#previewOutcome').show()
+            $('#recordsToAdd').html(response.totalCount)
+            // $('#recordsToUpdate').html(response.data.filter(el=>el.SampleID).length)
+            response.last_page=Math.ceil(response.totalCount/params.pageSize)
+            $("body").loader("done")
+            return response
+          },
+          columns:tableCols,
+          paginationSize:20,
+          nestedFieldSeparator:":",
+        })
+        previewTable.on("dataLoadError", function(error){
+          $("body").loader("done")
+        });
+      }else {
+        delete params.pageSize
+        delete params.page
+        $.ajax({method:"POST",url:"/forsta-outcomes-download/"+getType,global:false,data:params}).done(e=>{
+          $("body").loader("done")
+
+          // $('.infoHover').each(function(i) {
+          //   $(this).tooltip({
+          //     html:true,
+          //     placement:'right',
+          //     title:$(this).html()
+          //   })
+          //   $(this).html(' <i class="fas fa-info-circle"></i>')
+          // });
+          window.FlashMessage.success('Data uploaded. Final exports will be sent to you by email when ready..')
+          getCounts().then(uploaded=>{
+            let table=`<table>
+              <tr><td>Total records found</td><td>`+e.infoCounts.total+`</td></tr>
+              <tr><td>Refused future contact</td><td>`+e.infoCounts.E2+`</td></tr>
+              <tr><td>No valid tel</td><td>`+e.infoCounts.telnum+`</td></tr>
+              <tr><td>Internal duplicates</td><td>`+e.infoCounts.dedupe+`</td></tr>
+              <tr><td>Already in db and no updates/not called</td><td>`+(e.infoCounts.total-(Number(uploaded)+e.infoCounts.E2+e.infoCounts.telnum+e.infoCounts.dedupe))+`</td></tr>
+            </table>
+            `
+            $("#infoTable").show().html(table)
+          })
+          $.ajax({method:"post",url:"/create-forsta-datafile",global:false,data:{respondents:true,sampleFilter:(dataFilters || []).filter(el=>el.id>1).map(f=>f.query || ("IN("+f.db+":"+f.q+","+f.r.map(rr=>"'"+rr+"'").join(",")+")")).join(" and "),callhistory:true,includeNumerics:true,includeOpens:true,pid:$("#pid").val(),finalOutcome:true}})
+        }).fail(err=>{
+          $("body").loader("done")
+          window.FlashMessage.error('Error uploading data. Please try again or check with the system administrator')
+        })
+      }
+    }
+  }
+</script>
+<style media="screen">
+  .appliedFilters {
+    display: flex;
+    width: 100%;
+    padding: 10px;
+    flex-wrap: wrap;
+    position: relative;
+    justify-content: center;
+}
+.appliedFilter {
+    width: fit-content;
+    padding: 2px 2px 2px 7px;
+    background: var(--secondary);
+    color: white;
+    box-shadow: 0px 3px 9px -2px #00000030;
+    height: fit-content;
+    margin: 2px;
+    font-size: x-large;
+}
+.appliedFilter .btn i {
+    font-size: x-large;
+}
+.btn.bs-invalid {
+    box-shadow: 0 0 6px 2px red;
+}
+.info {
+    width: 100%;
+    color: gray;
+    margin: 19px auto;
+    text-align: left;
+}
+.filters {
+    margin: 15px auto;
+    width: 50%;
+    background: gainsboro;
+    padding: 19px;
+}
+.section-main, .section-consumer, .section-b2b, .section-custom {
+    border: 1px solid gainsboro;
+    padding: 25px;
+    margin: 22px auto;
+    position: relative;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.section-main::before,.section-consumer::before,.section-b2b::before {
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #f9fafb;
+    padding: 0px 4px;
+    font-family: 'Arial Nova heavy';
+}
+.section-main::before {
+    content: 'Main';
+}
+.section-consumer::before {
+    content: 'Consumer';
+}
+.section-b2b::before {
+    content: 'B2B';
+}
+.topSelectors .form-row {
+    justify-content: center;
+    margin: 4px 0px;
+}
+.topSelectors {
+    margin: 10px auto;
+    width: 60%;
+}
+.topSelectors label {
+    width: 200px;
+    text-align: left;
+}
+.selectorCont {
+    display: flex;
+    flex-direction: column;
+    width: 250px;
+    align-items: center;
+    margin: 11px 6px 11px 6px;
+}
+label.selectorLabel {
+    width: fit-content;
+    font-size: small;
+    margin-bottom: 0px;
+}
+.vscomp-wrapper.show-value-as-tags .vscomp-value-tag {
+    flex-basis: 100%;
+}
+.manualValTag::before{
+  content:'"'
+}
+.manualValTag::after{
+  content:'"'
+}
+.vscomp-wrapper.show-value-as-tags .vscomp-value-tag {
+    flex-basis: 100%;
+    background: var(--secondary);
+    color: white;
+    cursor: grab;
+}
+span.vscomp-value-tag-content:active {
+    cursor: grabbing;
+}
+.vscomp-value-tag-clear-button:hover{
+  cursor: pointer;
+}
+.vscomp-value-tag-clear-button i::before, .vscomp-value-tag-clear-button i::after {
+    background: white;
+}
+span.vscomp-option-text * {
+    vertical-align: bottom;
+}
+.recordCounts {
+    font-size: xxx-large;
+    margin: 22px;
+}
+.recordCounts .odometer {
+    padding: 10px;
+    position: relative;
+    flex-basis: 50%;
+}
+.recordCounts .odometer::after {
+    font-size: small;
+    position: absolute;
+    background: #f8f9fa;
+    width: auto;
+    white-space: nowrap;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+}
+div#recordsAdded::after {
+    content: 'Records added';
+}
+div#outcomesAdded {
+    flex-basis:100%;
+}
+div#outcomesAdded::after {
+    content: 'Outcomes added';
+}
+div#recordsUpdated::after {
+    content: 'Records updated';
+}
+div#recordsToAdd::after {
+    content: 'Records';
+}
+div#uploadOutcome {
+    background: #a1a1a1d9;
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    z-index: 1;
+    font-size: 100px;
+    display: flex;
+    justify-content: space-evenly;
+    flex-wrap: wrap;
+    align-content: center;
+}
+#uploadOutcome .odometer::after {
+    font-size: 24px;
+    background: none;
+}
+button#previewBtn {
+    display: block;
+    margin: 10px auto;
+}
+#infoTable table td {
+    border: 1px solid #a5a4a4;
+    padding: 1px 6px;
+    background: #c7c7c7;
+    color: black;
+    text-align: left;
+}
+#infoTable table {
+    font-size: large;
+    color: black;
+}
+</style>
+</body>
+</html>

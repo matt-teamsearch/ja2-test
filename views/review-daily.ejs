@@ -1,0 +1,68 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  $(document).ready(function () {
+    $('#interviewer-table').DataTable({
+      "paging": false
+    });
+    $('.dataTables_length').addClass('bs-select');
+  });
+</script>
+
+<%
+const dateIf = (inDate, seperator, order) => {
+  let day =''
+  if (new Date(inDate).getDate() < 10) {
+    day = '0' + new Date(inDate).getDate()
+  } else {
+    day = new Date(inDate).getDate()
+  }
+  let month =''
+  if (new Date(inDate).getMonth()+1 < 10) {
+    month = '0' + (new Date(inDate).getMonth()+1)
+  } else {
+    month = (new Date(inDate).getMonth()+1)
+  }
+  let year = new Date(inDate).getFullYear()
+  if(order=="f"){
+    return(day+seperator+month+seperator+year)
+  }
+  if(order=="r"){
+    return(year+seperator+month+seperator+day)
+  }
+}
+%>
+
+<div class="container" style="padding-top:70px;">
+  <% if (dailydata.length > 0) {%>
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body">
+        <h5>Review interviewer achievements for <% if (new Date(message).getFullYear() > 2000) { %><%= dateIf(message,"/","f")%><%}%></h5>
+      </div>
+      <div class="card-body">
+        <table class="table table-sm table-striped table-bordered" id="interviewer-table">
+          <thead>
+            <th>Project Number</th>
+            <th>Project Name</th>
+            <th>Interviewer</th>
+            <th>Hours</th>
+            <th>Interviews</th>
+          </thead>
+          <% dailydata.forEach((daily, index) => { %>
+            <tr style="border:solid 1px grey; padding-left:10px;" id="">
+              <td><%= daily.quoteNo %></td>
+              <td><a href="/overview/<%= daily.quoteID %>"><%= daily.quoteName %> <%= daily.jobName %></a></td>
+              <td><%= daily.agentName %></td>
+              <td><%= daily.inputHours %></td>
+              <td><%= daily.inputInterviews %></td>
+            </tr>
+            <% }) %>
+          </table>
+          <a href="/find-daily/<%= message %>" class="btn btn-success" id="Redirect" value="Update" style="width:100%;">Edit</a>
+        </div>
+      </div>
+      <% } else { %>
+        <p class="text-center text-danger">No interviews on selected date</p>
+        <% } %>
+      </div>
+    </body>
+    </html>

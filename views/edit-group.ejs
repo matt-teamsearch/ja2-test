@@ -1,0 +1,354 @@
+<%- include('partials/'+versionPages.header) %>
+<%
+function dateIf(inDate, seperator, order){
+  let day =''
+  if (new Date(inDate).getDate() < 10) {
+    day = '0' + new Date(inDate).getDate()
+  } else {
+    day = new Date(inDate).getDate()
+  }
+  let month =''
+  if (new Date(inDate).getMonth()+1 < 10) {
+    month = '0' + (new Date(inDate).getMonth()+1)
+  } else {
+    month = (new Date(inDate).getMonth()+1)
+  }
+  let year = new Date(inDate).getFullYear()
+  if(order=="f"){
+    return(day+seperator+month+seperator+year)
+  }
+  if(order=="r"){
+    return(year+seperator+month+seperator+day)
+  }
+}
+function ifErr(exp,field,err){
+  var res
+  try {
+    res=exp[field]
+  } catch (e) {
+    res=err
+  }
+  return res
+}
+%>
+<style>
+  .standardDates{
+    font-weight: bold;
+  }
+  .tabulator-header{
+    display:none;
+  }
+  .remBtn, .addBtn{
+    padding: 3px;
+    height: 100%;
+    border: none;
+    width: 100%;
+  }
+  .add-row-container{
+    width: 100%;
+    text-align: right;
+    height: 50px;
+    padding-right: 15px;
+  }
+  .noRightBorder{
+    border-right:none!important;
+  }
+  .addRemCol{
+    padding:0px!important
+  }
+  .notDR{
+    <%=group.isJobDeskResearch?'display:none;':''%>
+  }
+  .drOnly{
+    <%=!group.isJobDeskResearch?'display:none;':''%>
+  }
+  .bg-dr{
+    border: 7px solid #e5c4ab;
+  }
+</style>
+<script>
+  const jobID=<%=group.jobID%>
+  var datesData = [
+    {dateID:0, jobID:'<%=group.jobID%>', sqlCol: 'startDate', dateName: "Fieldwork start", dateValue: "<%=dateIf(group.startDate,"-","r")%>", note: "<%=ifErr(notes.find(el=>el.tableName=='datesTable' && el.otherID==0),'note','')%>"},
+    {dateID:1, jobID:'<%=group.jobID%>', sqlCol: 'endDate', dateName: "Fieldwork end", dateValue: "<%=dateIf(group.endDate,"-","r")%>", note: "<%=ifErr(notes.find(el=>el.tableName=='datesTable' && el.otherID==1),'note','')%>"},
+    <%if (!group.isJobDeskResearch) {%>
+      {dateID:2, jobID:'<%=group.jobID%>', sqlCol: 'dataDate', dateName: "Final data", dateValue: "<%=dateIf(group.dataDate,"-","r")%>", note: "<%=ifErr(notes.find(el=>el.tableName=='datesTable' && el.otherID==2),'note','')%>"},
+      {dateID:3, jobID:'<%=group.jobID%>', sqlCol: 'tablesDate', dateName: "Final tables", dateValue: "<%=group.tablesDate?dateIf(group.tablesDate,"-","r"):'N/A'%>", note: "<%=ifErr(notes.find(el=>el.tableName=='datesTable' && el.otherID==3),'note','')%>"},
+    <%}%>
+    <% jobDates.forEach((jobDate, i) => {%>
+      {dateID:<%=jobDate.dateID%>, jobID:'<%=group.jobID%>', sqlCol: '', dateName: "<%=jobDate.dateName%>", dateValue: "<%=jobDate.dateValue?dateIf(jobDate.dateValue,"-","r"):''%>", note: "<%=ifErr(notes.find(el=>el.tableName=='datesTable' && el.otherID==jobDate.dateID),'note','')%>"},
+    <%});%>
+  ];
+  function checkMethod(){
+    if ($('#isJobFace').is(':checked')) {
+      $('#hourly-Clicker .text').text(" Charged by shift")
+    }else {
+      $('#hourly-Clicker .text').text(" Charged hourly")
+    }
+  }
+  $(document).on('change', '.form-group :checkbox:not(.notUpdate)', function(evt) {
+    var id=this.id
+    var val=$(this).is(':checked')?'1':'0'
+    checkMethod()
+    updateJob('update','Jobs',[id],[val],'jobID',jobID)
+  })
+  $(document).on('change', '.form-group :text, .form-group input[type="number"], #sponsorJobID,#vistaName', function(evt) {
+    var id=this.id
+    var val=$(this).val()
+    updateJob('update','Jobs',[id],[val],'jobID',jobID)
+  })
+  $(document).on('change', '.form-group select.update', function(evt) {
+    var id=this.id
+    var val=$(this).selected
+    $(this).find('option').each(function() {
+      var val=$(this).is(':selected')?'1':'0'
+      if ($(this).attr('value')!='') {
+        updateJob('update','Jobs',[$(this).attr('value')],[val],'jobID',jobID)
+      }
+    });
+  })
+  $(document).on('change','#presetDials',function(e){
+    if ($(this).val()) {
+      $('#presetDialsCheck').attr("checked",true)
+    }else {
+      $('#presetDialsCheck').attr("checked",false)
+    }
+  })
+  $(document).on('change','#presetDialsCheck',function(e){
+    if (!$(this).is(':checked')) {
+      $('#presetDials').val(null)
+      $('#presetDials').trigger('change')
+      $('#presetDials').prop('disabled',true)
+    }else {
+      $('#presetDials').prop('disabled',false)
+    }
+  })
+  $(document).on('change', '#CPIs,#CPIreduction', function(evt) {
+    var val=0
+    var vol=0
+    var cnt=0
+    var costIDs=[]
+    let reduction=Number($('#CPIreduction').val())
+    if (reduction>0) {
+      $('#CPIreduction').val(0-reduction)
+      $('#CPIreduction').trigger('change')
+    }
+    $('#CPIs').find('option:selected').each(function() {
+      cnt++
+      val=val+(Number($(this).attr('data-cpi'))*Number($(this).attr('data-units')))
+      vol=vol+Number($(this).attr('data-units'))
+      costIDs.push($(this).attr('value'))
+    });
+    updateCPI(costIDs,<%=group.jobID%>)
+    if (cnt>0) {
+      let cpi=Math.round((val/vol) * 100) / 100
+      cpi=cpi+Number($('#CPIreduction').val())
+      $('#jobCPI').val(cpi)
+      $('#jobCPI').trigger('change')
+    }else {
+      alert("Must select at least one CPI")
+    }
+  })
+  function updateCPI(costIDs,jobID){
+    var data =[]
+    var jsonData={};
+    jsonData.costIDs=costIDs
+    jsonData.jobID=jobID
+    data.push(jsonData)
+    $.ajax({
+        url: '/update-group-CPI',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  }
+</script>
+<script src="/js/JA2tableFuncs.js" type="text/javascript"></script>
+<script src="/js/JA2datesTable.js" type="text/javascript"></script>
+<div class="container" style="padding-top:70px;">
+  <% if (message) { %>
+    <p class="text-center text-danger"><%= message %></p>
+    <% } %>
+    <div class="card text-dark <%=group.isJobDeskResearch?'bg-dr':'bg-light'%> mb-2 text-center">
+      <div class="card-body">
+        <h5 class="card-title"><%= group.quoteNo %> <%= group.quoteName %> - <%= group.jobName %> - Edit target group</h5>
+          <!-- <form class="edit-group-form" id="editForm" action="" method="post" enctype="multipart/form-data" style="border:1px solid #ced4da; padding:50px;"> -->
+            <input type="text" name="user" id="user" style="display:none;">
+            <div class="form-row">
+              <div class="form-group col-md-3">
+                <label for="groupName">Group Name</label>
+                <input type="text" class="form-control" name="groupName" id="jobName" value="<%= group.jobName %>" required>
+              </div>
+
+              <div class="form-group col-md-3">
+                <label for="Audience">Audience</label><br>
+                <select class="selectpicker update" data-style="btn-light" multiple name="Audience" id="Audience">
+                    <option value="" >None</option>
+                    <option value="isJobConsumer" <% if (group.isJobBusiness == 1 && group.isJobConsumer != 1 ) {%> selected <%}%>>Business</option>
+                    <option value="isJobBusiness" <% if (group.isJobConsumer == 1 && group.isJobBusiness != 1 ) {%> selected <%}%>>Consumer</option>
+                </select>
+              </div>
+              <div class="form-group col-md-3">
+                <label for="Shift">Shift</label><br>
+                <select class="selectpicker update" data-style="btn-light" name="Shift" id="Shift">
+                  <option value="" >None</option>
+                  <option value="isJobDay" <% if (group.isJobDay == 1) {%> selected <%}%>>Day</option>
+                  <option value="isJobEve" <% if (group.isJobEve == 1) {%> selected <%}%>>Evening</option>
+                </select>
+              </div>
+              <div class="form-group col-md-3">
+                <label for="vistaName">Vista Survey</label><br>
+                <select class="selectpicker" data-val="<%=group.vistaName%>" data-style="btn-light" name="vistaName" id="vistaName">
+                  <option value=""></option>
+                </select>
+              </div>
+              <div class="form-group col-md-3 drOnly">
+                <label for="sponsorJobID">Target Group<span class="infoHover">Select which target group this desk research is for. Whichever target group you select will have their CPI reduced to accomodate the budget allocated for this desk research. For example:<br>This desk research requires 200 records researched/called at 60 records per hour, which is 3.4 hours. At 60 records per hour, the system-allocated CPI (cost per record) might be 45p (depending on the current average wage). Therefore a budget of 0.45*200=£90 is allocated to this desk research. This £90 will be spread across the target interviews of the target group selected here. So if this target group needs 100 interviews at £10 CPI (£1000 total), the £90 from this desk research will reduce the target group's CPI to £9.10 (£1000-£90 / 100).</span></label><br>
+                <select class="selectpicker" data-style="btn-info" name="sponsorJobID" id="sponsorJobID">
+                    <option value=""></option>
+                    <%allJobs.forEach((job,i)=>{%>
+                      <option value="<%=job.jobID%>" <%=(job.jobID==group.sponsorJobID?'selected':'')%>><%=job.jobName%></option>
+                    <%})%>
+                </select>
+              </div>
+              <div class="form-group col-md-6 notDR">
+                <label id="CATI-Clicker" class="btn btn-outline-secondary" data-toggle="tooltip" title="<%if(hasDailys){%>As this target group has allocations/hours applied, this setting can't be changed<%}%>" >
+                  <input type="checkbox" name="CATIPhone" id="isJobCATI" <%if(hasDailys){%>disabled<%}%> value="1" <% if (group.isJobCATI == 1) {%> checked <%}%>> CATI
+                </label>
+                <label id="Recruit-Clicker" class="btn btn-outline-secondary">
+                  <input type="checkbox" name="Recruit" id="isJobRecruitment" value="1" <% if (group.isJobRecruitment == 1) {%> checked <%}%>> Recruit
+                </label>
+                <label id="F2F-Clicker" class="btn btn-outline-secondary">
+                  <input type="checkbox" name="F2F" id="isJobFace" value="1" <% if (group.isJobFace == 1) {%> checked <%}%>> F2F
+                </label>
+                <label id="Online-Clicker" class="btn btn-outline-secondary">
+                  <input type="checkbox" name="Online" id="isJobOnline" value="1" <% if (group.isJobOnline == 1) {%> checked <%}%>> Online
+                </label>
+                <label id="International-Clicker" class="btn btn-outline-secondary">
+                  <input type="checkbox" name="International" id="isJobInternational" value="1" <% if (group.isJobInternational == 1) {%> checked <%}%>> International
+                </label>
+                <label id="Validation-Clicker" class="btn btn-outline-secondary">
+                  <input type="checkbox" name="Validation" id="isJobValidation" value="1" <% if (group.isJobValidation == 1) {%> checked <%}%>> Validation
+                </label>
+                <label id="Recontact-Clicker" class="btn btn-outline-secondary">
+                  <input type="checkbox" name="Recontact" id="isJobRecontacts" value="1" <% if (group.isJobRecontacts == 1) {%> checked <%}%>> Recontact
+                </label>
+                <label id="Confirmit-Clicker" class="btn btn-outline-secondary">
+                  <input type="checkbox" name="Confirmit" id="isJobConfirmit" value="1" <% if (group.isJobConfirmit == 1) {%> checked <%}%>> Confirmit
+                </label>
+                <label id="DP-Clicker" class="btn btn-outline-secondary">
+                  <input type="checkbox" name="DP" id="isJobDP" value="1" <% if (group.isJobDP == 1) {%> checked <%}%>> DP
+                </label>
+                <label id="inHouse-Clicker" class="btn btn-outline-secondary" data-toggle="tooltip" title="<%if(hasDailys){%>As this target group has allocations/hours applied, this setting can't be changed<%}%>">
+                  <input type="checkbox" name="inHouse" id="isJobInHouse" <%if(hasDailys){%>disabled<%}%> value="1" <% if (group.isJobInHouse == 1) {%> checked <%}%>> inHouse
+                </label>
+                <label id="hourly-Clicker" class="btn btn-outline-secondary">
+                  <input type="checkbox" name="hourly" id="isJobHourly" value="1" <% if (group.isJobHourly == 1) {%> checked <%}%>> <span class="text">Charged hourly</span>
+                </label>
+                <label id="presetDials-Clicker" class="btn btn-outline-secondary" style="display:none;">
+                  <input type="checkbox" name="presetDialsCheck" class="notUpdate" id="presetDialsCheck" <% if (group.presetDials) {%> checked <%}%>> Preset dials to: <input type="number" <% if (!group.presetDials) {%> disabled <%}%> name="presetDials" id="presetDials" value="<%=group.presetDials%>" style="width: 42px">
+                </label>
+              </div>
+            </div>
+            <div class="card-header text-center py-2"><strong>Dates</strong></div>
+            <div id="datesTable"></div>
+            <div class="card-header text-center py-2"><strong><%= group.isJobDeskResearch?'Records':'Interviews' %></strong></div>
+            <div class="form-row">
+              <div class="form-group col-md-3">
+                <label for="targetInterviews">Target <%= group.isJobDeskResearch?'Records':'Interviews' %></label>
+                <input type="number" class="form-control" name="targetInterviews" id="interviewsTarget" value="<%= group.interviewsTarget %>" required step="1" min="0">
+              </div>
+              <div class="form-group col-md-6 notDR">
+                <label for="quotedCPI">CPI
+                  <span class="infoHover">1. Select a CPI from the box on the left - if the correct CPI is not present, you will need to add it into the 'Project budget' table on the project overview page.<br>You can select multiple CPIs and the average will be used for sales/performance calculations - this is useful if you have a survey-driven quota with differing CPIs<br><br>2. Add in any deductions in the middle box (e.g. for a £10 incentive that should be deducted from the CPI, enter -10). Deductions should only be added for amounts that are not accounted for elsewhere. If you have an incentive that is already accounted for in the project budget, do not add it here.</span></label>
+                <div class="form-row">
+                <select data-width="50%" class="selectpicker" data-style="btn-light" multiple name="CPIs" id="CPIs">
+                    <option value="" disabled></option>
+                    <%cpis.forEach((cpi, i) => {%>
+                      <option value="<%=cpi.costID[0]%>" <% if (cpi.jobID == group.jobID) {%> selected <%}%> data-units="<%=cpi.units%>" data-cpi="<%=cpi.unitValue%>"><%=cpi.costName+" £"+Number(cpi.unitValue).toFixed(2)%></option>
+                    <%});%>
+                </select>
+                <input style="width:25%" type="number" class="form-control" name="CPIreduction" id="CPIreduction" value="<%= group.CPIreduction %>" placeholder="Reduction" step="0.01" max="0">
+                <input readonly style="width:25%" type="number" class="form-control" name="quotedCPI" id="jobCPI" value="<%= group.jobCPI %>" required step="0.01" min="0">
+                </div>
+              </div>
+              <div class="form-group col-md-3">
+                <label for="hourlyTarget">Hourly Target (P/H)</label>
+                <input type="number" class="form-control" name="hourlyTarget" id="hourlyTarget" value="<%= group.hourlyTarget %>" step="0.25" min="0">
+              </div>
+            </div>
+            <div class="card-header text-center py-2 notDR"><strong>Survey length</strong></div>
+            <div class="form-row notDR">
+              <div class="form-group col-md-6">
+                <label for="ExpectedLength">Expected</label>
+                <input type="number" class="form-control" name="ExpectedLength" id="expectedLOI" value="<%= group.expectedLOI %>" required step="0.25" min="0">
+              </div>
+              <div class="form-group col-md-6">
+                <label for="EndLength">Timed/final</label>
+                <input type="number" class="form-control" name="EndLength" id="timedLOI" value="<%= group.timedLOI %>" step="0.25" min="0">
+              </div>
+            </div>
+            <br>
+            <br>
+                              <div class="form-group col-md-12">
+                                <a href="/overview/<%= group.quoteID %>" class="btn btn-sm" style="background-color:#4b7491; color:#fff;width:100%;">Back to project overview</a>
+                              </div>
+                            </div>
+                          <!-- </form> -->
+                        </div>
+                      </div>
+                    </div>
+                    <script>
+                      $(document).ready(e=>{
+                        $.ajax("/get-forsta-surveys").then(data=>{
+                          var opt=new Option('', '')
+                          $("#vistaName").append(opt);
+                          let optGrp=document.createElement("optgroup")
+                          optGrp.label="Forsta"
+                          data.forEach((item, i) => {
+                            $(optGrp).append(new Option(item.name, item.id));
+                          });
+                          $("#vistaName").append(optGrp);
+                        })
+                        checkMethod()
+                      })
+                      function submitClick() {
+                        console.log("Submit clicked")
+                        st = new Date(document.getElementById("startDate").value)
+                        en = new Date(document.getElementById("endDate").value)
+                        if (st<en) {
+                          document.getElementById("editForm").submit();
+                        }else {
+                          alert("Start date must be before end date");
+                        }
+                      }
+                      function getBusinessDatesCount(sDate, eDate){
+                        var count = 0;
+                        var curDate = sDate
+                        if (curDate < eDate) {
+                          while (curDate < eDate) {
+                            var dayOfWeek = curDate.getDay();
+                            if(!((dayOfWeek == 6) || (dayOfWeek == 0))){
+                              count++;
+                            }
+                            curDate.setDate(curDate.getDate() + 1);
+                          }
+                        }else {
+                          while (curDate > eDate) {
+                            var dayOfWeek = curDate.getDay();
+                            if(!((dayOfWeek == 6) || (dayOfWeek == 0))){
+                              count--;
+                            }
+                            curDate.setDate(curDate.getDate() - 1);
+                          }
+                        }
+                        return count;
+                      };
+                    </script>
+                  </body>
+                  </html>

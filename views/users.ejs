@@ -1,0 +1,64 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px;">
+  <% if (message != '') { %>
+    <p class="text-center text-danger"><%= message %></p>
+    <% } %>
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body">
+        <h5 class="card-title">Add a new user</h5>
+        <form class="add-user-form form-styles" action="" method="post" enctype="multipart/form-data">
+          <input type="text" name="user" id="user" style="display:none;">
+          <div class="form-row">
+            <div class="form-group col-md-4">
+              <label for="intName">Full Name</label>
+              <input type="text" class="form-control" name="staffName" id="staffName" placeholder="Name" required>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="intName">Username</label>
+              <input type="text" class="form-control" name="Username" id="Username" placeholder="Username" required>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="Email">Email</label>
+              <input type="email" class="form-control" name="Email" id="Email" placeholder="Email" required>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="intName">Password</label>
+              <input type="Password" class="form-control" name="Password" id="Password" placeholder="Password" required>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="intJoin">Joined teamsearch</label>
+              <input type="date" class="form-control" name="intJoin" id="intJoin" placeholder="Joined" required>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="jobTitle">Job title</label>
+              <select class="form-control" name="jobTitle" id="jobTitle" required>
+                <%jobTitles.forEach((jobTitle, index) => {%>
+                <option value="<%=jobTitle.jobTitleID%>"><%=jobTitle.jobTitleName%></option>
+                <%});%>
+              </select>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="Role">Role</label>
+              <select class="form-control" name="Role" id="Role" required>
+                <%roles.forEach((role, index) => {%>
+                <option value="<%=role.roleID%>"><%=role.roleName%></option>
+                <%});%>
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary">Add user</button>
+        </form>
+        <table>
+          <%staff.forEach((staffRec, index) => {%>
+            <tr>
+              <td><%=staffRec.staffName%></td>
+              <td><%=staffRec.staffID%></td>
+              <td><%=staffRec.staffEmail%></td>
+            </tr>
+          <%});%>
+        </table>
+      </div>
+    </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,117 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px;">
+  <h2 style="text-align: center;color: var(--primary);">Welcome back <%=user.staffName.split(" ")[0]%>!</h2>
+  <p style="text-align: center;">Here's your digest for today. If you want to change what you see here, contact the system administrator with your suggestions.</p>
+  <div style="width: 100%;text-align: center;padding: 6px;">
+    <select class="" style="display:none;" id="deptSelect" onchange="updateTiles(this)" name="">
+      <option value="CMPM">CMPM</option>
+      <option value="TL">TL</option>
+      <option value="QC">QC</option>
+      <option value="Ops">Ops</option>
+      <option value="Admin">Admin</option>
+      <option value="Accounts">Accounts</option>
+    </select>
+  </div>
+  <div class="tileContainer">
+  </div>
+</div>
+<script type="text/javascript">
+  let fPerc=(cell)=>cell.getValue()?Math.round(cell.getValue()*100)+"%":''
+  let fPercP=(cell)=>cell.getValue()?(cell.getValue()>0?'+':'')+Math.round(cell.getValue()*100)+"%":''
+  let fDate=(cell)=>cell.getValue()?moment(cell.getValue()).format("DD/MM/YYYY"):''
+  let fRound=(cell)=>Math.round(cell.getValue()*100)/100
+  let isGroup=(row,fields)=>{
+    return Object.keys(row).filter(k=>k.indexOf('grp')==0).every(k=>fields.indexOf(k)>-1?row[k]==0:row[k]==1)
+  }
+  (k=>row[k])
+  function updateTiles(){
+    loadTiles({stDate:moment().subtract(30,'d').format("YYYY-MM-DD"),enDate:moment().subtract(1,'d').format("YYYY-MM-DD")},$('#deptSelect').val())
+  }
+  $().reportFilter({
+    filters:{
+      stDate:moment().subtract(30,'d').format("YYYY-MM-DD"),
+      enDate:moment().subtract(1,'d').format("YYYY-MM-DD"),
+    },
+    customFilters:[
+      {label:'Showing',el:$('#deptSelect')[0],val:'<%=user.department%>'}
+    ],
+    onRefresh:(vals)=>{
+      loadTiles({stDate:vals.stDate,enDate:vals.enDate},vals.deptSelect)
+    }
+  })
+  function loadTiles(params,dept){
+    let reports={
+      CMPM:[
+        {preset:'dailyContribution',presetParams:params,presetConfig:{width:'45%'}},
+        {preset:'annualSales',presetParams:{}},
+        {preset:'taskAudits',presetParams:params,presetConfig:{width:'95%'}},
+        {preset:'cmProjectWorkloads',presetParams:{},presetConfig:{width:'45%'}},
+        {preset:'cmPlannerWorkloads',presetParams:{},presetConfig:{width:'45%'}},
+        {preset:'pmProjectWorkloads',presetParams:{},presetConfig:{width:'45%'}},
+        {preset:'pmPlannerWorkloads',presetParams:{},presetConfig:{width:'45%'}},
+      ],
+      TL:[
+        {preset:'weeklyAttendanceShift',presetParams:{...params,shift:'Day'},presetConfig:{width:'45%'}},
+        {preset:'weeklyAttendanceShift',presetParams:{...params,shift:'Eve'},presetConfig:{width:'45%'}},
+        {preset:'coachingEffectiveness',presetParams:params,presetConfig:{width:'45%'}},
+        {preset:'dailyContribution',presetParams:params,presetConfig:{width:'45%'}},
+        {preset:'annualSales',presetParams:{}},
+        {preset:'weeklyQCscores',presetParams:params},
+        {preset:'dials',presetParams:params},
+      ],
+      Ops:[
+        {preset:'weeklyAttendanceShift',presetParams:{...params,shift:'Day'},presetConfig:{width:'45%'}},
+        {preset:'weeklyAttendanceShift',presetParams:{...params,shift:'Eve'},presetConfig:{width:'45%'}},
+        {preset:'taskAudits',presetParams:params,presetConfig:{width:'95%'}},
+        {preset:'coachingEffectiveness',presetParams:params,presetConfig:{width:'45%'}},
+        {preset:'dailyContribution',presetParams:params,presetConfig:{width:'45%'}},
+        {preset:'cmProjectWorkloads',presetParams:{},presetConfig:{width:'95%'}},
+        {preset:'cmPlannerWorkloads',presetParams:{},presetConfig:{width:'95%'}},
+        {preset:'annualSales',presetParams:{}},
+        {preset:'qcChecksYday',presetParams:{}},
+      ],
+      QC:[
+        {preset:'annualSales',presetParams:{}},
+        {preset:'qcChecksYday',presetParams:{}},
+        {preset:'weeklyQCscores',presetParams:params},
+      ],
+      Admin:[
+        {preset:'dailyContribution',presetParams:params,presetConfig:{width:'45%'}},
+        {preset:'weeklyAttendance',presetParams:params},
+        {preset:'annualSales',presetParams:{}},
+        {preset:'weeklyQCscores',presetParams:params},
+        {preset:'dials',presetParams:params},
+      ],
+      Accounts:[
+        {preset:'interviewsByMethod',presetParams:params,presetConfig:{width:'45%'}},
+        {preset:'dailyContribution',presetParams:params,presetConfig:{width:'45%'}},
+        {preset:'annualSales',presetParams:{}},
+      ]
+    }
+    $('.tileContainer').reportTiles(reports[dept])
+  }
+  $(document).ready(function(e){
+    $('#deptSelect').val('<%=user.department%>')
+    loadTiles({stDate:moment().subtract(30,'d').format("YYYY-MM-DD"),enDate:moment().subtract(1,'d').format("YYYY-MM-DD")},'<%=user.department%>')
+  })
+</script>
+<script type="text/javascript">
+  // getCsatScores({stDate:moment().subtract(3,'months').format("YYYY-MM-DD"),enDate:moment().add(1,'months').format("YYYY-MM-DD")}).then(adata=>{
+    getCsatScoresF({stDate:moment().subtract(3,'months').format("YYYY-MM-DD"),enDate:moment().add(1,'months').format("YYYY-MM-DD")}).then(fdata=>{
+      let data=fdata
+      let uploadData=data.filter(el=>el.respDate).filter(el=>!el.csatComplete && moment(el.respDate).isAfter(moment().subtract(3,'months'),'day') && moment(el.respDate).isAfter('2022-03-10','day'))
+      console.log("raw data",data)
+      console.log("data",uploadData)
+      if (uploadData.length>0) {
+        $.ajax({
+          url: '/check-csat',
+          type: 'POST',
+          data: {data:uploadData},
+          global:false
+        });
+      }
+    })
+  // })
+</script>
+</body>
+</html>

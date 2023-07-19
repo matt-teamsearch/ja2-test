@@ -1,0 +1,233 @@
+<%- include('partials/'+versionPages.header) %>
+<style media="screen">
+  .bigFigure {
+    font-size: 85px;
+    margin: 15px;
+    font-weight:lighter;
+    line-height: 0.9em;
+    white-space:nowrap;
+  }
+  .odometer.odometer-auto-theme, .odometer.odometer-auto-theme .odometer-digit, .odometer.odometer-theme-minimal, .odometer.odometer-theme-minimal .odometer-digit{
+    vertical-align:unset;
+  }
+  .headlines>.col-sm-6,.headlines>.col-sm-12 {
+    display: flex;
+    flex-direction: column;
+  }
+  .headlines {
+    display: flex;
+  }
+  .infoTables{
+    height:0vh;
+    overflow: hidden;
+    transition:height 1s;
+    margin-top:10px;
+  }
+  .infoClick{
+    cursor:pointer;
+  }
+  .infoClick:hover {
+    text-shadow: 0 0 7px var(--primary);
+    color: white;
+  }
+  .infoClick.active {
+    text-shadow: 0 0 7px var(--primary);
+  }
+  .infoTables.active>.tabulator {
+    box-shadow: 0 0 7px var(--primary);
+    width: 98%;
+    margin: 6px auto;
+  }
+</style>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5>Coaching Report</h5>
+      <select class="selectpicker" id="teamName" onchange="filterTables()">
+        <option value="">All teams</option>
+        <%tls.forEach(tl=>{%>
+          <option value="<%=tl.teamName%>" data-subtext="<%=tl.teamName%>"><%=tl.staffName%></option>
+        <%})%>
+      </select>
+      <div class="headlines">
+        <div class="col-sm-6">
+          <h5>Overdue follow-ups</h5>
+          <div class="bigFigure odometer infoClick" id="overdueFollowups-count" data-table="overdueFollowups"></div>
+        </div>
+        <div class="col-sm-6">
+          <h5>Overdue PDPs</h5>
+          <div class="bigFigure odometer infoClick" id="overduePDPs-count"  data-table="overduePDPs"></div>
+        </div>
+      </div>
+      <div class="infoTables">
+        <div id="overdueFollowups"></div>
+      </div>
+      <div class="infoTables">
+        <div id="overduePDPs"></div>
+      </div>
+    </div>
+    <hr>
+    <div class="card-body">
+
+      <div class="tileContainer taskAudits">
+      </div>
+      <select class="selectpicker" id="cmpmID" onchange="filterTables()">
+        <option value="">Everyone</option>
+        <optgroup label="CMs">
+          <%cmpms.filter(el=>[2,5].includes(el.staffJobTitleID)).forEach(cmpm=>{%>
+            <option value="<%=cmpm.staffID%>"><%=cmpm.staffName%></option>
+          <%})%>
+        </optgroup>
+        <optgroup label="PMs">
+          <%cmpms.filter(el=>el.staffJobTitleID==6).forEach(cmpm=>{%>
+            <option value="<%=cmpm.staffID%>"><%=cmpm.staffName%></option>
+          <%})%>
+        </optgroup>
+      </select>
+      <div class="headlines">
+        <div class="col-sm-12">
+          <h5>Overdue tasks</h5>
+          <div class="bigFigure odometer infoClick" id="overdueTasks-count" data-table="overdueTasks"></div>
+        </div>
+      </div>
+      <div class="infoTables">
+        <div id="overdueFollowups"></div>
+      </div>
+      <div class="infoTables">
+        <div id="overduePDPs"></div>
+      </div>
+      <div class="infoTables">
+        <div id="overdueTasks"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<script type="text/javascript">
+  var dateFormatter=function(cell){
+    return cell.getValue()?moment(cell.getValue()).format("DD/MM/YYYY"):''
+  }
+  var coachingTable=new Tabulator("#overdueFollowups",{
+    autoResize:true,
+    height:'45vh',
+    ajaxURL:"/overdue-followups",
+    ajaxParams:{teamID:$('#teamID').val(),stdate:'<%=stdate%>',endate:'<%=endate%>'},
+    layout:"fitColumns",
+    columns:[
+      {field:'coachingID',title:"Coaching", visible:false},
+      {field:'agentName',title:"Agent"},
+      {field:'teamName',title:"Team"},
+      {field:'coachingFollowUpDate',title:"Follow-up due",formatter:dateFormatter},
+      {field:'lastShift',title:"Agent last shift",formatter:dateFormatter},
+    ],
+    dataLoaded:data=>{
+      $('#overdueFollowups-count').text(data.length)
+    },
+    dataFiltered:(filter,data)=>{
+      $('#overdueFollowups-count').text(data.length)
+    },
+    rowClick:(e,row)=>{
+      window.location='/coaching-follow-up/'+row.getData().coachingID
+    }
+  })
+  var pdpTable=new Tabulator("#overduePDPs",{
+    autoResize:true,
+    height:'45vh',
+    ajaxURL:"/overdue-pdps",
+    ajaxParams:{teamID:$('#teamID').val(),stdate:'<%=stdate%>',endate:'<%=endate%>'},
+    layout:"fitColumns",
+    columns:[
+      {field:'coachingID',title:"Coaching",visible:false},
+      {field:'agentName',title:"Agent"},
+      {field:'teamName',title:"Team"},
+      {field:'pdpEndDate',title:"PDP end date",formatter:dateFormatter},
+      {field:'lastShift',title:"Agent last shift",formatter:dateFormatter},
+    ],
+    dataLoaded:data=>{
+      $('#overduePDPs-count').text(data.length)
+    },
+    dataFiltered:(filter,data)=>{
+      $('#overduePDPs-count').text(data.length)
+    },
+    rowClick:(e,row)=>{
+      window.location='/coaching-follow-up/'+row.getData().coachingID
+    }
+  })
+  var tasksTable=new Tabulator("#overdueTasks",{
+    autoResize:true,
+    height:'45vh',
+    ajaxURL:"/overdue-tasks",
+    ajaxParams:{staffID:$('#cmpmID').val(),stdate:'<%=stdate%>',endate:'<%=endate%>'},
+    layout:"fitColumns",
+    columns:[
+      {field:'projectID',visible:false},
+      {field:'quoteID',visible:false},
+      {field:'ownerID',visible:false},
+      {field:'ownerName',title:"CM/PM"},
+      {field:'projectName',title:"Project"},
+      {field:'plannerGroup',title:"Project sub-group"},
+      {field:'taskName',title:"Task"},
+      {field:'dueDate',title:"Task due date",formatter:dateFormatter},
+    ],
+    dataLoaded:data=>{
+      $('#overdueTasks-count').text(data.length)
+    },
+    dataFiltered:(filter,data)=>{
+      $('#overdueTasks-count').text(data.length)
+    },
+    rowClick:(e,row)=>{
+      window.location='/overview/'+row.getData().quoteID
+    }
+  })
+  function filterTables(){
+    if ($('#teamName').val()) {
+      pdpTable.setFilter("teamName", "=", $('#teamName').val());
+      coachingTable.setFilter("teamName", "=", $('#teamName').val());
+    }else {
+      pdpTable.clearFilter(true)
+      coachingTable.clearFilter(true)
+    }
+    if ($('#cmpmID').val()) {
+      tasksTable.setFilter("ownerID", "=", $('#cmpmID').val());
+    }else {
+      tasksTable.clearFilter(true)
+    }
+  }
+  $(document).ready(()=>{
+    $('.infoClick').on('mousedown',function(){
+      let el=this
+      let open=false
+      if (!$(el).hasClass('active')) {
+        open=true
+      }
+      $('.infoTables').css('height','0px')
+      $('.infoTables').removeClass('active')
+      $('.infoClick').removeClass('active')
+      if (open) {
+        $('#'+$(el).attr("data-table")).parent().css('height','50vh')
+        $(el).addClass('active')
+        $('#'+$(el).attr("data-table")).parent().addClass('active')
+      }
+    })
+    loadTiles({stDate:'<%=stdate%>',enDate:'<%=endate%>'})
+  })
+  $().reportFilter({
+    filters:{
+      stDate:moment().subtract(30,'d').format("YYYY-MM-DD"),
+      enDate:moment().subtract(1,'d').format("YYYY-MM-DD"),
+    },
+    onRefresh:(vals)=>{
+      loadTiles({stDate:vals.stDate,enDate:vals.enDate})
+      tasksTable.setData('/overdue-followups',{teamID:$('#teamID').val(),stdate:vals.stDate,endate:vals.enDate})
+      pdpTable.setData('/overdue-pdps',{teamID:$('#teamID').val(),stdate:vals.stDate,endate:vals.enDate})
+      tasksTable.setData('/overdue-tasks',{staffID:$('#cmpmID').val(),stdate:vals.stDate,endate:vals.enDate})
+    }
+  })
+  function loadTiles(params){
+    let presets=[
+      {preset:'taskAudits',presetParams:params,presetConfig:{width:'95%'}}
+    ]
+    $('.tileContainer').reportTiles(presets)
+  }
+</script>
+</body>
+</html>

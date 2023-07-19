@@ -1,0 +1,716 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .good{
+    fill: #28a745cf;
+    color: #28a745cf;
+  }
+  .bad{
+    fill: #a72828cf;
+    color: #a72828cf;
+  }
+  .neutral{
+    fill: #a77428cf;
+    color: #a77428cf;
+  }
+  .single{
+    width:100%;
+    margin:auto;
+  }
+  .double{
+    width: 48%;
+    display: inline-block;
+    margin: auto;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+  .col-sm-3{
+    display:inline-block;
+    margin:auto;
+  }
+  #s5bar {
+    margin-top: 40px;
+    cursor: pointer;
+  }
+  .tooltip-inner{
+    text-align:left;
+  }
+  .bs-tooltip-top{
+    left:5px!important;
+  }
+  [data-toggle='tooltip']{
+    cursor:pointer;
+  }
+  .tabulator-col-content,.tabulator-row .tabulator-cell {
+    padding: 3px!important;
+  }
+  @-webkit-keyframes flashBorder {
+    0%   { box-shadow:inset 0 0 0px 0px #ffc107 }
+    25%  { box-shadow:inset 0 0 9px 2px #ffc107 }
+    50% { box-shadow:inset 0 0 0px 0px #ffc107 }
+    75%  { box-shadow:inset 0 0 9px 2px #ffc107 }
+    100% { box-shadow:inset 0 0 0px 0px #ffc107 }
+  }
+  .flashBorder{
+    animation-name: flashBorder;
+    animation-duration: 1s;
+    animation-fill-mode: forwards;
+  }
+  .bigFigure {
+    font-size: 85px;
+    margin: 15px;
+    font-weight:lighter;
+    line-height: 0.9em;
+    white-space:nowrap;
+  }
+  .medFigure {
+    font-size: 55px;
+    margin: 15px;
+    font-weight:lighter;
+    line-height: 0.9em;
+  }
+  .card-title {
+    padding: .75rem;
+    border-bottom: 1px solid gainsboro;
+    line-height: 2em;
+    margin-bottom:0px
+  }
+  .container{
+    max-width: 100%;
+  }
+  .card-footer {
+    color: #000000ad;
+    font-size: smaller;
+    text-align: right;
+  }
+  .inputdate {
+    padding: 3px;
+    max-width: 144px;
+  }
+  .odometer.odometer-auto-theme, .odometer.odometer-auto-theme .odometer-digit, .odometer.odometer-theme-minimal, .odometer.odometer-theme-minimal .odometer-digit{
+    vertical-align:unset;
+  }
+  .spinner {
+      display:    none;
+      position:   absolute;
+      z-index:    99;
+      top:        0;
+      left:       0;
+      height:     100%;
+      width:      100%;
+      background: rgba( 0, 0, 0, .5 )
+                  url('/spinner.gif')
+                  50% 50%
+                  no-repeat;
+  }
+  .contSparks{
+    position: absolute;
+    top: 51px;
+    left: 0px;
+    width: 100%;
+    opacity: 0.4;
+  }
+  .col-sm-3{
+    position:relative;
+  }
+  .jqstooltip{
+    width:auto!important;
+    height:25px!important;
+  }
+  div#boardReportTable {
+    display: table;
+    max-width: 500px;
+    min-width: 430px;
+    min-height:100px;
+    margin: auto;
+  }
+  .brRow {
+    display: table-row;
+    width: 100%;
+  }
+  .brRow>div {
+    padding: 1px 4px;
+    display: table-cell;
+    border: 1px solid gainsboro;
+    white-space: nowrap;
+  }
+  .brRow>div:first-child {
+    text-align: left;
+  }
+  .brRow>div:nth-child(2) {
+    min-width: 20%;
+  }
+</style>
+<script type="text/javascript">
+  let stDate=tsDates().lastQtrStart
+  let enDate=tsDates().lastQtrEnd
+  // let stDate='2021-01-01'
+  // let enDate='2021-12-31'
+  function createGauge(data,id,title,target,min,max,reverse,perc,isnull){
+    var valClass=""
+    if (reverse) {
+      if (data*0.8>target) {
+        valClass="bad"
+      }else if (data<=target) {
+        valClass="good"
+      }else {
+        valClass="neutral"
+      }
+    }else {
+      if (data<target*0.8) {
+        valClass="bad"
+      }else if (data>=target) {
+        valClass="good"
+      }else {
+        valClass="neutral"
+      }
+    }
+    data=Math.round(data * 100) / 100
+    Gauge(
+       document.getElementById(id),
+       {
+         min: min,
+         max: max,
+         dialStartAngle: 180,
+         dialEndAngle: 0,
+         value: 0.00,
+         label: function(val) {
+           var gVal=data
+           if (perc) {
+             gVal=data+"%"
+           }
+           if(isnull){
+             gVal=''
+           }
+           return gVal
+         },
+         valueClass: valClass,
+         viewBox: "0 0 150 75",
+         title: title,
+         color: function(value) {
+           let col
+           if (reverse) {
+             if (value*0.8>target) {
+               col="rgb(219, 70, 70)"
+             }else if (value<=target) {
+               col="rgb(50, 168, 82)"
+             }else {
+               col="rgb(219, 132, 70)"
+             }
+           }else {
+             if (value<target*0.8) {
+               col="rgb(219, 70, 70)"
+             }else if (value>=target) {
+               col="rgb(50, 168, 82)"
+             }else {
+               col="rgb(219, 132, 70)"
+             }
+           }
+           return col
+         }
+       }
+     ).setValueAnimated(data,1.5)
+  }
+  function updateQuotes(params){
+    $('.quotesCard').loader()
+    return $.ajax({
+      url: '/mi-dashboard-ajax/',
+      type: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify({stDate:params.stDate,enDate:params.enDate}),
+      global:false,
+      success:function(response){
+        let data=[]
+        response.quotesQtr.forEach((qtr, i) => {
+          qtr.period=qtr.FiscalYear+" Q"+qtr.FiscalQuarter
+          qtr["_children"]=[]
+          response.quotesMonth.filter(el=>el.FiscalYear==qtr.FiscalYear && el.FiscalQuarter==qtr.FiscalQuarter).forEach((month, i) => {
+            month.period=month.FiscalYear+" Q"+month.FiscalQuarter+" "+month.monthtxt.substring(0,3)
+            qtr["_children"].push(month)
+          })
+          data.push(qtr)
+        });
+        let dataC=[]
+        response.comisQtr.forEach((qtr, i) => {
+          qtr.period=qtr.FiscalYear+" Q"+qtr.FiscalQuarter
+          var thisQuoted=data.find(el=>el.period==qtr.period)
+          qtr.isQuoteAsCATI=qtr.isQuoteAsCATI/thisQuoted.isQuoteAsCATI
+          qtr.isQuoteAsOnline=qtr.isQuoteAsOnline/thisQuoted.isQuoteAsOnline
+          qtr.isQuoteAsFace=qtr.isQuoteAsFace/thisQuoted.isQuoteAsFace
+          qtr.isQuoteAsRecruitment=qtr.isQuoteAsRecruitment/thisQuoted.isQuoteAsRecruitment
+          qtr.isQuoteAsOther=qtr.isQuoteAsOther/thisQuoted.isQuoteAsOther
+          qtr["_children"]=[]
+          response.comisMonth.filter(el=>el.FiscalYear==qtr.FiscalYear && el.FiscalQuarter==qtr.FiscalQuarter).forEach((month, i) => {
+            month.period=month.FiscalYear+" Q"+month.FiscalQuarter+" "+month.monthtxt.substring(0,3)
+            var thisQuotedM=thisQuoted['_children'].find(el2=>el2.period==month.period)
+            month.isQuoteAsCATI=month.isQuoteAsCATI/thisQuotedM.isQuoteAsCATI
+            month.isQuoteAsOnline=month.isQuoteAsOnline/thisQuotedM.isQuoteAsOnline
+            month.isQuoteAsFace=month.isQuoteAsFace/thisQuotedM.isQuoteAsFace
+            month.isQuoteAsRecruitment=month.isQuoteAsRecruitment/thisQuotedM.isQuoteAsRecruitment
+            month.isQuoteAsOther=month.isQuoteAsOther/thisQuotedM.isQuoteAsOther
+            qtr["_children"].push(month)
+          })
+          dataC.push(qtr)
+        });
+        let dataDtc=[]
+        response.dtcQtr.forEach((qtr, i) => {
+          qtr.period=qtr.FiscalYear+" Q"+qtr.FiscalQuarter
+          qtr["_children"]=[]
+          response.dtcMonth.filter(el=>el.FiscalYear==qtr.FiscalYear && el.FiscalQuarter==qtr.FiscalQuarter).forEach((month, i) => {
+            month.period=month.FiscalYear+" Q"+month.FiscalQuarter+" "+month.monthtxt.substring(0,3)
+            qtr["_children"].push(month)
+          })
+          dataDtc.push(qtr)
+        });
+        let table=new Tabulator('#quotedTable',{
+          data: data,
+          layout:'fitColumns',
+          dataTree:true,
+          headerSort:false,
+          columns:[
+            {title:"",width:10},
+            {title:"Period", field:"period",widthGrow:2},
+            {title:"CATI", field:"isQuoteAsCATI",topCalc:'sum'},
+            {title:"Online", field:"isQuoteAsOnline",topCalc:'sum'},
+            {title:"F2F", field:"isQuoteAsFace",topCalc:'sum'},
+            {title:"Recruit", field:"isQuoteAsRecruitment",topCalc:'sum'},
+            {title:"Other", field:"isQuoteAsOther",topCalc:'sum'},
+          ]
+      	})
+        let percParams={
+            min:0,
+            max:1,
+            color:"rgb(50, 168, 82)",
+            legendColor:"#000000",
+            legendAlign:"center",
+            legend:function(val){
+              return Math.round(val*100)+"%"
+            }
+        }
+        let tableC=new Tabulator('#commissionedTable',{
+          data: dataC,
+          layout:'fitColumns',
+          dataTree:true,
+          headerSort:false,
+          columns:[
+            {title:"",width:10},
+            {title:"Period", field:"period",widthGrow:2},
+            {title:"CATI", field:"isQuoteAsCATI", formatter:"progress", formatterParams:percParams},
+            {title:"Online", field:"isQuoteAsOnline", formatter:"progress", formatterParams:percParams},
+            {title:"F2F", field:"isQuoteAsFace", formatter:"progress", formatterParams:percParams},
+            {title:"Recruit", field:"isQuoteAsRecruitment", formatter:"progress", formatterParams:percParams},
+            {title:"Other", field:"isQuoteAsOther", formatter:"progress", formatterParams:percParams},
+          ]
+      	})
+        var dtcAvg = function(values, data, calcParams){
+          var vals=values.filter(el=>el!==null)
+          return vals.length?(vals.reduce((a,b)=>a+Number(b),0)/vals.length).toFixed(1):''
+        }
+
+        let tableDtc=new Tabulator('#dtcTable',{
+          data: dataDtc,
+          layout:'fitColumns',
+          dataTree:true,
+          headerSort:false,
+          columns:[
+            {title:"",width:10},
+            {title:"Period", field:"period",widthGrow:2},
+            {title:"CATI", field:"isQuoteAsCATI",topCalc:dtcAvg},
+            {title:"Online", field:"isQuoteAsOnline",topCalc:dtcAvg},
+            {title:"F2F", field:"isQuoteAsFace",topCalc:dtcAvg},
+            {title:"Recruit", field:"isQuoteAsRecruitment",topCalc:dtcAvg},
+            {title:"Other", field:"isQuoteAsOther",topCalc:dtcAvg},
+          ]
+      	})
+        $('.quotesCard').loader("done")
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  function separators(num){
+    var num_parts = num.toFixed(2).split(".");
+    num_parts[0] = num_parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return num_parts.join(".");
+  }
+$(document).ready(function () {
+  window.odometerOptions = {
+    // auto: false, // Don't automatically initialize everything with class 'odometer'
+    // selector: '.my-numbers', // Change the selector used to automatically find things to be animated
+    format: '(,ddd).dd', // Change how digit groups are formatted, and how many digits are shown after the decimal point
+    // duration: 3000, // Change how long the javascript expects the CSS animation to take
+    // theme: 'car', // Specify the theme (if you have more than one theme css file on the page)
+    // animation: 'count' // Count is a simpler animation method which just increments the value,
+  };
+  updateQuotes({stDate:stDate,enDate:enDate})
+  renderBoardReport({stDate:stDate,enDate:enDate})
+  renderTopCard({stDate:stDate,enDate:enDate})
+})
+try{
+  $().reportFilter({
+    filters:{
+      stDate:stDate,
+      enDate:enDate
+    },
+    onRefresh:(vals)=>{
+      $('.stdate').val(vals.stDate)
+      $('.endate').val(vals.enDate)
+      updateQuotes({stDate:vals.stDate,enDate:vals.enDate})
+      renderTopCard({stDate:vals.stDate,enDate:vals.enDate})
+      renderBoardReport({stDate:vals.stDate,enDate:vals.enDate})
+    }
+  })
+}catch(e){
+  console.log(e)
+}
+function renderTopCard(params){
+  let getContVis=(method)=>({
+    type:'spark',
+    data:{
+      url:'/board-report/',
+      query:{stDate:params.stDate,enDate:params.enDate,queries:['contribution']},
+      onResponse:(resp)=>resp['contribution']
+    },
+    format:'%',
+    title:method,
+    total:(data)=>checkFind(data.find(el=>isSqlGroup(el,['grpmethod']) && el.method==method)).cont*100,
+    line:(data)=>data.filter(el=>isSqlGroup(el,['grpmethod','grpwk']) && el.method==method).map(el=>el.cont*100),
+  })
+  $('.topCard').reportTiles([
+    {
+      title:'Contribution',
+      width:'100%',
+      id:'totalCont',
+      visual:[
+      getContVis('CATI'),
+      getContVis('F2F'),
+      getContVis('Online'),
+      ],
+      drilldown:[
+      {
+        cols:(data)=>[
+          {field:'method',title:'Method'},
+          {field:'pay',title:'Pay',formatter:'£'},
+          {field:'sales',title:'Sales',formatter:'£'},
+          {field:'cont',title:'Contribution',formatter:'%'},
+        ],
+        filter:(src,el)=>isSqlGroup(el,['grpmethod']),
+        trail:(row)=>row.method
+      },
+      {
+        cols:(data)=>[
+          {field:'wk',title:'Week',formatter:'d'},
+          {field:'pay',title:'Pay',formatter:'£'},
+          {field:'sales',title:'Sales',formatter:'£'},
+          {field:'cont',title:'Contribution',formatter:'%'},
+        ],
+        filter:(src,el)=>isSqlGroup(el,['grpmethod','grpwk']) && (src.x?(src.x):src.method)==el.method,
+        trail:(row)=>"w/c "+moment(row.wk).format("DD/MM/YYYY")
+      },
+      {
+        cols:(data)=>[
+          {field:'jobName',title:'Job'},
+          {field:'pay',title:'Pay',formatter:'£'},
+          {field:'sales',title:'Sales',formatter:'£'},
+          {field:'cont',title:'Contribution',formatter:'%'},
+        ],
+        filter:(src,el)=>isSqlGroup(el,['grpmethod','grpwk','grpjob']) && src.method==el.method && src.wk==el.wk,
+        trail:(row)=>row.jobName
+      },
+      ]
+    },
+    {
+      title:'Client Satisfaction',
+      width:'100%',
+      id:'cSat',
+      visual:[
+      {
+        type:'gauge',
+        data:{
+          promise:getCsatScores,
+          promiseParams:{stDate:params.stDate,enDate:params.enDate}
+        },
+        title:'Overall',
+        max:10,
+        target:8.75,
+        calc:(data)=>data.filter(el=>el.s5calc>0).reduce((a,b)=>a+b.s5calc,0)/data.filter(el=>el.s5calc>0).length,
+      },
+      {
+        type:'gauge',
+        data:{
+          promise:getCsatScores,
+          promiseParams:{stDate:params.stDate,enDate:params.enDate}
+        },
+        title:'PM',
+        max:10,
+        target:8.75,
+        calc:(data)=>data.filter(el=>el.s5pm>0).reduce((a,b)=>a+b.s5pm,0)/data.filter(el=>el.s5pm>0).length,
+      },
+      {
+        type:'gauge',
+        data:{
+          promise:getCsatScores,
+          promiseParams:{stDate:params.stDate,enDate:params.enDate}
+        },
+        title:'CM',
+        max:10,
+        target:8.75,
+        calc:(data)=>data.filter(el=>el.s5cm>0).reduce((a,b)=>a+b.s5cm,0)/data.filter(el=>el.s5cm>0).length,
+      },
+      ],
+      drilldown:[
+      {
+        cols:(data)=>[
+          {field:'jobName',title:'Project',mutator:(v,d)=>d.quoteNo+" "+d.quoteName},
+          {field:'s5calc',title:'Overall'},
+          {field:'s5pm',title:'PM score'},
+          {field:'s5cm',title:'CM score'},
+          {field:'s1a',title:'Started on time',formatter:'yn'},
+          {field:'s1b',title:'Finished on time',formatter:'yn'},
+          {field:'s1c',title:'Hit quotes',formatter:'yn'},
+          {field:'s2',title:'Removed hassle',formatter:'yn'},
+          {field:'s3',title:'What went well'},
+          {field:'s4',title:'What could be improved'},
+        ],
+        filter:(src,el)=>el.s5calc>0,
+        trail:(row)=>row.jobName
+      },
+      ]
+    },
+  ])
+}
+function renderBoardReport(params){
+  function separators(num,dp){
+    var num_parts = (dp?num.toFixed(dp):(Math.round(num*100)/100).toString()).split(".");
+    num_parts[0] = num_parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return num_parts.join(".");
+  }
+  let fPerc=(val)=>val?Math.round(val*100)+"%":''
+  let fMoney=(val)=>"£"+separators(val,2)
+  let fDec=(cell)=>Math.round(cell.getValue()*100)/100
+  let fRound=(val)=>Math.round(val)
+  let fDate=(cell)=>cell.getValue()?moment(cell.getValue()).format("DD/MM/YYYY"):''
+  let rowDefs=[
+  {id:'a',table:'agents',title:'Number joined', query:'agents', field:'agentsStarted'},
+  {id:'b',table:'agents', title:'Number left', query:'agents', field:'agentsLeft'},
+  // {id:'c', title:'Total employees on PAYE', query:'agents', field:'agentCount'},
+  {id:'d',table:'agents',info:'Employees may have worked on both consumer and Day teams. These will be counted in both Day/Eve columns but are not double-counted in the total.', title:'Total employees who completed/worked hours', query:'shifts', field:'agentsWorked'},
+  {id:'e',table:'agents', title:'Average employment duration', query:'agents', field:'employedDays',formatter:'n'},
+  {id:'f',table:'agents', title:'Average hours worked per week', query:'shifts', field:'workedHours',formatter:'n',colFilter:el=>isSqlGroup(el,['grpwk','grpshift']),totalFilter:el=>isSqlGroup(el,'grpwk'),reduceBy:'avg'},
+  {id:'g',table:'agents', title:'Total hours worked', query:'shifts', field:'workedHours'},
+  {id:'h',table:'agents', title:'Total minutes late', query:'shifts', field:'lateMins'},
+  {id:'i',table:'agents', title:'Total hours no show', query:'booking', field:'bookedHours',totalFilter:el=>isSqlGroup(el,['grpab']) && el.absenceType=='No show',colFilter:el=>isSqlGroup(el,['grpab','grpshift']) && el.absenceType=='No show'},
+  {id:'j',table:'agents', title:'Total hours sick', query:'booking', field:'bookedHours',totalFilter:el=>isSqlGroup(el,['grpab']) && el.absenceType=='Sick',colFilter:el=>isSqlGroup(el,['grpab','grpshift']) && el.absenceType=='Sick'},
+  {id:'k',table:'agents', title:'Total hours cancelled by employee', query:'booking', field:'bookedHours',totalFilter:el=>isSqlGroup(el,['grpab']) && el.absenceType=='Cancelled by agent',colFilter:el=>isSqlGroup(el,['grpab','grpshift']) && el.absenceType=='Cancelled by agent'},
+  {id:'l',table:'agents', title:'Total hours cancelled by manager', query:'booking', field:'bookedHours',totalFilter:el=>isSqlGroup(el,['grpab']) && el.absenceType=='Cancelled by manager',colFilter:el=>isSqlGroup(el,['grpab','grpshift']) && el.absenceType=='Cancelled by manager'},
+  {id:'r',table:'agents', title:'Number of completed interviews', query:'shifts', field:'ints'},
+  {id:'u',table:'agents', title:'Total dials made', query:'shifts', field:'calls'},
+  {id:'v',table:'agents', title:'Total talk time', query:'shifts', field:'talktime'},
+  {id:'w',table:'agents', title:'Average dials per hour',dividends:["u","v"], divisors:["g"],operator:'divide',formatter:'n'},
+  {id:'wi',table:'agents', title:'Mins per interview', dividends:["u","v"], divisors:["r"],operator:'divide',formatter:'n'},
+  // {id:'u', title:'Total dials made', query:'agents', field:'dialCount'},
+  // {id:'v', title:'Total talk time', query:'agents', field:'talkTime'},
+  // {id:'m', title:'Average Bradford factor score', query:'agents', field:'bradfordFactor'},
+  {id:'n',table:'agents', title:'Number of completed one2ones', query:'shifts', field:'o2os'},
+  {id:'o',table:'agents', title:'Number of completed training sessions'},
+  {id:'p',table:'agents', title:'Number of quality monitoring', query:'qc', field:'qcCount'},
+  {id:'q',table:'agents', title:'Average quality score', query:'qc', field:'qcScore',formatter:'n'},
+  {id:'s',table:'projects', title:'Number of completed projects (CATI)', query:'projects', field:'completed'},
+  {id:'t',table:'projects', title:'Total CATI sales', query:'projects', field:'sales',formatter:'£'},
+  {id:'ti',table:'projects', title:'Data processing', query:'projects', field:'sales',formatter:'£',totalFilter:el=>isSqlGroup(el,['grpcost']) && el.costTypeID==1,colFilter:el=>isSqlGroup(el,['grpcost','grpshift']) && el.costTypeID==1},
+  {id:'tii',table:'projects', title:'Incentives', query:'projects', field:'sales',formatter:'£',totalFilter:el=>isSqlGroup(el,['grpcost']) && el.costTypeID==2,colFilter:el=>isSqlGroup(el,['grpcost','grpshift']) && el.costTypeID==2},
+  {id:'tiii',table:'projects', title:'Telephone sample', query:'projects', field:'sales',formatter:'£',totalFilter:el=>isSqlGroup(el,['grpcost']) && el.costTypeID==4,colFilter:el=>isSqlGroup(el,['grpcost','grpshift']) && el.costTypeID==4},
+  {id:'tiv',table:'projects', title:'Post/Courier/Other', query:'projects', field:'sales',formatter:'£',totalFilter:el=>isSqlGroup(el,['grpcost']) && el.costTypeID==6,colFilter:el=>isSqlGroup(el,['grpcost','grpshift']) && el.costTypeID==6},
+  {id:'tv',table:'projects', title:'Postponement charges', query:'projects', field:'sales',formatter:'£',totalFilter:el=>isSqlGroup(el,['grpcost']) && el.costTypeID==7,colFilter:el=>isSqlGroup(el,['grpcost','grpshift']) && el.costTypeID==7},
+  {id:'tvi',table:'sales',info:'This is taken from the sales accumulated by interviewers during the period, rather than project sales which have been invoiced', title:'UK Telephone Fieldwork', query:'shifts', field:'sales',formatter:'£'},
+  {id:'x',table:'wages', title:'Total wages',dividends:["xii"], divisors:["xiii"],operator:'add',formatter:'£'},
+  {id:'xi',table:'wages', title:'Main hrs/wages',query:'shifts', field:'pay',formatter:'£'},
+  {id:'xii',table:'wages', title:'+Hol pay', dividends:["xi"],divisors:[1.1207],operator:'multiply',formatter:'£'},
+  {id:'xiii',table:'wages', title:'Bonus', query:'bonus', field:'calcBonus',formatter:'£'},
+  {id:'xix',table:'wages', title:'+National Insurance', dividends:["xii","xiii"], divisors:[1.1325],operator:'multiply',formatter:'£'},
+  {id:'xv',table:'wages', title:'Pay per dial minute', dividends:["x"], divisors:["u","v"],operator:'divide',formatter:'£'},
+  {id:'xvi',table:'wages', title:'Pay per hour worked', dividends:["x"], divisors:["g"],operator:'divide',formatter:'£'},
+  {id:'z',table:'contribution', title:'Total wages',dividends:["x"],divisors:["tvi"],operator:'divide',formatter:'%'},
+  {id:'zi',table:'contribution', title:'Main hrs/wages',dividends:["xi"],divisors:["tvi"],operator:'divide',formatter:'%'},
+  {id:'zii',table:'contribution', title:'+Hol pay',dividends:["xii"],divisors:["tvi"],operator:'divide',formatter:'%'},
+  {id:'xv',table:'contribution', title:'+National Insurance',dividends:["xix"],divisors:["tvi"],operator:'divide',formatter:'%'},
+  {id:'aa',table:'contributionTotal', title:'Total wages',dividends:["x"],divisors:["t"],operator:'divide',formatter:'%'},
+  {id:'aai',table:'contributionTotal', title:'Main hrs/wages',dividends:["xi"],divisors:["t"],operator:'divide',formatter:'%'},
+  {id:'aaii',table:'contributionTotal', title:'+Hol pay',dividends:["xii"],divisors:["t"],operator:'divide',formatter:'%'},
+  {id:'aaiv',table:'contributionTotal', title:'+National Insurance',dividends:["xix"],divisors:["t"],operator:'divide',formatter:'%'},
+  ]
+  let tables=[
+  {id:'agents',title:'Interviewers'},
+  {id:'projects',title:'Projects'},
+  {id:'wages',title:'Outgoings',},
+  {id:'contribution',title:'Contribution'},
+  ]
+  $('#boardReport').empty()
+  $('.tileContainer').reportTiles([
+    {
+      title:'Employees worked',
+      id:'agentsWorked',
+      formatterMenu:true,
+      visual:{
+        type:'pie',
+        data:{
+          url:'/board-report/',
+          query:{stDate:params.stDate,enDate:params.enDate,queries:['shifts']},
+          onResponse:(resp)=>resp['shifts']
+        },
+        total:(data)=>data.find(el=>isSqlGroup(el,[])).agentsWorked,
+        pie:(data)=>data.filter(el=>isSqlGroup(el,['grpshift'])).map(el=>el.agentsWorked),
+        labels:(data)=>data.filter(el=>isSqlGroup(el,['grpshift'])).map(el=>el.isEve?'Eve':'Day'),
+      },
+      drilldown:[
+      {
+        cols:(data)=>[
+          {field:'isEve',title:'Shift',formatter:(cell)=>(cell.getValue()==1?'Evening':'Day')},
+          {field:'agentsWorked',title:'Agents'},
+        ],
+        filter:(src,el)=>isSqlGroup(el,['grpshift']),
+        trail:(row)=>(row.isEve==1?'Evening':'Day')
+      },
+      {
+        cols:(data)=>[
+          {field:'teamName',title:'Team'},
+          {field:'agentsWorked',title:'Agents'},
+        ],
+        filter:(src,el)=>isSqlGroup(el,['grpshift','grpteam']) && (src.x?(src.x=='Day'?0:1):src.isEve)==el.isEve,
+        trail:(row)=>row.teamName
+      },
+      {
+        cols:(data)=>[
+          {field:'agentName',title:'Agent'},
+          {field:'agentJoined',title:'Started date',formatter:'d'},
+          {field:'agentLeft',title:'Left date',formatter:'d'},
+          {field:'workedHours',title:'Hours worked'},
+        ],
+        filter:(src,el)=>isSqlGroup(el,['grpshift','grpagent','grpteam']) && el.bookingTeamID==src.bookingTeamID
+      },
+      ]
+    },
+    {
+      title:'Hours worked',
+      id:'workedHours',
+      visual:{
+        type:'spark',
+        format:'big',
+        data:{
+          url:'/board-report/',
+          query:{stDate:params.stDate,enDate:params.enDate,queries:['shifts']},
+          onResponse:(resp)=>resp['shifts']
+        },
+        total:(data)=>data.find(el=>isSqlGroup(el,[])).workedHours,
+        line:(data)=>data.filter(el=>isSqlGroup(el,['grpwk'])).map(el=>el.workedHours),
+      },
+      drilldown:[
+      {
+        cols:(data)=>[
+          {field:'wk',title:'Week',formatter:'d'},
+          {field:'isEve',title:'Shift',formatter:(cell)=>(cell.getValue()==1?'Evening':'Day')},
+          {field:'workedHours',title:'Hours worked'},
+        ],
+        filter:(src,el)=>isSqlGroup(el,['grpwk','grpshift']),
+        trail:(row)=>(row.isEve==1?'Evening':'Day')+" w/c "+moment(row.wk).format("DD/MM/YYYY")
+      },
+      {
+        cols:(data)=>[
+          {field:'agentName',title:'Agent'},
+          {field:'workedHours',title:'Hours worked'},
+        ],
+        filter:(src,el)=>isSqlGroup(el,['grpwk','grpagent','grpshift']) && el.isEve==src.isEve && el.wk==src.wk
+      },
+      ]
+    },
+    {preset:'absenceByType',presetParams:params},
+    {preset:'qcScores',presetParams:params},
+    {preset:'dials',presetParams:params},
+  ])
+  // $('#boardReport').loader()
+  let renderCalcRows=(tableID)=>{
+    return (table,funcs)=>{
+      rowDefs.filter(r=>r.table==tableID && r.dividends).forEach((row, i) => {
+        funcs.calculateRow(row,rowDefs.filter(r=>r.table==tableID).map(el=>el.id))
+      });
+    }
+  }
+  let renderTable=(tableName,tableTitle,info)=>{
+    $('#boardReport').verticalTable({
+      data:{
+        url:'/board-report/',
+        query:{stDate:params.stDate,enDate:params.enDate,queries:rowDefs.filter(el=>el.table==tableName).map(el=>el.query).filter(el=>el).filter((el,i,self)=>self.indexOf(el)==i)},
+        onResponse:resp=>console.log(resp)
+      },
+      id:tableName,
+      totalRow:false,
+      formatterMenu:true,
+      title:tableTitle,
+      info:info,
+      cellClick:(td,rowData)=>{
+        let col=$(td).prop("data-col")
+        window.open("/sales-spend/"+params.stDate+"/"+params.enDate+"/"+(col.title=="Total"?'0':(col.title=="Day"?'d':'e'))+"/0/0/1/0")
+      },
+      formulas:true,
+      colFilter:el=>isSqlGroup(el,['grpshift']),
+      cols:[
+      {filter:(el)=>el.isEve==1,title:'Eve'},
+      {filter:(el)=>el.isEve==0,title:'Day'},
+      ],
+      rows:rowDefs.filter(el=>el.table==tableName && !el.dividends),
+      onRendered:renderCalcRows(tableName)
+    })
+  }
+  renderTable("agents","Agents")
+  renderTable("projects","CATI Project Sales","Based on all CATI projects which closed during time period")
+  renderTable("sales","CATI Interviewing sales","Based on shifts conducted during time period")
+  renderTable("wages","Wages","Based on shifts conducted during time period")
+  renderTable("contribution","Contribution","Based on shifts conducted during time period. Using 'UK Telephone Fieldwork' for sales.")
+}
+function downloadAll(){
+  let wb=XLSX.utils.book_new()
+  $('table.verticalTable').each(function(e){
+    let ws=$(this).verticalTable().getXLSXworksheet()
+    XLSX.utils.book_append_sheet(wb,ws)
+  })
+  XLSX.writeFile(wb, "Board Report Export - "+moment().format()+'.xlsx', {})
+}
+$('#downloadAllBtn').loader()
+$(window).on("verticalTable-rendered",function(){
+  let renderCount=0
+  $('.verticalTable').each(function(e){
+    if ($(this).prop("_verticalTable")) {
+      renderCount++
+    }
+  })
+  if (renderCount==4) {
+    $('#downloadAllBtn').loader("done")
+    $('#downloadAllBtn').prop("disabled",false)
+  }
+})
+</script>
+  <div class="container" style="padding-top:70px;">
+    <!-- <h2>Key stats</h2> -->
+    <div class="card text-dark bg-light mb-2 text-center quotesCard">
+      <div class="card-body">
+        <h6>Quoted</h6>
+        <div id="quotedTable"></div>
+        <h6>Commissioned</h6>
+        <div id="commissionedTable"></div>
+        <h6>Avg. days to commission</h6>
+        <div id="dtcTable"></div>
+      </div>
+    </div>
+    <div class="card text-dark bg-light mb-2 text-center topCard" style="min-height: 100px;">
+    </div>
+    <div class="card text-dark bg-light mb-2 text-center boardReport">
+      <h2>Board Report</h2>
+      <button type="button" class="btn btn-sm btn-xlsx" id="downloadAllBtn" style="margin: auto;" disabled onclick="downloadAll()">Download all to XLSX</button>
+      <div class="tileContainer">
+      </div>
+      <div id="boardReport" style="min-height: 100px;">
+      </div>
+    </div>
+  </div>
+</body>
+</html>

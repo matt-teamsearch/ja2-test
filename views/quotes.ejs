@@ -1,0 +1,343 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+	$(document).ready(function () {
+		$('#quote_table').DataTable({
+			paging: false
+		});
+	});
+	</script>
+<div class="container" style="padding-top:70px; padding-left:0px; min-width:400px;">
+	<div class="card text-dark bg-light mb-2 text-center">
+		<div class="card-body">
+			<p class="text-center text-danger"><%= message %></p>
+			<% if(numbers.length==0){ %>
+			<h1 class="text-center text-danger">
+				No quotes found
+			</h1>
+				<%} else {%>
+			<h3>Quotes Analysis</h3>
+			<table class="table table-bordered">
+				<tr style="display:none;">
+					<td colspan=2>
+						<canvas id="cQuotesCharts" style="height:300px; width:100%;"></canvas>
+					</td>
+				</tr>
+				<tr>
+					<td colspan=2>
+						<h5>Quote Overview</h5>
+						<table class="table table-sm table-bordered" style="width:80%; margin:auto">
+							<thead class="thead table-dark text-center" style="background-color:#3a586d;">
+								<th>
+									Total Quotes:
+								</th>
+								<th>
+									Converted Quotes:
+								</th>
+								<th>
+									Conversion Percentage:
+								</th>
+								</thead>
+								<tbody>
+									<tr>
+									<td>
+											<% var i = 0
+												numbers.forEach((number , index) => {
+													i = i + number.totalquotes
+											}) %>
+											<%= i %>
+									</td>
+									<td>
+											<% var n = 0
+												numbers.forEach((number , index) => {
+													n = n + number.ProjectConverted
+											}) %>
+											<%= n %>
+									</td>
+									<td>
+											<%= (Math.floor((n/i)*100)).toFixed(2) %>%
+									</td>
+									</tr>
+							</tbody>
+						</table>
+						</td>
+					</tr>
+					<tr>
+						<td colspan=2>
+							<h6>Client Project Conversion</h6>
+							<table class="table table-sm table-bordered" style="width:90%; margin:auto; font-size:.75em" id="quote_table">
+								<thead class="thead table-dark text-center" style="background-color:#3a586d;">
+									<th>
+										Client
+									</th>
+									<th>
+										Conversion
+									</th>
+									<th>
+										Total Quotes
+									</th>
+									<th>
+										Total Converted
+									</th>
+								</thead>
+								<tbody>
+									<% numbers.forEach((number, index) => {%>
+									<tr>
+									<td>
+										<a href="<%= number.clientID %>/"><%= number.clientName %></a>
+									</td>
+									<td>
+										<%= ((number.ProjectConverted / number.totalquotes)*100).toFixed(2) %>%
+									</td>
+									<td>
+										<%= number.totalquotes %>
+									</td>
+									<td>
+										<%= number.ProjectConverted %>
+									</td>
+									</tr>
+									<% }) %>
+								</tbody>
+							</table>
+							</td>
+						</tr>
+				<tr style="display:none;">
+				<td colspan=2>
+				<h6>Client Project Conversion by category</h6>
+				<table class="table table-sm" style="margin-bottom:0px" id="quoteTable">
+					<thead class="thead table-dark text-center" style="background-color:#3a586d; border:0px!important;">
+						<tr>
+							<th scope="col" rowspan="2" style="vertical-align:middle; border-right:2px solid #dee2e6; border-left:2px solid #dee2e6; border-bottom:0px;">Client</th>
+							<th scope="col" colspan="2" style="border-right:2px solid #dee2e6;">All</th>
+							<th scope="col" colspan="2" style="border-right:2px solid #dee2e6;">B2B</th>
+							<th scope="col" colspan="2" style="border-right:2px solid #dee2e6;">Consumer</th>
+							<th scope="col" colspan="2" style="border-right:2px solid #dee2e6;">F2F</th>
+							<th scope="col" colspan="2" style="border-right:2px solid #dee2e6;">CATI</th>
+							<th scope="col" colspan="2" style="border-right:2px solid #dee2e6;">Online</th>
+							<th scope="col" colspan="2" style="border-right:2px solid #dee2e6;">International</th>
+							<th scope="col" colspan="2" style="border-right:2px solid #dee2e6;">Recruit</th>
+						</tr>
+						<tr>
+							<td scope="col" style="border-right:2px solid #dee2e6;">Total</td>
+							<td scope="col" style="border-right:2px solid #dee2e6;">Won</td>
+							<td scope="col" style="border-right:2px solid #dee2e6;">Total</td>
+							<td scope="col" style="border-right:2px solid #dee2e6;">Won</td>
+							<td scope="col" style="border-right:2px solid #dee2e6;">Total</td>
+							<td scope="col" style="border-right:2px solid #dee2e6;">Won</td>
+							<td scope="col" style="border-right:2px solid #dee2e6;">Total</td>
+							<td scope="col" style="border-right:2px solid #dee2e6;">Won</td>
+							<td scope="col" style="border-right:2px solid #dee2e6;">Total</td>
+							<td scope="col" style="border-right:2px solid #dee2e6;">Won</td>
+							<td scope="col" style="border-right:2px solid #dee2e6;">Total</td>
+							<td scope="col" style="border-right:2px solid #dee2e6;">Won</td>
+							<td scope="col" style="border-right:2px solid #dee2e6;">Total</td>
+							<td scope="col" style="border-right:2px solid #dee2e6;">Won</td>
+							<td scope="col" style="border-right:2px solid #dee2e6;">Total</td>
+							<td scope="col" style="border-right:2px solid #dee2e6;">Won</td>
+						</tr>
+					</thead>
+					<tbody class="table-bordered">
+						<%  numbers.forEach((number , index) => { %>
+							<tr>
+								<td style="border-right:2px solid #cccccc;"><a href="<%= number.clientID %>/"><%= number.clientName %></a></td>
+								<td><%= number.totalquotes %></td>
+								<td style="border-right:2px solid #cccccc;"><%= number.ProjectConverted %></td>
+								<td><%= number.B2BProject%></td>
+								<td style="border-right:2px solid #cccccc;"><%= number.B2BProjectConverted%></td>
+								<td><%= number.ConsumerProject%></td>
+								<td style="border-right:2px solid #cccccc;"><%= number.ConsumerProjectConverted%></td>
+								<td><%= number.F2FProject %></td>
+								<td style="border-right:2px solid #cccccc;"><%= number.F2FProjectConverted %></td>
+								<td><%= number.CATIProject %></td>
+								<td style="border-right:2px solid #cccccc;"><%= number.CATIProjectConverted %></td>
+								<td><%= number.OnlineProject %></td>
+								<td style="border-right:2px solid #cccccc;"><%= number.OnlineProjectConverted %></td>
+								<td><%= number.InternationalProject %></td>
+								<td style="border-right:2px solid #cccccc;"><%= number.InternationalProjectConverted %></td>
+								<td><%= number.RecruitProject %></td>
+								<td style="border-right:2px solid #cccccc;"><%= number.RecruitProjectConverted %></td>
+							</tr>
+							<% })%>
+						</tbody>
+					</table>
+					</td>
+				</tr>
+				</table>
+				<%}%>
+			</div>
+		</div>
+	</div>
+	<script>
+				var cQuoteData = {
+					datasets: [
+					{
+						label:'Quoted',
+						data: [<%  numbers.forEach((number , index) => { %><%= number.totalquotes %>,<%})%>],
+						fill: false,
+						borderColor: [
+						<%  numbers.forEach((number , index) => { %>'rgba(255, 99, 132, 0.8)',<%})%>
+						],
+						borderWidth: 2
+					},
+					{
+						label:'Converted',
+						data: [<%  numbers.forEach((number , index) => { %><%= number.ProjectConverted %>,<%})%>],
+						fill: false,
+						borderColor: [
+						<%  numbers.forEach((number , index) => { %>'rgba(207, 93, 161, 1)',<%})%>
+						],
+						borderWidth: 2
+					},
+					{
+						label:'B2B Quoted',
+						data: [<%  numbers.forEach((number , index) => { %><%= number.B2BProject %>,<%})%>],
+						fill: false,
+						borderColor: [
+						<%  numbers.forEach((number , index) => { %>'rgba(235, 168, 52, 1)',<%})%>
+						],
+						borderWidth: 1
+					},
+					{
+						label:'B2B Converted',
+						data: [<%  numbers.forEach((number , index) => { %><%= number.B2BProjectConverted %>,<%})%>],
+						fill: false,
+						borderColor: [
+						<%  numbers.forEach((number , index) => { %>'rgba(235, 168, 52, 1)',<%})%>
+						],
+						borderWidth: 1
+					},
+					{
+						label:'Consumer Quoted',
+						data: [<%  numbers.forEach((number , index) => { %><%= number.ConsumerProject %>,<%})%>],
+						fill: false,
+						borderColor: [
+						<%  numbers.forEach((number , index) => { %>'rgba(164, 166, 162, 1)',<%})%>
+						],
+						borderWidth: 1
+					},
+					{
+						label:'Consumer Converted',
+						data: [<%  numbers.forEach((number , index) => { %><%= number.ConsumerProjectConverted %>,<%})%>],
+						fill: false,
+						borderColor: [
+						<%  numbers.forEach((number , index) => { %>'rgba(164, 166, 162, 1)',<%})%>
+						],
+						borderWidth: 1
+					},
+					{
+						label:'F2F Quoted',
+						data: [<%  numbers.forEach((number , index) => { %><%= number.F2FProject %>,<%})%>],
+						fill: false,
+						borderColor: [
+						<%  numbers.forEach((number , index) => { %>'rgba(255, 92, 250, 1)',<%})%>
+						],
+						borderWidth: 1
+					},
+					{
+						label:'F2F Converted',
+						data: [<%  numbers.forEach((number , index) => { %><%= number.F2FProjectConverted %>,<%})%>],
+						fill: false,
+						borderColor: [
+						<%  numbers.forEach((number , index) => { %>'rgba(255, 92, 250, 1)',<%})%>
+						],
+						borderWidth: 1
+					},
+					{
+						label:'CATI Quoted',
+						data: [<%  numbers.forEach((number , index) => { %><%= number.CATIProject %>,<%})%>],
+						fill: false,
+						borderColor: [
+						<%  numbers.forEach((number , index) => { %>'rgba(153, 102, 255, 1)',<%})%>
+						],
+						borderWidth: 1
+					},
+					{
+						label:'CATI Converted',
+						data: [<%  numbers.forEach((number , index) => { %><%= number.CATIProjectConverted %>,<%})%>],
+						fill: false,
+						borderColor: [
+						<%  numbers.forEach((number , index) => { %>'rgba(153, 102, 255, 1)',<%})%>
+						],
+						borderWidth: 1
+					},
+					{
+						label:'Online Quoted',
+						data: [<%  numbers.forEach((number , index) => { %><%= number.OnlineProject %>,<%})%>],
+						fill: false,
+						borderColor: [
+						<%  numbers.forEach((number , index) => { %>'rgba(92, 103, 255, 1)',<%})%>
+						],
+						borderWidth: 1
+					},
+					{
+						label:'Online Converted',
+						data: [<%  numbers.forEach((number , index) => { %><%= number.OnlineProjectConverted %>,<%})%>],
+						fill: false,
+						borderColor: [
+						<%  numbers.forEach((number , index) => { %>'rgba(92, 103, 255, 1)',<%})%>
+						],
+						borderWidth: 1
+					},
+					{
+						label:'International Quoted',
+						data: [<%  numbers.forEach((number , index) => { %><%= number.InternationalProject %>,<%})%>],
+						fill: false,
+						borderColor: [
+						<%  numbers.forEach((number , index) => { %>'rgba(92, 255, 231, 1)',<%})%>
+						],
+						borderWidth: 1
+					},
+					{
+						label:'International Converted',
+						data: [<%  numbers.forEach((number , index) => { %><%= number.InternationalProjectConverted %>,<%})%>],
+						fill: false,
+						borderColor: [
+						<%  numbers.forEach((number , index) => { %>'rgba(92, 255, 231, 1)',<%})%>
+						],
+						borderWidth: 1
+					},
+					{
+						label:'Recruit Quoted',
+						data: [<%  numbers.forEach((number , index) => { %><%= number.RecruitProject %>,<%})%>],
+						fill: false,
+						borderColor: [
+						<%  numbers.forEach((number , index) => { %>'rgba(92, 209, 102, 1)',<%})%>
+						],
+						borderWidth: 1
+					},
+					{
+						label:'Recruit Converted',
+						data: [<%  numbers.forEach((number , index) => { %><%= number.RecruitProjectConverted %>,<%})%>],
+						fill: false,
+						borderColor: [
+						<%  numbers.forEach((number , index) => { %>'rgba(92, 209, 102, 1)',<%})%>
+						],
+						borderWidth: 1
+					}]
+				};
+
+				var cQuotes = $('#cQuotesCharts');
+				new Chart(cQuotes, {
+					data: cQuoteData,
+					type: 'line',
+					options: {
+							title: {
+								display: true,
+								text: 'Click to toggle'
+							},
+						scales: {
+							yAxes: [{
+								ticks: {
+									beginAtZero: true,
+									stepSize:1
+								}
+							}],
+							xAxes:[{
+								labels:[<%  numbers.forEach((number , index) => { %>
+									'<%= number.clientName %>',<%})%>],
+							}]
+						}
+					}
+				});
+			</script>
+		</body>
+		</html>

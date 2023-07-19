@@ -1,0 +1,260 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5 class="card-title">Average Hourly Dials</h5>
+      <div id="oldFilters" style="display:none;">
+        <input type="date" style="display:inline; width:auto;" class="form-control inputdate selectFilters" id="stdate" name="stdate" onchange="$('#updateTableBtn').show()" value="<%=currPayPeriodSt%>" style="width:200px; margin:auto;"> to <input type="date" style="display:inline; width:auto;" class="selectFilters inputdate form-control" id="endate" name="endate" value="<%=moment().subtract(1,'d').format("YYYY-MM-DD")%>" style="width:200px; margin:auto;" onchange="$('#updateTableBtn').show()">
+        <br>Showing averages over a minimum of <input type="number" onchange="$('#updateTableBtn').show()" name="minShifts" id="minShifts" value="0" style="width:65px;display:inline;" class="form-control selectFilters"> shifts
+        <br><button type="button" style="display:none;" id="updateTableBtn" onclick="updateTable()" class="btn btn-primary">Update</button>
+        <select class="selectpicker" id="dataType" onchange="updateTable()">
+          <option value="0">All dials</option>
+          <option value="1">Short dials</option>
+        </select>
+      </div>
+      <canvas id='chart' height="75" style="margin-top:30px"></canvas>
+      <div id="dialsTable">
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  var repTable
+  $(document).ready(function(e){
+    // $.ajax({
+    //   url:'/get-all-dials',
+    //   type: 'POST',
+    //   data:{fromDate:'2022-05-16',toDate:'2022-05-22'},
+    //   success:(data)=>{
+    //     console.log(data)
+    //   },
+    //   error:(e)=>{
+    //     console.log(e.error)
+    //   }
+    // })
+    let cols=[
+      {field:'agentName',title:"Agent",width:160,headerFilter:true,topCalc:()=>'Overall avg.'},
+      {field:'totalDials',title:"Total",formatter:(c)=>c.getValue()?($('#dataTypeFilter').val()==1?moment.utc(c.getValue()*1000).format('mm:ss'):c.getValue()):''},
+    ]
+    for (var i = 9; i < 21; i++) {
+      cols.push({
+        field:'dials_'+i,
+        title:i+":00-"+(i+1)+":00",
+        formatter:(c)=>c.getValue()?($('#dataTypeFilter').val()==1?moment.utc(c.getValue()*1000).format('mm:ss'):c.getValue()):'',
+        tooltip:(cell)=>cell.getValue()?'Average over '+cell.getData()['shifts_'+cell.getField().split("_")[1]]+' shifts':'',
+        topCalc:(vals)=>Math.round(vals.filter(el=>el).reduce((a,b)=>a+b,0)/vals.filter(el=>el).length)
+      })
+      if (i==16) {
+        // cols.push({field:'dials0',title:"16:45-17:00"})
+      }
+      if (i==20) {
+        // cols.push({field:'dials1',title:"20:45-21:00"})
+      }
+    }
+    repTable=new Tabulator("#dialsTable",{
+      layout:"fitColumns",
+      ajaxURL:"/dials-analysis/<%=currPayPeriodSt%>/<%=currPayPeriodEn%>/0",
+      columns:cols,
+      // headerSort:false,
+      height:'800px',
+      selectable:true,
+      index:'agentID',
+      rowFormatter:function(row){
+        $(row.getElement()).find('.tabulator-cell[title]').tooltip()
+      },
+      rowMouseOver:function(e, row){
+        let agentID='avg'
+        if (row._row.type!='calc') {
+          agentID=row.getIndex()
+        }
+        var dataset = window.rChart.data.datasets.find(el=>el.id==agentID)
+        dataset.borderColor='#007bff'
+        dataset.order=0
+        dataset.borderWidth=3
+        repTable.getRows().forEach((r, i) => {
+          let ragentID=r.getIndex()
+          let el=window.rChart.data.datasets.findIndex(d=>d.id==ragentID)
+          if (window.rChart.data.datasets[el].id!=ragentID && !r.isSelected()) {
+            if (ragentID=='avg') {
+              window.rChart.data.datasets[el].borderColor='rgba(177,90,121, 0.3)'
+              // window.rChart.data.datasets[el].pointBorderColor='rgba(40, 40, 40, 0.1)'
+              // window.rChart.data.datasets[el].pointBackgroundColor='rgba(40, 40, 40, 0.1)'
+              window.rChart.data.datasets[el].borderWidth=5
+            }else {
+              window.rChart.data.datasets[el].borderColor='rgba(40, 40, 40, 0.1)'
+              // window.rChart.data.datasets[el].pointBorderColor='rgba(40, 40, 40, 0.1)'
+              // window.rChart.data.datasets[el].pointBackgroundColor='rgba(40, 40, 40, 0.1)'
+              window.rChart.data.datasets[el].borderWidth=1
+            }
+            window.rChart.data.datasets[el].order=1
+          }
+        });
+        window.rChart.update()
+      },
+      rowMouseOut:function(e, row){
+        let sel=null
+        let agentID='avg'
+        if (row._row.type!='calc') {
+          sel=row.isSelected()
+          agentID=row.getIndex()
+        }
+        if (!sel) {
+          var dataset = window.rChart.data.datasets.find(el=>el.id==agentID)
+          if (agentID=='avg') {
+            dataset.borderColor='rgba(177,90,121, 0.3)'
+            dataset.borderWidth=5
+          }else {
+            dataset.borderColor='rgba(40, 40, 40, 0.1)'
+            dataset.borderWidth=1
+          }
+          window.rChart.update()
+        }
+      },
+      dataLoaded:data=>{
+        if (window.rChart) {
+          window.rChart.destroy()
+        }
+        let dataset=[]
+        let calcs=repTable.getCalcResults()
+        dataset.push({
+          id:'avg',
+          label: 'Average',
+          data: Object.keys(calcs.top).filter(k=>k.indexOf('dial')>-1).map(k=>calcs.top[k]),
+          order:1,
+          backgroundColor: [
+            'rgba(0, 0, 0, 0)',
+          ],
+          borderColor: [
+            'rgba(177,90,121, 0.3)',
+          ],
+          pointRadius:0,
+          pointHitRadius: 5,
+          borderWidth: 4,
+          spanGaps:false,
+        })
+        data.forEach((row, i2) => {
+          var data=[]
+          labels=[]
+          for (var i = 9; i < 21; i++) {
+            if (!row['dials_'+i]) {
+              data.push(NaN)
+            }else {
+              let val=row['dials_'+i]
+              data.push(Number(val))
+            }
+            labels.push(i+":00-"+(i+1)+":00")
+          }
+          dataset.push({
+            id:row.agentID,
+            label: row.agentName,
+            data: data,
+            order:1,
+            backgroundColor: [
+              'rgba(0, 0, 0, 0)',
+            ],
+            borderColor: [
+                'rgba(40, 40, 40, 0.1)',
+            ],
+            pointRadius:0,
+            pointHitRadius: 5,
+            borderWidth: 1,
+            spanGaps:false,
+          })
+        });
+        if (dataset) {
+          const data = {
+            labels:labels,
+            datasets: dataset
+          };
+          const config = {
+            type: 'line',
+            data: data,
+            options: {
+              scales: {
+                yAxes : [
+                  {
+                    display:false,
+                  }
+                ]
+              },
+              annotation: {
+                annotations: [{
+                  type: 'box',
+                  drawTime: 'beforeDatasetsDraw',
+                  yScaleID: 'y-axis-0',
+                  yMin: 0,
+                  yMax: 50,
+                  backgroundColor: 'rgba(220, 53, 69, 0.1)'
+                },{
+                  type: 'box',
+                  drawTime: 'beforeDatasetsDraw',
+                  yScaleID: 'y-axis-0',
+                  yMin: 50,
+                  yMax: 60,
+                  backgroundColor: 'rgba(255, 193, 7, 0.1)'
+                },{
+                  type: 'box',
+                  drawTime: 'beforeDatasetsDraw',
+                  yScaleID: 'y-axis-0',
+                  yMin: 60,
+                  yMax: 120,
+                  backgroundColor: 'rgba(40, 167, 69, 0.1)'
+                }]
+              },
+              plugins: {
+                datalabels: {
+                  display:false
+                },
+              },
+              legend: {
+                display: false,
+              },
+            },
+          };
+          if (window.rChart) {
+            window.rChart.destroy()
+          }
+          window.rChart = new Chart($('#chart'),config)
+        }else {
+          if (window.rChart) {
+            window.rChart.destroy()
+          }
+        }
+      }
+    })
+  })
+  function updateTable(){
+    repTable.setData("/dials-analysis/"+$('#stdate').val()+"/"+$('#endate').val()+"/"+$('#dataType').val())
+  }
+  try{
+    $().reportFilter({
+      maxDays:7*8,
+      filters:{
+        stDate:"<%=currPayPeriodSt%>",
+        enDate:"<%=currPayPeriodEn%>",
+        minShifts:0,
+        team:[],
+        shift:[]
+      },
+      customFilters:[
+        {label:'Showing',el:$('#dataType')[0],val:[0]}
+      ],
+      onRefresh:(vals)=>{
+        repTable.setData("/dials-analysis/"+vals.stDate+"/"+vals.enDate+"/"+vals.dataType,vals)
+      }
+    })
+  }catch(e){
+    $('#oldFilters').show()
+  }
+</script>
+<style>
+  .tabulator-col-content,.tabulator-cell{
+    padding:3px!important;
+    font-size:small;
+  }
+  .tabulator-row.tabulator-selectable.tabulator-calcs.tabulator-calcs-top {
+    color: var(--highlight);
+  }
+</style>
+</body>
+</html>

@@ -1,0 +1,716 @@
+<%- include('partials/'+versionPages.header) %>
+<script type="text/javascript">
+
+  function fnExcelReport(id)
+{
+    var tab_text="<table border='2px'><tr bgcolor='#87AFC6'>";
+    var textRange; var j=0;
+    tab = document.getElementById(id); // id of table
+
+    for(j = 0 ; j < tab.rows.length ; j++)
+    {
+        tab_text=tab_text+tab.rows[j].innerHTML+"</tr>";
+        //tab_text=tab_text+"</tr>";
+    }
+
+    tab_text=tab_text+"</table>";
+    tab_text= tab_text.replace(/<A[^>]*>|<\/A>/g, "");//remove if u want links in your table
+    tab_text= tab_text.replace(/<img[^>]*>/gi,""); // remove if u want images in your table
+    tab_text= tab_text.replace(/<input[^>]*>|<\/input>/gi, ""); // reomves input params
+
+    var ua = window.navigator.userAgent;
+    var msie = ua.indexOf("MSIE ");
+
+    if (msie > 0 || !!navigator.userAgent.match(/Trident.*rv\:11\./))      // If Internet Explorer
+    {
+        txtArea1.document.open("txt/html","replace");
+        txtArea1.document.write(tab_text);
+        txtArea1.document.close();
+        txtArea1.focus();
+        sa=txtArea1.document.execCommand("SaveAs",true,"Say Thanks to Sumit.xls");
+    }
+    else                 //other browser not tested on IE 11
+        sa = window.open('data:application/vnd.ms-excel,' + encodeURIComponent(tab_text));
+
+    return (sa);
+}
+
+  </script>
+  <style>
+    table.dataTable thead th, table.dataTable tbody td{
+      white-space: nowrap;
+      padding: 2px;
+      font-size: small;
+    }
+    .modal-dialog{
+      max-width:950px;
+    }
+    .modal-content{
+      min-height: 770px;
+    }
+    .DTFC_LeftBodyLiner{
+      height:480px!important;
+      overflow-y:hidden!important;
+    }
+    .statsClick:hover{
+      background:#dee2e6;
+    }
+    .statsClick{
+      cursor:pointer;
+      color:#007bff;
+    }
+    .total{
+      font-weight:500;
+      background-color: #e5e5e8;
+    }
+    .data, .total{
+      text-align:center;
+    }
+    .rborder{
+      border-right-color: black!important;
+      border-left-color: black!important;
+    }
+    .bborder{
+      border-bottom-color: black!important;
+    }
+    .DTFC_LeftBodyLiner{
+      overflow-x:hidden;
+    }
+    label{
+      cursor:pointer;
+    }
+    table.missingTable td {
+      border: 1px solid gainsboro;
+      padding: 0px 7px;
+    }
+    .tableTooltip {
+        text-decoration: underline 1px dotted;
+        cursor: pointer;
+    }
+  </style>
+  <div class="container" style="padding-top:70px;">
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body">
+        <div id="oldFilters" style="display:none;">
+          <h5 class="card-title">Call centre report for period: <input type="date" style="display:inline; width:auto;" class="form-control inputdate selectFilters" id="stdate" name="stdate" max="<%= moment.utc().subtract(1,"days").format("YYYY-MM-DD") %>" style="width:200px; margin:auto;"> to <input type="date" style="display:inline; width:auto;" class="selectFilters inputdate form-control" id="endate" name="endate" max="<%= moment.utc().subtract(1,"days").format("YYYY-MM-DD") %>" style="width:200px; margin:auto;"></h5>
+          <div class="alert alert-danger fade show" id="datemessage" role="alert">Please enter a valid date range</div>
+          <select class="selectpicker selectFilters" data-live-search="true" id="shift_search" name="shift_search">
+            <option selected value>Filter by shift</option>
+            <option value="d" <%if(sessShift=="d"){%>selected<%}%>>Day</option>
+            <option value="e" <%if(sessShift=="e"){%>selected<%}%>>Eve</option>
+          </select>
+          <select class="selectpicker selectFilters" multiple data-live-search="true" id="team_search" name="team_search" title="Filter by team">
+            <% teams.forEach((team,i) => { %>
+              <option value="<%=team.agentTeamID%>" <%if(sessTeam.includes(team.agentTeamID)){%>selected<%}%>><%=team.teamName%></option>
+              <% }) %>
+            </select>
+            <select class="selectpicker selectFilters" data-live-search="true" id="days_search" name="days_search">
+              <option selected value>Filter by day type</option>
+              <option value="wd" <%if(sessDays=="wd"){%>selected<%}%>>Weekdays</option>
+              <option value="we" <%if(sessDays=="we"){%>selected<%}%>>Weekends</option>
+            </select>
+            <input type="checkbox" class="selectFilters" name="excHourly" id="excHourly" style="transform: scale(1.5);margin: auto 7px;" <%if(excHourly==1){%>checked<%}%>><label for="excHourly">Exclude hourly Rigour jobs</label>
+            <input type="checkbox" class="selectFilters" name="onlyHourly" id="onlyHourly" style="transform: scale(1.5);margin: auto 7px;" <%if(excHourly==-1){%>checked<%}%>><label for="onlyHourly">Show only hourly Rigour jobs</label>
+            <input type="checkbox" class="selectFilters" name="excBMG" id="excBMG" style="transform: scale(1.5);margin: auto 7px;" <%if(excBMG==1){%>checked<%}%>><label for="excBMG">Exclude BMG hourly</label>
+            <br><button type="button" style="display:none;margin: auto;" class="btn btn-primary" id="updateReportBtn" onclick="refreshReport()" name="button">Update report</button>
+        </div>
+        <%
+        function separators(num)
+          {
+            var num_parts = num.toString().split(".");
+            num_parts[0] = num_parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            return num_parts.join(".");
+          }
+        if (stats[0].Ints>0) {%>
+          <canvas id="statsChart" height="100" style=""></canvas>
+          <div id="alertBanner"></div>
+              <table class="table table-sm table-striped table-bordered" id="sales_spend" style="width:100%;">
+                <thead>
+                  <th>Category </th>
+                  <th>Amount </th>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Sales</td>
+                    <td class="statsClick" id="stats_Sales_Sales_£_2" data-calcs="1-2-4-5" data-toggle="dropdown">£<%=separators((stats[0].Sales).toFixed(2))%></td>
+                  </tr>
+                  <tr>
+                    <td>Wages</td>
+                    <td class="statsClick" id="stats_Wages_Wages_£_2" data-calcs="1-2-4-5" data-toggle="dropdown">£<%=separators(stats[0].Wages.toFixed(2))%></td>
+                  </tr>
+                  <tr>
+                    <td>Interviews</td>
+                    <td class="statsClick" id="stats_Ints_Interviews__0" data-calcs="1-2-4-5" data-toggle="dropdown"><%=separators(stats[0].Ints)%></td>
+                  </tr>
+                  <tr>
+                    <td>Hours</td>
+                    <td class="statsClick" id="stats_Hours_Hours__2" data-calcs="1-2-4-5" data-toggle="dropdown"><%=separators(stats[0].Hours)%></td>
+                  </tr>
+                  <tr>
+                    <td>Calls monitored</td>
+                    <td class="statsClick" id="stats_MonitorCountCall_Call-Monitorings__0" data-calcs="1-2-3-4-5" data-href="/quality-control" data-href-id="#selectFilterGroup2" data-toggle="dropdown"><%=stats[0].MonitorCountCall%></td>
+                  </tr>
+                  <tr>
+                    <td>Average QC score</td>
+                    <td class="statsClick" id="stats_QCscore_QC-Score__1" data-calcs="4-5" data-href="/quality-control" data-href-id="#selectFilterGroup2" data-toggle="dropdown"><%=stats[0].QCscore%></td>
+                  </tr>
+                  <tr>
+                    <td>Intros QC checked</td>
+                    <td class="statsClick" id="stats_MonitorCountIntro_Intro-Checks__0" data-calcs="1-2-3-4-5" data-href="/quality-control" data-href-id="#selectFilterGroup2" data-toggle="dropdown"><%=stats[0].MonitorCountIntro%></td>
+                  </tr>
+                  <tr>
+                    <td>Coaching sessions</td>
+                    <td class="statsClick" id="stats_coachCount_Coaching-Sessions__0" data-calcs="1-2-3-4-5" data-href="/add-coaching" data-href-id="#stdate" data-toggle="dropdown"><%=stats[0].coachCount%></td>
+                  </tr>
+                  <tr>
+                    <td>Contribution</td>
+                    <td class="statsClick" id="stats_cont_Contribution_%_2" data-calcs="4-5" data-toggle="dropdown"><%=((stats[0].Wages/(stats[0].Sales))*100).toFixed(2)%>%</td>
+                  </tr>
+                  <tr>
+                    <td>Fixed contribution</td>
+                    <td class="statsClick" id="stats_fixedCont_Fixed-Contribution_%_2" data-calcs="4-5" data-toggle="dropdown"><%=((stats[0].fixedPay/(stats[0].fixedSales))*100).toFixed(2)%>%</td>
+                  </tr>
+                  <tr>
+                    <td>Agents</td>
+                    <td class="statsClick" id="stats_AgentCount_Agents__0" data-calcs="4-5" data-toggle="dropdown"><%=stats[0].AgentCount%></td>
+                  </tr>
+                  <tr>
+                    <td>Jobs</td>
+                    <td class="statsClick" id="stats_JobCount_Jobs__0" data-calcs="4-5" data-toggle="dropdown"><%=stats[0].JobsCount%></td>
+                  </tr>
+                  <tr>
+                    <td>Agents Joined</td>
+                    <td class="statsClick noJobs" id="stats_JoinedCount_Agents-Joined__0" data-calcs="4-5" data-toggle="dropdown"><%=stats[0].JoinedCount%></td>
+                  </tr>
+                  <tr>
+                    <td>Agents Left</td>
+                    <td class="statsClick noJobs" id="stats_LeftCount_Agents-Left__0" data-calcs="4-5" data-toggle="dropdown"><%=stats[0].LeftCount%></td>
+                  </tr>
+                  <tr>
+                    <td>Average dials</td>
+                    <td class="statsClick noJobs" id="stats_dials_Average-Dials__0" data-calcs="4-5" data-toggle="dropdown"><%=Math.round(stats[0].dials)%></td>
+                  </tr>
+                  <tr>
+                    <td>Hours lost to sickness</td>
+                    <td class="statsClick noJobs" id="stats_hoursLost_Lost-Hours__0" data-calcs="4-5" data-toggle="dropdown"><%=Math.round(stats[0].hoursLost)%></td>
+                  </tr>
+                  <tr>
+                    <td>Minutes lost to lateness</td>
+                    <td class="statsClick noJobs" id="stats_lateMinsLost_Lost-Mins__0" data-calcs="4-5" data-toggle="dropdown"><%=Math.round(stats[0].lateMinsLost)%></td>
+                  </tr>
+                </tbody>
+              </table>
+              <%}else {
+                %><div class="alert alert-danger fade show" role="alert">No interviews found</div><Br><%
+              }%>
+              <button class="btn btn-sm btn-xlsx" id="btnExport" onclick="fnExcelReport('sales_spend');"> Download to excel </button>
+            </div>
+          </div>
+        </div>
+        <div class='modal fade' role='dialog' id='reportModal'>
+          <div class='modal-dialog modal-dialog-centered' role='document'>
+            <div class='modal-content'>
+              <div class='modal-header'>
+                <h5 class='modal-title' id='report-title'></h5>
+                <button type='button' class='close modalClose' data-dismiss='modal' aria-label='Close'>
+                  <span aria-hidden='true'>&times;</span>
+                </button>
+              </div>
+              <div class='modal-body' id='modal-body'>
+
+              </div>
+              <div class='modal-footer'>
+                <button type='button' class='btn btn-secondary modalClose' data-dismiss='modal'>Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <input id="reportResponse" type="text" style="display:none;"/>
+
+        <script>
+         function fetchReport(fielda,friendlya,fieldb,friendlyb,form,dp){
+           var data =[]
+           var jsonData={};
+           let targetid=this.id
+           jsonData.stdate=$("#stdate").val()
+           jsonData.endate=$("#endate").val()
+           jsonData.team=$("#team_search").val()
+           jsonData.shift=$("#shift_search").val()
+           jsonData.days=$("#days_search").val()
+           jsonData.excHourly=$("#excHourly").is(':checked')?1:($("#onlyHourly").is(':checked')?-1:0)
+           jsonData.excBMG=$("#excBMG").is(':checked')?1:0
+           jsonData.splt=fielda
+           data.push(jsonData)
+           $.ajax({
+               url: '/get-cc-reports',
+               type: 'POST',
+               contentType: 'application/json',
+               data: JSON.stringify(data),
+               success: function (response) {
+                 $('body').addClass('loading')
+                 var stdate=new Date($("#stdate").val())
+                 var endate=new Date($("#endate").val())
+                 var oneDay = 24 * 60 * 60 * 1000
+                 var days=Math.round(Math.abs((stdate - endate) / oneDay))
+                 var currDate=new Date(stdate)
+                 var colTotals=[]
+                 cont="<table class='table table-sm table-striped table-bordered dataTable' width='100%' id='modal_table'><thead><tr><th class='title'>"+friendlya+"</th>"
+                 cont=cont+"<th class='calc0 total rborder'>Total</th>"
+                 cont=cont+"<th class='calc1 total rborder'>Total</th>"
+                 cont=cont+"<th class='calc2 total rborder'>Total</th>"
+                 cont=cont+"<th class='calc3 total rborder'>Total</th>"
+                 cont=cont+"<th class='calc4 total rborder'>Total</th>"
+                 cont=cont+"<th class='calc5 total rborder'>Total</th>"
+                 var addedCols=[]
+                 response.report.forEach((record, i) => {
+                   if (!addedCols.includes(record.inputDateTxt)) {
+                     cont=cont+"<th class='calc0'>"+record.inputDateTxt+"</th>"
+                     cont=cont+"<th class='calc1'>"+record.inputDateTxt+"</th>"
+                     cont=cont+"<th class='calc2'>"+record.inputDateTxt+"</th>"
+                     cont=cont+"<th class='calc3'>"+record.inputDateTxt+"</th>"
+                     cont=cont+"<th class='calc4'>"+record.inputDateTxt+"</th>"
+                     cont=cont+"<th class='calc5'>"+record.inputDateTxt+"</th>"
+                     addedCols.push(record.inputDateTxt)
+                   }
+                 })
+                 cont=cont+"</tr></thead><tbody>"
+                 cont=cont+"<tr><td class='total bborder title'>-Total-</td>"
+                 var ints=0
+                 response.report.forEach((item, i) => {
+                   ints=ints+item['Ints']
+                 });
+                 rtotal=response.tTotal[0][fieldb]
+                 //total total
+                 cont=cont+"<td class='calc0 total data rborder bborder'>"+formatTxt(rtotal,form,dp)+"</td>"
+                 cont=cont+"<td class='calc1 total data rborder bborder reference'>"+formatTxt(rtotal,form,dp)+"</td>"
+                 cont=cont+"<td class='calc2 total data rborder bborder reference'>"+formatTxt(rtotal,form,dp)+"</td>"
+                 cont=cont+"<td class='calc3 total data rborder bborder'>"+formatTxt(rtotal/ints,'%',1)+"</td>"
+                 cont=cont+"<td class='calc4 total data rborder bborder'>"+formatTxt(rtotal,form,dp)+"</td>"
+                 cont=cont+"<td class='calc5 total data rborder bborder'>"+formatTxt(1,'%',1)+"</td>"
+                   for (var i = 0; i < addedCols.length; i++) {
+                     var filtered=response.report.filter(function(r) {
+                       return r.inputDateTxt==addedCols[i];
+                     });
+                     var ctotal=0
+                     ints=0
+                     filtered.forEach((item, i) => {
+                       ints=ints+item['Ints']
+                     });
+                     ctotal=response.colTotals.find(el=>el.inputDateTxt==addedCols[i])[fieldb]
+                     colTotals.push(ctotal)
+                     let diffCtotal=(i>0?ctotal-colTotals[i-1]:0)
+                     let diffCtotalPerc=(i>0?(ctotal-colTotals[i-1])/colTotals[i-1]:0)
+                     //total per date
+                     cont=cont+"<td class='calc0 total data bborder'>"+formatTxt(ctotal,form,dp)+"</td>"
+                     cont=cont+"<td class='calc1 total data bborder'>"+formatTxt(ctotal/rtotal,'%',1)+"</td>"
+                     cont=cont+"<td class='calc2 total data bborder reference'>"+formatTxt(ctotal,form,dp)+"</td>"
+                     cont=cont+"<td class='calc3 total data bborder'>"+formatTxt(ctotal/ints,'%',1)+"</td>"
+                     cont=cont+"<td class='calc4 total data bborder'>"+formatTxt(diffCtotal,'+-',dp)+"</td>"
+                     cont=cont+"<td class='calc5 total data bborder'>"+formatTxt(diffCtotalPerc,'+-%',1)+"</td>"
+                   }
+                  cont=cont+"</tr>"
+                 var addedRows=[]
+                 response.report.forEach((record, i) => {
+                   if (!addedRows.includes(record.rowID)) {
+                     addedRows.push(record.rowID)
+                     var filtered=response.report.filter(function(r) {
+                       return r.rowID==record.rowID;
+                     });
+                     var total=0
+                     var ints=0
+                     filtered.forEach((item, i) => {
+                       ints=ints+item['Ints']
+                     });
+                     rowTotal=response.rowTotals.find(el=>el.rowID==record.rowID)
+                     if (rowTotal) {
+                       cont=cont+"<tr><td>"+record.rowTxt+"</td>"
+                       //total per row
+                       cont=cont+"<td class='total data rborder'>"+formatTxt(rowTotal[fieldb],form,dp)+"</td>"
+                       cont=cont+"<td class='total data rborder reference'>"+formatTxt(rowTotal[fieldb],form,dp)+"</td>"
+                       cont=cont+"<td class='total data rborder'>"+formatTxt(rowTotal[fieldb]/rtotal,'%',1)+"</td>"
+                       cont=cont+"<td class='total data rborder'>"+formatTxt(rowTotal[fieldb]/ints,'%',1)+"</td>"
+                       cont=cont+"<td class='total data rborder'>"+formatTxt(rowTotal[fieldb],form,dp)+"</td>"
+                       cont=cont+"<td class='total data rborder'>"+formatTxt(1,'%',1)+"</td>"
+                       for (var i = 0; i < addedCols.length; i++) {
+                         var found=filtered.find(function(r) {
+                           return r.inputDateTxt==addedCols[i];
+                         });
+                         var prev=filtered.find((r)=>r.inputDateTxt==addedCols[i-1])
+                         //data per intersection
+                         if (found!=undefined && found[fieldb]!=null) {
+                           cont=cont+"<td class='intersect data'>"+formatTxt(found[fieldb],form,dp)+"</td>"
+                           cont=cont+"<td class='intersect data'>"+formatTxt(found[fieldb]/rowTotal[fieldb],'%',1)+"</td>"
+                           cont=cont+"<td class='intersect data'>"+formatTxt(found[fieldb]/colTotals[i],'%',1)+"</td>"
+                           cont=cont+"<td class='intersect data'>"+formatTxt(found[fieldb]/found['Ints'],'%',1)+"</td>"
+                           let diff=(found[fieldb]?found[fieldb]:0)-(prev?(prev[fieldb]?prev[fieldb]:0):0)
+                           let diffPerc=diff/(prev?(prev[fieldb]?prev[fieldb]:0):0)
+                           cont=cont+"<td class='intersect data'>"+formatTxt(diff,'+-',dp)+"</td>"
+                           cont=cont+"<td class='intersect data'>"+formatTxt(diffPerc,'+-%',1)+"</td>"
+                         }else {
+                           cont=cont+"<td></td>"
+                           cont=cont+"<td></td>"
+                           cont=cont+"<td></td>"
+                           cont=cont+"<td></td>"
+                           let diff=0-(prev?(prev[fieldb]?prev[fieldb]:0):0)
+                           let diffPerc=diff/(prev?(prev[fieldb]?prev[fieldb]:0):0)
+                           cont=cont+"<td class='intersect data'>"+formatTxt(diff,'+-',dp)+"</td>"
+                           cont=cont+"<td class='intersect data'>"+formatTxt(diffPerc,'+-%',1)+"</td>"
+                         }
+                       }
+                       cont=cont+"</tr>"
+                     }
+                   }
+                 });
+                 cont=cont+"</tbody></table>"
+                 getModal(cont,friendlya,friendlyb)
+               },
+               error: function (jqXHR, exception) {
+                 alert(getErrorMessage(jqXHR, exception))
+               },
+           });
+         }
+         function formatTxt(val,form,dp){
+           var ret=''
+           if (val!=null) {
+             switch (form) {
+               case "%":
+               ret=separators((val*100).toFixed(dp))+"%"
+               break;
+               case "£":
+               ret="£"+separators(val.toFixed(2))
+               break;
+               case "+-":
+               ret=(val>0?"+"+separators(val.toFixed(dp)):separators(val.toFixed(dp)))
+               break;
+               case "+-%":
+               ret=(val>0?"+"+separators((val*100).toFixed(dp)):separators((val*100).toFixed(dp)))+"%"
+               break;
+               default:
+               ret=separators(val.toFixed(dp))
+             }
+           }
+          return isFinite(val)?ret:0
+         }
+         function dateIf(inDate, seperator, order){
+           let day =''
+           if (new Date(inDate).getDate() < 10) {
+             day = '0' + new Date(inDate).getDate()
+           } else {
+             day = new Date(inDate).getDate()
+           }
+           let month =''
+           if (new Date(inDate).getMonth()+1 < 10) {
+             month = '0' + (new Date(inDate).getMonth()+1)
+           } else {
+             month = (new Date(inDate).getMonth()+1)
+           }
+           let year = new Date(inDate).getFullYear()
+           if(order=="f"){
+             return(day+seperator+month+seperator+year)
+           }
+           if(order=="r"){
+             return(year+seperator+month+seperator+day)
+           }
+         }
+         function getModal(cont,fielda,fieldb){
+           $("#modal-body").html(cont)
+           $("#report-title").text(fieldb+" by "+fielda)
+           $('#reportModal').css("visibility","hidden")
+           $("#reportModal").modal("show")
+         }
+
+         function getErrorMessage(jqXHR, exception) {
+           var msg = '';
+           if (jqXHR.status === 0) {
+              msg = 'Not connect.\n Verify Network.';
+           } else if (jqXHR.status == 404) {
+              msg = 'Requested page not found. [404]';
+           } else if (jqXHR.status == 500) {
+              msg = 'Internal Server Error [500]. '+JSON.parse(jqXHR.responseText).error;
+           } else if (exception === 'parsererror') {
+              msg = 'Requested JSON parse failed.';
+           } else if (exception === 'timeout') {
+              msg = 'Time out error.';
+           } else if (exception === 'abort') {
+              msg = 'Ajax request aborted.';
+           } else {
+              msg = 'Uncaught Error.\n' + jqXHR.responseText;
+           }
+           return msg;
+         }
+         function refreshReport(){
+           let en=new Date($("#endate").val())
+           let st=new Date($("#stdate").val())
+           let empty=new Date("1970-01-01")
+           let days=$("#days_search").val()
+           let team=$("#team_search").val()
+           let shift=$("#shift_search").val()
+           let excHourly=$("#excHourly").is(':checked')?1:($("#onlyHourly").is(':checked')?-1:0)
+           let excBMG=$("#excBMG").is(':checked')?1:0
+           if (days=="") {
+             days=0
+           }if (team=="") {
+             team=0
+           }
+           if (shift=="") {
+             shift=0
+           }
+           if (st<=en && en > empty && st > empty) {
+             $('#datemessage').css("visibility","hidden")
+             window.location.href=("/sales-spend/" + dateIf(st,"-","r") + "/" + dateIf(en,"-","r") + "/" + shift + "/" + days + "/" + team +"/" + excHourly +"/" + excBMG)
+           }else if (st>en) {
+             $("#datemessage").text('Start date cannot be after end date')
+             $('#datemessage').css("display","block")
+           }else if (en <= empty || st <= empty) {
+             $("#datemessage").text('Must enter both dates')
+             $('#datemessage').css("display","block")
+           }
+         }
+         $(document).ready(function() {
+           try{
+             $().reportFilter({
+               filters:{
+                 stDate:'<%=stdate%>',
+                 enDate:'<%=endate%>',
+                 shift:'<%=sessShift%>',
+                 dayTypes:'<%=sessDays%>',
+                 rigourHourly:<%=excHourly==0%>,
+                 onlyRigourHourly:<%=excHourly==-1%>,
+                 bmgHourly:<%=excBMG==0%>,
+                 team:'<%=sessTeam%>',
+               },
+               onRefresh:(vals)=>{
+                 window.location.href="/sales-spend/" + vals.stDate + "/" + vals.enDate + "/" + vals.shift + "/" + vals.dayTypes + "/" + vals.team +"/" + (vals.onlyRigourHourly?-1:(vals.rigourHourly?0:1)) +"/" + (vals.bmgHourly?0:1)
+               }
+             })
+           }catch(e){
+             $('#oldFilters').show()
+           }
+           $('#datemessage').css("display","none")
+           $("#stdate").val('<%=stdate%>')
+           $("#endate").val('<%=endate%>')
+           $('.selectFilters').change(function() {
+             $('#updateReportBtn').show()
+           })
+           <% if (moment(stdate).isSameOrBefore('2021-11-01')>0) {%>
+             // $('#alertBanner').alertBanner({
+             //   class:'warning',
+             //   info:`'Fixed contribution' is only reliable from 1st November 2021. Anything before that may be skewing this figure.`
+             // })
+          <%}%>
+           <% if (missing.length>0) {%>
+             let al=$('#alertBanner').alertBanner({
+               class:'warning',
+               info:`There are shifts on the tally sheet without matching shift bookings. <span class="tableTooltip" title="<b>Click to copy</b><br><%-`<table class='missingTable'><tr>`+missing.map(el=>'<td>'+moment(el.inputDate).format("DD/MM/YYYY")+"</td><td>"+el.teamName+"</td><td>"+el.agentName+"</td>").join("</tr><tr>")+`</tr></table>`%>">Hover here for details</span>. This may be effecting the stats. Please ask the relevent TL(s) to correct.`
+             })
+             $('.tableTooltip').tooltip({html:true,sanitize:false})
+             $(al).on('mouseup',function(){
+               $('.missingTable').css('color','black')
+               copyElementTxt($('.missingTable'))
+               $('.missingTable').css('color','')
+             })
+           <%}%>
+           var buttonCommon = {
+             exportOptions: {
+               columns: [':visible']
+             },
+             filename: 'Call Centre Report - * '+dateIf($("#stdate").val(),"","f")+'-'+dateIf($("#endate").val(),"","f"),
+             title:function(){
+               return $("#report-title").text()
+             }
+           };
+           $('#reportModal').on('shown.bs.modal', function (e) {
+             $('body').addClass('loading')
+             var calcsArr=$('[data-selected="true"]').attr('data-calcs').split("-")
+             $.fn.dataTable.ext.search.push((s,data,i)=>{
+               return Number(data[1].replace(",","").replace("£","").replace("%",""))>0
+             })
+             var mtable = $("#modal_table").dataTable({
+               scrollY: 500,
+               scrollX: true,
+               paging: false,
+               fixedHeader: true,
+               fixedColumns: {
+                 leftColumns: 1
+               },
+               columnDefs: [
+               { targets: 'calc0', visible: true},
+               { targets: 'title', visible: true},
+               { targets: 'total', width: '81px'},
+               { targets: '_all', visible: false}
+              ],
+               "initComplete": function( settings, json ) {
+                 $('#reportModal').css("visibility","visible");
+                 $('body').removeClass('loading')
+               },
+               dom: 'Bfrtip',
+                buttons: [
+                      $.extend( true, {}, buttonCommon, {
+                         extend: 'copyHtml5'
+                     } ),
+                     $.extend( true, {}, buttonCommon, {
+                         extend: 'excelHtml5'
+                     } ),
+                    {
+                      extend: 'collection',
+                      text: 'Show as..',
+                      className: 'btn dropdown-toggle',
+                      buttons: [
+                      {
+                        text: "Original",
+                        action: function( e, dt, button, config ) {
+                          changeCalc(dt,0)
+                        }
+                      },
+                      {
+                        text: "% of row",
+                        action: function( e, dt, button, config ) {
+                          changeCalc(dt,1)
+                        },
+                        className:  'calcBtn',
+                        enabled:(calcsArr.includes('1'))
+                      },
+                      {
+                        text: "% of column",
+                        action: function( e, dt, button, config ) {
+                          changeCalc(dt,2)
+                        },
+                        className:  'calcBtn',
+                        enabled:(calcsArr.includes('2'))
+                      },
+                      {
+                        text: "% of interviews",
+                        action: function( e, dt, button, config ) {
+                          changeCalc(dt,3)
+                        },
+                        className:  'calcBtn',
+                        enabled:(calcsArr.includes('3'))
+                      },
+                      {
+                        text: "Diff from previous",
+                        action: function( e, dt, button, config ) {
+                          changeCalc(dt,4)
+                        },
+                        className:  'calcBtn',
+                        enabled:(calcsArr.includes('4'))
+                      },
+                      {
+                        text: "% Diff from previous",
+                        action: function( e, dt, button, config ) {
+                          changeCalc(dt,5)
+                        },
+                        className:  'calcBtn',
+                        enabled:(calcsArr.includes('5'))
+                      },
+                      ]
+                    },
+                ]
+             })
+            })
+            function changeCalc(table,calcID){
+              table.columns().visible(false);
+              table.columns('.calc'+calcID).visible(true);
+              table.columns('.title').visible(true);
+              table.draw()
+            }
+            $('.statsClick').on('click', function(e){
+              if ($(this).find('.dropdown-menu').length==0) {
+                var fieldb=this.id.split("_")[1]
+                var friendlyb=this.id.split("_")[2]
+                var form=this.id.split("_")[3]
+                var dp=this.id.split("_")[4]
+                $('.statsClick').attr('data-selected','false')
+                $(this).attr('data-selected','true')
+                var agents=true
+                if ($(this).hasClass("noAgents")) {
+                  agents=false
+                }
+                var jobs=true
+                if ($(this).hasClass("noJobs")) {
+                  jobs=false
+                }
+                cont=`<div class="dropdown-menu" aria-labelledby="dropdownMenuButton">`
+                if (agents) {
+                  cont=cont+`<a class="dropdown-item reportSelector" id="report_agentName" onclick="fetchReport('agentName','Agent','`+fieldb+`','`+friendlyb+`','`+form+`',`+dp+`)" href="#">Show by interviewer</a>`
+                }
+                if (jobs) {
+                  cont=cont+`<a class="dropdown-item reportSelector" id="report_jobName" onclick="fetchReport('jobName','Job','`+fieldb+`','`+friendlyb+`','`+form+`',`+dp+`)" href="#">Show by job</a>`
+                }
+                cont=cont+`<a class="dropdown-item reportSelector" id="report_teamName" onclick="fetchReport('teamName','Team','`+fieldb+`','`+friendlyb+`','`+form+`',`+dp+`)" href="#">Show by team</a>`
+                cont=cont+`<a class="dropdown-item reportSelector" id="report_isDay" onclick="fetchReport('isDay','Shift','`+fieldb+`','`+friendlyb+`','`+form+`',`+dp+`)" href="#">Show by shift</a>`
+                if ($(this).attr("data-href")) {
+                  cont=cont+`<a class="dropdown-item reportSelector" id="report_page" onclick="window.location='`+$(this).attr("data-href")+`/`+$("#stdate").val()+`/`+$("#endate").val()+$(this).attr("data-href-id")+`'" href="#">View current period on page</a>`
+                }
+                cont=cont+"</div>"
+                $(this).append(cont)
+              }
+            })
+         });
+         var ctxL = document.getElementById("statsChart").getContext('2d');
+         var myLineChart = new Chart(ctxL, {
+             type: 'line',
+             data: {
+                 labels: <%-JSON.stringify(statsChart.map(value => value["dateTxt"]))%>,
+                 datasets: [
+                 <% for (var key in statsChart[0]) {
+                   if (key!="sortDate" && key!="showDate" && key!="dateTxt") {
+                   %>
+                 {
+                         label: "<%=key%>",
+                         data: <%-JSON.stringify(statsChart.map(value => value[key]==null ? 0 : value[key]))%>,
+                         pointHitRadius: 5,
+                         borderWidth: 2,
+                         yAxisID: "<%=key%>",
+                         hidden:<%=key!="Contribution"%>,
+                     },
+                <%}}%>
+              ]
+             },
+             options: {
+               plugins: {
+                 datalabels: {
+                   display:false
+                 }
+               },
+                 responsive: true,
+                 legend: {
+                   display: true,
+                   labels: {
+                     usePointStyle: true,
+                     boxWidth: 10
+                   }
+                 },
+                 title: {
+                   display: false,
+                   text: 'Call centre stats',
+                   fontSize: 14,
+                   fontStyle: 'normal'
+                   },
+                 scales: {
+                   yAxes: [<% for (var key in statsChart[0]) {
+                     if (key!="sortDate" && key!="showDate" && key!="dateTxt") {%>
+                     {
+                     display:false,
+                     id: "<%=key%>",
+                     gridLines: {
+                       display:false
+                     }
+                   },
+                   <%}}%>],
+                   xAxes: [{
+                     gridLines: {
+                       display:true
+                     }
+                   }]
+                 }
+             }
+         });
+         function separators(num)
+           {
+             var num_parts = num.toString().split(".");
+             num_parts[0] = num_parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+             return num_parts.join(".");
+           }
+        </script>
+        </body>
+        </html>

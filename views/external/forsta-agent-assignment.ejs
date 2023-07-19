@@ -1,0 +1,24 @@
+<%- include('../partials/'+versionPages.headerExt) %>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <select class="selectpicker" onchange="if($(this).val()){$('#surveySelect').show()}else{$('#surveySelect').hide()}" data-live-search="true" id="intID">
+        <% interviewers.forEach(int=>{ %>
+          <option value="<%=int.InterviewerID%>"><%=int.Name%></option>
+        <%})%>
+      </select>
+    </div>
+    <div class="card-body"id="surveySelect" style="display:none;">
+      <% groups.forEach(group=>{ %>
+        <button type="button" name="button" class="btn btn-secondary" onclick="location.href='/assign-forsta-agent?interviewerID='+$('#intID').val()+'&groupId=<%=group.GroupId%>'"><%=group.Name%></button>
+      <%})%>
+    </div>
+  </div>
+</div>
+<script type="text/javascript">
+  $(document).ready(function(e){
+    $('.selectpicker').selectpicker()
+  })
+</script>
+</body>
+</html>

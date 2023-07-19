@@ -1,0 +1,530 @@
+<%- include('partials/'+versionPages.header)%>
+<style>
+  .absence{
+    margin-bottom: 1rem;
+  }
+  .notesForm{
+    background-color: inherit!important;
+  }
+  .subtotalDay>th, .subtotalEve>th{
+    font-weight: 500;
+    padding: 1px;
+  }
+  .subtotalDay{
+    background-color: <%=locals["dailysDay"].length%2?"white":"rgba(0,0,0,.05)"%>!important;
+  }
+  .subtotalEve{
+    background-color: <%=locals["dailysEve"].length%2?"white":"rgba(0,0,0,.05)"%>!important;
+  }
+  .subtotalTh {
+    border-width: 0 1px 0 1px!important;
+  }
+  .updateTh {
+    white-space: nowrap;
+  }
+  .table-sm {
+    width: auto;
+  }
+  .noteCell textarea{
+    width: 100%;
+    font-size: inherit;
+    padding: 1px 4px;
+  }
+  .noteCell{
+    cursor:pointer;
+  }
+  .noteCell:hover {
+    box-shadow: inset 0 0 1px black;
+  }
+  .noDisplay{
+    display:none;
+  }
+</style>
+<%
+const dateIf = (inDate, seperator, order) => {
+  let day =''
+  if (new Date(inDate).getDate() < 10) {
+    day = '0' + new Date(inDate).getDate()
+  } else {
+    day = new Date(inDate).getDate()
+  }
+  let month =''
+  if (new Date(inDate).getMonth()+1 < 10) {
+    month = '0' + (new Date(inDate).getMonth()+1)
+  } else {
+    month = (new Date(inDate).getMonth()+1)
+  }
+  let year = new Date(inDate).getFullYear()
+  if(order=="f"){
+    return(day+seperator+month+seperator+year)
+  }
+  if(order=="r"){
+    return(year+seperator+month+seperator+day)
+  }
+}
+%>
+<div class="container" style="padding-top:70px; padding-left:0px; min-width:400px">
+  <div class="card text-dark mb-2 text-center">
+    <div class="card-body viewerHeight">
+      <div id="oldFilters" style="display:none;">
+        <h3 class="card-title">Daily Report for</h3> <input type="date" onkeydown="return false" style="display:inline; width:auto;" max="<%= dateIf(tdy,"-","r") %>" class="form-control inputdate selectFilters" value="<%= dateIf(date,"-","r") %>" id="dte" name="dte" style="width:200px; margin:auto;"><br><br>
+      </div>
+          <%
+          let trueTotalSales = 0;
+          let trueTotalInts = 0;
+          let trueTotalHours =0;
+          let trueTotalPay = 0;
+          let trueTotalAllo = 0;
+          let shifts = ["Day", "Eve"];
+
+          shifts.forEach((shift, index) => { %>
+            <table class="table table-sm table-striped table-bordered" id="report_table_<%=shift%>">
+              <thead>
+                <th style="width:350px;" class="updateTh"><%= shift %> Projects </th>
+                <th style="width:85px;" class="updateTh">Hours </th>
+                <th style="width:85px;" class="updateTh">Interviews </th>
+                <th style="width:85px;" class="updateTh">CPI </th>
+                <th style="width:85px;" class="updateTh">Target</th>
+                <th style="width:85px;" class="updateTh">AHR</th>
+                <th style="width:85px;" class="updateTh">Wages </th>
+                <th style="width:85px;" class="updateTh">Sales </th>
+                <th style="width:85px;" class="updateTh">Contribution </th>
+                <th style="width:85px;" class="updateTh noDisplay">Fixed Cont. </th>
+                <th style="width:95px;" class="updateTh">Cont. To-Date </th>
+                <th style="width:85px;" class="updateTh">Deadline </th>
+                <th style="width:350px;" class="updateTh">Notes </th>
+              </thead>
+              <tbody>
+          <%
+          let jobsAdded = []
+          let jobCPI = 0
+          let jobID = ""
+          let isJobDay = 0
+          let isJobEve = 0
+          let jobName = ""
+          let hourlyTarget=0
+          let projectID=""
+          let quoteNo=""
+          let quoteName=""
+          let projectTarget=0
+          let charge=0
+          let totalAbsentAgents=0
+          let totalAbsentHours=0
+          let totalCoaching=0
+          let totalQC=0
+          let tot={}
+          tot.totals={}
+          tot.hourlyTotals={}
+          tot.nonHourlyTotals={}
+          tot.nonBmgTotals={}
+          tot.totals.totalSales=0
+          tot.totals.totalLiveSales=0
+          tot.totals.totalPay=0
+          tot.totals.totalHours=0
+          tot.totals.totalInts=0
+          tot.hourlyTotals.totalSales=0
+          tot.hourlyTotals.totalLiveSales=0
+          tot.hourlyTotals.totalPay=0
+          tot.hourlyTotals.totalHours=0
+          tot.hourlyTotals.totalInts=0
+          tot.nonHourlyTotals.totalSales=0
+          tot.nonHourlyTotals.totalLiveSales=0
+          tot.nonHourlyTotals.totalPay=0
+          tot.nonHourlyTotals.totalHours=0
+          tot.nonHourlyTotals.totalInts=0
+          tot.nonBmgTotals.totalSales=0
+          tot.nonBmgTotals.totalLiveSales=0
+          tot.nonBmgTotals.totalPay=0
+          tot.nonBmgTotals.totalHours=0
+          tot.nonBmgTotals.totalInts=0
+             locals["dailys"+shift].forEach((daily, index) => {
+              var job = jobs.find(function(element) {
+                return element.jobID == daily.jobID;
+              });
+              jobCPI = job.jobCPI;
+              jobID = job.jobID;
+              isJobDay = job.isJobDay;
+              isJobEve = job.isJobEve;
+              jobName = job.jobName;
+              hourlyTarget = job.hourlyTarget;
+              projectID = job.projectID;
+              var project = projects.find(function(element) {
+                return element.projectID == projectID;
+              });
+              var contTD=projects.filter(el=>el.projectID==projectID).reduce((a,b)=>a+(Number(b.Pay)),0)/projects.filter(el=>el.projectID==projectID).reduce((a,b)=>a+Number((b.isJobHourly==1?b.Hours:b.Ints)*b.jobCPI),0)
+              quoteNo=project.quoteNo;
+              quoteName=project.quoteName;
+              projectTarget=0
+              jobs.forEach((jobx, i) => {
+                if (jobx.projectID==projectID) {
+                  projectTarget=projectTarget+jobx.interviewsTarget;
+                }
+              });
+              if (jobCPI ) {
+                jobCPI=jobCPI.toFixed(2)
+              }else {
+                jobCPI=0
+              }
+              if (job.isJobHourly==1) {
+                charge=daily.Hours
+              }else {
+                charge=daily.Ints
+              }
+              function addToTotals(totType){
+                tot[totType].totalSales = tot[totType].totalSales + charge*jobCPI;
+                tot[totType].totalLiveSales = tot[totType].totalLiveSales + daily.liveSales;
+                tot[totType].totalPay = tot[totType].totalPay + daily.Pay;
+                tot[totType].totalHours = tot[totType].totalHours + daily.Hours;
+                tot[totType].totalInts = tot[totType].totalInts + daily.Ints
+              }
+              if (project.clientID==130) {
+                addToTotals('hourlyTotals')
+              }else {
+                addToTotals('nonHourlyTotals')
+              }
+              if (project.projectID!=5667) {
+                addToTotals('nonBmgTotals')
+              }
+              tot["totals"].totalSales = tot["totals"].totalSales + charge*jobCPI;
+              tot["totals"].totalLiveSales = tot["totals"].totalLiveSales + daily.liveSales;
+              tot["totals"].totalPay = tot["totals"].totalPay + daily.Pay;
+              tot["totals"].totalHours = tot["totals"].totalHours + daily.Hours;
+              tot["totals"].totalInts = tot["totals"].totalInts + daily.Ints
+              console.log(shift,daily)
+              console.log(tot.totals,tot.hourlyTotals,tot.nonBmgTotals)
+              %>
+              <tr class="content">
+                <td class="normal" style="text-align:left;"> <%= quoteNo %> <%= quoteName %> <%= jobName %> <%if (job.isJobHourly==1) {%>(HOURLY) <%}%></td>
+                <td class="normal"><%= daily.Hours.toFixed(2) %> </td>
+                <td class="normal"><%= daily.Ints %> </td>
+                <td class="normal">£<%= jobCPI %> </td>
+                <td class="normal"><%= hourlyTarget?hourlyTarget.toFixed(2):"-" %> </td>
+                <td class="normal"><%= daily.Hours?(daily.Ints/daily.Hours).toFixed(2):"-" %> </td>
+                <td class="normal">£<%= (daily.Pay).toFixed(2) %> </td>
+                <td class="normal">£<%= (charge*jobCPI).toFixed(2) %> </td>
+                <td class="normal" <%
+                if((shift == "Day" && ((daily.Pay)/(charge*jobCPI))>=0.4) || (shift == "Eve" && ((daily.Pay)/(charge*jobCPI))>=0.35)){%>
+                  style="background-color:#ff8a73;"
+                <%}
+                else{%>
+                  style="background-color:#75ff91;"
+                <%}%>><%= (((daily.Pay)/(charge*jobCPI))*100).toFixed(2) %>%</td>
+                <td class="normal noDisplay" <%
+                if((shift == "Day" && ((daily.Pay)/(daily.liveSales))>=0.4) || (shift == "Eve" && ((daily.Pay)/(daily.liveSales))>=0.35)){%>
+                  style="background-color:#ff8a73;"
+                <%}
+                else{%>
+                  style="background-color:#75ff91;"
+                <%}%>><%= (((daily.Pay)/(daily.liveSales))*100).toFixed(2) %>%</td>
+                <td class="normal"><%= contTD?(contTD*100).toFixed(2):'Infinity' %>% </td>
+                <td class="normal"><%=job.projectID>2? moment(job.endDate).format("DD/MM/YYYY"):'' %> </td>
+                <td class="normal noteCell" data-shift="<%=shift%>" data-jobID="<%=job.jobID%>" style="font-size:0.85em"><%=daily.note%></td>
+              </tr>
+              <%
+              });
+         %>
+         <tr class="content">
+           <th class="updateTh"> Total <%= shift %></th>
+           <th class="updateTh"> <%= tot.totals.totalHours.toFixed(2) %> </th>
+           <th class="updateTh"> <%= tot.totals.totalInts %> </th>
+           <th colspan=3 class="updateTh"> </th>
+           <th class="updateTh"> £<%= (tot.totals.totalPay).toFixed(2) %> </th>
+           <th class="updateTh"> £<%= tot.totals.totalSales.toFixed(2) %> </th>
+           <th class="updateTh"><%= (((tot.totals.totalPay)/(tot.totals.totalSales))*100).toFixed(2) %>%</th>
+           <th class="updateTh noDisplay"><%= (((tot.totals.totalPay)/(tot.totals.totalLiveSales))*100).toFixed(2) %>%</th>
+           <th colspan="3" class="updateTh"> </th>
+         </tr>
+        <tr class="content subtotal<%= shift %>">
+          <th class="subtotalTh"> (excl. Rigour)</th>
+          <th class="subtotalTh"> <%= tot.nonHourlyTotals.totalHours.toFixed(2) %> </th>
+          <th class="subtotalTh"> <%= tot.nonHourlyTotals.totalInts %> </th>
+          <th colspan=3 class="subtotalTh"> </th>
+          <th class="subtotalTh"> £<%= (tot.nonHourlyTotals.totalPay).toFixed(2) %> </th>
+          <th class="subtotalTh"> £<%= tot.nonHourlyTotals.totalSales.toFixed(2) %> </th>
+          <th class="subtotalTh"><%= (((tot.nonHourlyTotals.totalPay)/(tot.nonHourlyTotals.totalSales))*100).toFixed(2) %>%</th>
+          <th class="subtotalTh noDisplay"><%= (((tot.nonHourlyTotals.totalPay)/(tot.nonHourlyTotals.totalLiveSales))*100).toFixed(2) %>%</th>
+          <th colspan="3" class="subtotalTh"> </th>
+        </tr>
+        <tr class="content subtotal<%= shift %>">
+          <th class="subtotalTh"> (Rigour only)</th>
+          <th class="subtotalTh"> <%= tot.hourlyTotals.totalHours.toFixed(2) %> </th>
+          <th class="subtotalTh"> <%= tot.hourlyTotals.totalInts %> </th>
+          <th colspan=3 class="subtotalTh"> </th>
+          <th class="subtotalTh"> £<%= (tot.hourlyTotals.totalPay).toFixed(2) %> </th>
+          <th class="subtotalTh"> £<%= tot.hourlyTotals.totalSales.toFixed(2) %> </th>
+          <th class="subtotalTh"><%= (((tot.hourlyTotals.totalPay)/(tot.hourlyTotals.totalSales))*100).toFixed(2) %>%</th>
+          <th class="subtotalTh noDisplay"><%= (((tot.hourlyTotals.totalPay)/(tot.hourlyTotals.totalLiveSales))*100).toFixed(2) %>%</th>
+          <th colspan="3" class="subtotalTh"> </th>
+        </tr>
+        <tr class="content subtotal<%= shift %>">
+          <th class="subtotalTh"> (excl. BMG)</th>
+          <th class="subtotalTh"> <%= tot.nonBmgTotals.totalHours.toFixed(2) %> </th>
+          <th class="subtotalTh"> <%= tot.nonBmgTotals.totalInts %> </th>
+          <th colspan=3 class="subtotalTh"> </th>
+          <th class="subtotalTh"> £<%= (tot.nonBmgTotals.totalPay).toFixed(2) %> </th>
+          <th class="subtotalTh"> £<%= tot.nonBmgTotals.totalSales.toFixed(2) %> </th>
+          <th class="subtotalTh"><%= (((tot.nonBmgTotals.totalPay)/(tot.nonBmgTotals.totalSales))*100).toFixed(2) %>%</th>
+          <th class="subtotalTh noDisplay"><%= (((tot.nonBmgTotals.totalPay)/(tot.nonBmgTotals.totalLiveSales))*100).toFixed(2) %>%</th>
+          <th colspan="3" class="subtotalTh"> </th>
+        </tr>
+        </tbody>
+      </table>
+      <table class="table table-sm table-striped table-bordered absence" id="absence<%=shift%>">
+        <thead>
+          <th class="updateTh" style="width:195px;;">Absence</th>
+          <th class="updateTh" style="width:85px;">Agents</th>
+          <th class="updateTh" style="width:85px;">Hours</th>
+        </thead>
+        <% absences.forEach((absence, i) => {
+          if (absence["is"+shift]==1) {
+            totalAbsentHours=totalAbsentHours+absence.hoursCount
+            totalAbsentAgents=totalAbsentAgents+absence.agentCount
+            %>
+          <tr class="content"><td class="normal" style="text-align:left;"><%=absence.absenceType%></td><td class="normal"><%=absence.agentCount%></td><td class="normal"><%=absence.hoursCount.toFixed(2)%></td></tr>
+        <%}});%>
+        <tr class="content"><th class="updateTh">Total</th><th class="updateTh"><%= totalAbsentAgents%></th><th class="updateTh"><%= totalAbsentHours.toFixed(2)%></th></tr>
+      </table>
+      <table class="table table-sm table-striped table-bordered absence" id="coaching<%=shift%>">
+        <thead>
+          <th class="updateTh" style="width:195px;;">Coaching</th>
+          <th class="updateTh">Total</th>
+          <%
+          let tls=TeamLeaders.filter(t=>coachings.map(el=>el.managerID && el["is"+shift]==1).includes(t.staffID) || t["is"+shift]==1)
+          tls.forEach((tl, i) => { %>
+            <th class="updateTh" style="width:85px;"><%=tl.staffName%></th>
+            <%})%>
+        </thead>
+        <%
+        coachings.filter(el=>el["is"+shift]==1).map(el=>el.coachingtype).filter((el,i,self)=>el && self.indexOf(el)==i).forEach((coachingType, i) => {
+          %>
+          <tr class="content"><td class="normal" style="text-align:left;"><%=coachingType %></td>
+            <%
+            let coaching=coachings.filter(el=>el["is"+shift]==1 && el.coachingtype==coachingType)
+            %>
+            <td class="normal"><%=(coaching.length>0?coaching.reduce((a,b)=>a+Number(b.coachCount),0):'0')%></td>
+            <% tls.forEach((tl, i) => {
+              let coaching=coachings.find(el=>el.managerID==tl.staffID && el["is"+shift]==1 && el.coachingtype==coachingType)
+              %>
+              <td class="normal"><%=(coaching?coaching.coachCount:'0')%></td>
+            <%})%>
+          </tr>
+        <%});%>
+        <tr class="content">
+          <th class="updateTh">Total</th>
+          <%
+          let coaching=coachings.filter(el=>el["is"+shift]==1)
+          %>
+          <th class="updateTh"><%= (coaching.length>0?coaching.reduce((a,b)=>a+Number(b.coachCount),0):0)%></th>
+          <% tls.forEach((tl, i) => {
+            let coaching=coachings.filter(el=>el.managerID==tl.staffID && el["is"+shift]==1)
+            %>
+            <th class="updateTh"><%= (coaching.length>0?coaching.reduce((a,b)=>a+Number(b.coachCount),0):0)%></th>
+          <%}) %>
+          </tr>
+      </table>
+      <table class="table table-sm table-striped table-bordered absence" id="qc<%=shift%>">
+        <thead>
+          <th class="updateTh" style="width:195px;;">QC</th>
+          <th class="updateTh" style="width:85px;"> </th>
+        </thead>
+        <% qcs.forEach((qc, i) => {
+          if (qc["is"+shift]==1) {
+            totalQC=totalQC+qc.qcCount
+            %>
+          <tr class="content"><td class="normal" style="text-align:left;"><%=qc.type%> monitorings</td><td class="normal"><%=qc.qcCount%></td></tr>
+        <%}});%>
+        <tr class="content"><th class="updateTh">Total</th><th class="updateTh"><%= totalQC%></th></tr>
+      </table>
+      <button id="submit<%=shift%>" name="submit<%=shift%>" class="btn submit btn-primary" style="width:100%;" onclick="send<%=shift%>()">Send <%=shift%> report email</button><br><br>
+      <%});%>
+      <tr>
+        <tr>
+      <form role="form" action="/send-email" method="post" id="reportForm">
+        <br style="clear:both">
+        <div class="form-group">
+          <input type="text" id="subject" name="subject" placeholder="Subject" value="" style="display:none;">
+          <input type="text" id="sendTo" name="sendTo" placeholder="sendTo" value="" style="display:none;">
+        </div>
+        <div class="text-center">
+          <input type="hidden" name="HTMLbody" id="HTMLbody">
+        </div>
+    </form>
+    <script>
+      try {
+        $().reportFilter({
+          filters:{stDate:'<%= dateIf(date,"-","r") %>',enDate:null},
+          onRefresh:(vals)=>{
+            window.location.href=("/daily-update/" + vals.stDate)
+          }
+        })
+      } catch (e) {
+        $('#oldFilters').show()
+      }
+    function sendDay()
+    {
+      document.getElementById('HTMLbody').value = document.getElementById('report_table_Day').outerHTML+"<br>"+document.getElementById('absenceDay').outerHTML+"<br>"+document.getElementById('coachingDay').outerHTML+"<br>"+document.getElementById('qcDay').outerHTML+"<br>Sent by <%=user.staffName%><br>";
+      document.getElementById('subject').value = "DAY UPDATE <%= dateIf(date,"/","f") %>"
+      document.getElementById('sendTo').value = "teamsearchmr@teamsearchmr.co.uk,rob@teamsearchmr.co.uk"
+      var data =[]
+      var jsonData={};
+      jsonData.date=$('#dte').val()
+      jsonData.shift="d"
+      data.push(jsonData)
+      $.ajax({
+          url: '/email-performance',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify(data),
+          success: function (response) {
+            document.getElementById("reportForm").submit();
+          },
+          error: function (jqXHR, exception) {
+            alert(getErrorMessage(jqXHR, exception))
+            document.getElementById("reportForm").submit();
+          },
+      });
+    }
+    function sendEve()
+    {
+      document.getElementById('HTMLbody').value = document.getElementById('report_table_Eve').outerHTML+"<br>"+document.getElementById('absenceEve').outerHTML+"<br>"+document.getElementById('coachingEve').outerHTML+"<br>"+document.getElementById('qcEve').outerHTML+"<br>Sent by <%=user.staffName%><br>";
+      document.getElementById('subject').value = "EVE UPDATE <%= date %>"
+      document.getElementById('sendTo').value = "teamsearchmr@teamsearchmr.co.uk,rob@teamsearchmr.co.uk"
+      var data =[]
+      var jsonData={};
+      jsonData.date=$('#dte').val()
+      jsonData.shift="e"
+      data.push(jsonData)
+      $.ajax({
+          url: '/email-performance',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify(data),
+          success: function (response) {
+            document.getElementById("reportForm").submit();
+          },
+          error: function (jqXHR, exception) {
+            alert(getErrorMessage(jqXHR, exception))
+            document.getElementById("reportForm").submit();
+          },
+      });
+    }
+    $(document).ready(function() {
+      $('.noteCell').on('click',function(e){
+        let cell=$(this)
+        if ($(cell).find("textarea").length==0) {
+          let input=document.createElement('textarea')
+          $(input).html(cell.text()).addClass('form-control')
+          cell.html(input)
+          $(input).focus()
+          input.style.height = "";
+          input.style.height = input.scrollHeight + "px"
+          $(input).on('blur',function(e){
+            updateNote(cell,$(input).val()).then(e=>{
+              cell.html($(input).val())
+            })
+          })
+          $(input).on('keyup keypress', function(e) {
+            var keyCode = e.keyCode || e.which;
+            if (keyCode === 13) {
+              e.preventDefault();
+              if ($(input).val()) {
+                $(input).blur();
+              }
+            }
+          });
+        }
+      })
+     function updateNote(cell,note) {
+       var dte=dateIf(new Date("<%=date%>"),"-","r")
+       var otherID=1
+       if ($(cell).attr("data-shift")=="Eve") {
+         otherID=2
+       }
+       let j=$(cell).attr("data-jobID")
+       var data =[]
+       var jsonData={};
+       jsonData.otherID=otherID
+       jsonData.jobID=j
+       jsonData.date=dte
+       jsonData.note=note
+       jsonData.tableName="DailyInput"
+       jsonData.page="daily-update"
+       data.push(jsonData)
+       return $.ajax({
+         url: '/update-note',
+         type: 'POST',
+         contentType: 'application/json',
+         data: JSON.stringify(data),
+         success: function (response) {
+           $(cell).fadeOut(100).fadeIn(200);
+         },
+         error: function (jqXHR, exception) {
+           alert(getErrorMessage(jqXHR, exception))
+         },
+       });
+     }
+    });
+
+
+    function findDaily() {
+      if ($("#dte").val()=='')
+      {
+        alert("Please select a date")
+      }
+      else
+      {
+        let dte=new Date($("#dte").val())
+        window.location.href=("/daily-update/" + dateIf(dte,"-","r"))
+      }
+    };
+    $('.selectFilters').change(function() {
+      findDaily()
+    })
+    function dateIf (inDate, seperator, order) {
+      let day =''
+      if (new Date(inDate).getDate() < 10) {
+        day = '0' + new Date(inDate).getDate()
+      } else {
+        day = new Date(inDate).getDate()
+      }
+      let month =''
+      if (new Date(inDate).getMonth()+1 < 10) {
+        month = '0' + (new Date(inDate).getMonth()+1)
+      } else {
+        month = (new Date(inDate).getMonth()+1)
+      }
+      let year = new Date(inDate).getFullYear()
+      if(order=="f"){
+        return(day+seperator+month+seperator+year)
+      }
+      if(order=="r"){
+        return(year+seperator+month+seperator+day)
+      }
+    }
+    function getErrorMessage(jqXHR, exception) {
+       var msg = '';
+       if (jqXHR.status === 0) {
+           msg = 'Not connect.\n Verify Network.';
+       } else if (jqXHR.status == 404) {
+           msg = 'Requested page not found. [404]';
+       } else if (jqXHR.status == 500) {
+           msg = 'Internal Server Error [500]. '+JSON.parse(jqXHR.responseText).error;
+       } else if (exception === 'parsererror') {
+           msg = 'Requested JSON parse failed.';
+       } else if (exception === 'timeout') {
+           msg = 'Time out error.';
+       } else if (exception === 'abort') {
+           msg = 'Ajax request aborted.';
+       } else {
+           msg = 'Uncaught Error.\n' + jqXHR.responseText;
+       }
+       return msg;
+     }
+    </script>
+		</div>
+	</div>
+</div>
+
+
+</body>
+</html>

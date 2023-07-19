@@ -1,0 +1,607 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .explanitory{
+    opacity:0.5;
+    font-style:italic;
+  }
+  .tabulator-cell,.tabulator-col-content {
+    padding: 3px!important;
+  }
+  .aBtn {
+    background: none;
+    border: none;
+    padding: 1px;
+    color: var(--primary);
+  }
+  .tabulator-cell.btnCell {
+    border: none;
+  }
+  .actionBtns {
+    height: 100%;
+    width: 100%;
+    font-size: 24px;
+    padding: 2px;
+    line-height: 1em;
+    border: none;
+  }
+  .actionBtns.btn-outline-success {
+    pointer-events:none;
+  }
+  .tabulator-col.btnCell {
+    border: none!important;
+  }
+  .flash-message {
+    font-size: 30px;
+    padding-right: 47px!important;
+  }
+  .flash-container .flash-message:after{
+    font-family: 'Font Awesome 5 Free';
+  }
+  .previewBox{
+    transform: scale(0.2);
+  }
+  .msgCont{
+    text-align: left;
+  }
+  .msgBox {
+      background: white;
+      color: black;
+      padding: 5px 10px;
+      border-radius: 11px;
+      margin: 7px 0px;
+  }
+  .tooltip.show {
+    opacity: .96;
+  }
+  .sendIcons {
+    font-size: 19px;
+    margin: 0px 1px;
+  }
+  .tabulator-col-title {
+    white-space: break-spaces!important;
+  }
+  [tabulator-field="sends"]{
+    white-space: normal!important;
+  }
+</style>
+<div class="container" style="padding-top:70px;max-width:90%">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5 class="card-title">Booking Hub</h5>
+      <div class="filters">
+        <label for="bookingWeek">For w/c:<input type="date" class="form-control selectFilters" id="bookingWeek" value="<%=bookingWeek%>"></label>
+        <select class="selectpicker selectFilters" data-live-search="true" id="shift_search" name="shift_search" title="Filter by shift">
+          <option value="Day" <%if(sessShift=="Day"){%>selected<%}%>>Day</option>
+          <option value="Eve" <%if(sessShift=="Eve"){%>selected<%}%>>Eve</option>
+          <%dedicatedTeams.forEach((team, i) => {%>
+            <option value="<%=team.jobID%>" <%if(sessShift==team.jobID){%>selected<%}%>><%=team.jobName%></option>
+          <%});%>
+          <option value="0">All</option>
+        </select>
+        <select class="selectpicker selectFilters" multiple data-live-search="true" id="team_search" name="team_search" title="Filter by team">
+          <% teams.forEach((team,i) => { %>
+            <option value="<%=team.agentTeamID%>" <%if(sessTeam.includes(team.agentTeamID)){%>selected<%}%>><%=team.teamName%></option>
+            <% }) %>
+          </select>
+          <button type="button" style="display:none;" class="btn btn-primary" id="updateReportBtn" onclick="refreshReport()" name="button">Update report</button>
+      </div>
+      <canvas id="bookingKPIs" width="800" height="150"></canvas><br>
+      <canvas id="weekChart" width="800" height="150"></canvas><br>
+      <select class="selectpicker" multiple id="table_filters" name="table_filters" title="Filter table">
+        <option value="notBooked">Not booked any shifts</option>
+        <option value="usuallyBooks">Usually books shifts</option>
+        <option value="bookedLess">Booked fewer hours than usual</option>
+        <option value="underMinimum">Booked 1-16 hours</option>
+        <option value="noAbsence">No booked absence</option>
+        <option value="notAllAbsence">Less than 5 days' booked absence</option>
+        <option value="workingNow">Currently working</option>
+        <option value="notWorkingNow">Not currently working</option>
+        <option value="hasRequests">Shift requests pending</option>
+        <option value="noRequests">No shift requests pending</option>
+      </select>
+      <a href="#" class="btn btn-sm btn-xlsx" onclick="downloadTableXlsx('agentTable','Booking Statuses')">Download table to Excel</a>
+      <div id="agentTable"></div>
+    </div>
+  </div>
+</div>
+<script src="/js/agentTables.js" charset="utf-8"></script>
+<link rel="stylesheet" href="/css/agentTables.css">
+<script type="text/javascript">
+  function mailto(em){
+    window.location.href = "mailto:"+em;
+    $('body').removeClass('loading')
+  }
+  function tel(t){
+    window.location.href = "callto:"+t;
+    $('body').removeClass('loading')
+  }
+  function refreshReport(){
+    let s=$('#shift_search').val()?$('#shift_search').val():0
+    let t=$('#team_search').val().length>0?$('#team_search').val():0
+    let d=$('#bookingWeek').val()
+    window.location.href="/booking-hub/"+s+"/"+t+"/"+d
+  }
+  function downloadTableXlsx(id,name){
+    let table=Tabulator.prototype.findTable("#"+id)[0]
+    table.download("xlsx", $('#shift_search option:selected').html()+" "+name+" for WC "+moment($('#bookingWeek').val()).format("DD-MMM-YY")+".xlsx")
+  }
+  function sendRCmessage(a){
+    let d=$('#bookingWeek').val()
+    $.ajax({
+      url: '/send-rc-text/'+a+'/'+d,
+      type: 'GET',
+      contentType: 'application/json',
+      success: function (response) {
+        window.FlashMessage.success('Message sent!');
+        let table=Tabulator.prototype.findTable("#agentTable")[0]
+        table.replaceData().then(e=>{
+          table.updateRow(a, {sendRCmsg:true})
+        })
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  function resendEmail(a){
+    let d=$('#bookingWeek').val()
+    if (confirm("Are you sure you want to email the booking form link to this interviewer now?")) {
+      $.ajax({
+        url: '/send-booking-email/'+a+'/'+d,
+        type: 'GET',
+        contentType: 'application/json',
+        success: function (response) {
+          window.FlashMessage.success('Email sent!');
+          let table=Tabulator.prototype.findTable("#agentTable")[0]
+          table.replaceData().then(e=>{
+            table.updateRow(a, {sendEmail:true})
+          })
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+      });
+    }
+  }
+  function resendText(a){
+    let d=$('#bookingWeek').val()
+    if (confirm("Are you sure you want to text the booking form link to this interviewer now?")) {
+      $.ajax({
+        url: '/send-booking-text/'+a+'/'+d,
+        type: 'GET',
+        contentType: 'application/json',
+        success: function (response) {
+          window.FlashMessage.success('Text message sent!');
+          let table=Tabulator.prototype.findTable("#agentTable")[0]
+          table.replaceData().then(e=>{
+            table.updateRow(a, {sendText:true})
+          })
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+      });
+    }
+  }
+  function copyTxt(el){
+    var range = document.createRange();
+    range.selectNode($(el)[0]);
+    window.getSelection().addRange(range);
+    document.execCommand('copy');
+    window.getSelection().removeAllRanges();
+    window.FlashMessage.success('Copied to clipboard');
+  }
+  var telContextMenu = [
+    {
+      label:"Call now",
+      action:function(e, cell){
+        tel(cell.getValue())
+      }
+    },
+    {
+      label:"Copy number",
+      action:function(e, cell){
+        copyTxt(cell.getElement())
+      }
+    },
+  ]
+  var emailContextMenu = [
+    {
+      label:"Compose email",
+      action:function(e, cell){
+        mailto(cell.getValue())
+      }
+    },
+    {
+      label:"Copy email address",
+      action:function(e, cell){
+        copyTxt(cell.getElement())
+      }
+    },
+  ]
+  function updateNote(date,note,table,agentID){
+    var data =[]
+    var jsonData={};
+    var vals=[]
+    jsonData.tableName=table
+    jsonData.agentID=agentID
+    jsonData.date=date
+    jsonData.page='booking-hub'
+    jsonData.note=note
+    data.push(jsonData)
+    $.ajax({
+        url: '/update-note',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  }
+  var lineChart
+  let dayFilter='<%=dayFilter%>'
+  dayFilter=dayFilter===''?'':Number(dayFilter)
+  function buildChart(agents,data){
+    const config = {
+      type: 'line',
+      data: {
+        labels: data.map(el=>moment(el.wk).format("DD/MM/YYYY")),
+        datasets: [
+          {
+            label: 'Hours booked',
+            data: data.map(el=>el.bookedHours),
+            backgroundColor: 'rgb(255 255 255 / 0%)',
+            yAxisID: "n1"
+          },
+          {
+            label: '% Hours honoured',
+            data: data.map(el=>(el.workedHours/el.bookedHours)*100),
+            backgroundColor: 'rgb(255 255 255 / 0%)',
+            yAxisID: "n2"
+          },
+          {
+            label: '% Agents booked',
+            data: data.map(el=>Math.min(el.agentCount/(agents.filter(a=>a.wk==el.wk).length),1)*100),
+            backgroundColor: 'rgb(255 255 255 / 0%)',
+            yAxisID: "n2"
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: 'top',
+          },
+          title: {
+            display: false,
+          },
+          datalabels: {
+            display:false
+          },
+        },
+        scales: {
+          yAxes: [
+          {
+            id: "n1",
+            display:false,
+            gridLines: {
+              display:false
+            },
+          },
+          {
+            id: "n2",
+            display:false,
+            gridLines: {
+              display:false
+            },
+            ticks:{
+              max:100,
+              min:0
+            }
+          },
+          ],
+          xAxes: [{
+            gridLines: {
+              display:true
+            }
+          }]
+        }
+      },
+    }
+    if (lineChart) {
+      lineChart.destroy()
+    }
+    lineChart = new Chart($('#bookingKPIs')[0], config)
+  }
+  let editAlpha=(rgba,alpha)=>{
+    if (rgba.indexOf('#')>-1) {
+      rgba=hexToRGB(rgba,1)
+    }
+    if (!rgba) {
+      return rgba
+    }else if (!rgba.split("(")[1]) {
+      return rgba
+    }else {
+      let parts=rgba.split("(")[1].replace(")","").split(",")
+      parts.pop()
+      return "rgba("+parts.join(",")+","+alpha+")"
+    }
+  }
+  let highlightDay=(chart)=>{
+    for(i=0; i<chart.data.datasets.length; i++) {
+      chart.getDatasetMeta(i).data.forEach(function(ele, idx) {
+        if (ele._index!==dayFilter) {
+          ele.custom = ele.custom || {};
+          var color = editAlpha(ele._model.backgroundColor,0.05)
+          ele.custom.backgroundColor = color
+        }else {
+          if (ele.custom != undefined){
+            delete ele.custom.backgroundColor;
+          }
+        }
+      });
+    }
+    chart.update()
+  }
+  var barChart
+  function buildBar(data,neededData){
+    let barData=Array.apply(null, Array(7)).map((_, i)=>{
+      let day=moment('<%=bookingWeek%>').isoWeekday(i + 1).format('YYYY-MM-DD')
+      console.log(data.map(el=>({mon:el.mon,hrs:el.hoursBooked,agentName:el.agentName,agentID:el.agentID})))
+      let obj={
+        booked:data.reduce((a,b)=>a+Number(b[moment().isoWeekday(i + 1).format('ddd').toLowerCase()]),0),
+        needed:neededData.filter(n=>n.dte).filter(n=>n.dte.split("T")[0]==day).reduce((a,b)=>a+Number(b.needed),0)
+      }
+      obj.needed=obj.needed?obj.needed:0
+      obj.shortfall=Math.max(0,obj.needed-obj.booked)
+      obj.surplus=-Math.min(0,obj.needed-obj.booked)
+      obj.calculated=obj.shortfall?obj.booked:obj.needed
+      return obj
+    })
+    let dataSets=[{
+      label: "Booked",
+      data: barData.map(el=>el.calculated),
+    // },{
+    //   label: "Needed",
+    //   hidden: true,
+    //   data: barData.map(el=>el.needed),
+    // },{
+    //   label: "Booked",
+    //   hidden: true,
+    //   data: barData.map(el=>el.booked),
+    },{
+      label: 'Shortfall',
+      data: barData.map(el=>el.shortfall),
+      backgroundColor:'rgba(220,53,69,0.8)',
+    },{
+      label: 'Surplus',
+      data: barData.map(el=>el.surplus),
+      backgroundColor:'rgba(40,167,69,0.8)',
+    }]
+    let barConfig={
+      type: 'bar',
+      data: {
+        labels: Array.apply(null, Array(7)).map((_, i)=>moment('<%=bookingWeek%>').isoWeekday(i + 1).format('ddd Do MMM')),
+        datasets: dataSets
+      },
+      options: {
+        onClick:function(e,data){
+          if (data[0]) {
+            let x=data[0]._index
+            let y=data[0]._chart.config.data.datasets[0].data[data[0]._index]
+            dayFilter=(dayFilter===x?'':x)
+            highlightDay(data[0]._chart)
+            let table=Tabulator.prototype.findTable("#agentTable")[0]
+            let s=$('#shift_search').val().length>0 && '<%=sessShift%>'!=0?$('#shift_search').val():0
+            let d=$('#bookingWeek').val()
+            let t='<%=sessTeam%>'
+            table.setData('/booking-hub-data/'+s+"/"+t+"/"+d,{day:dayFilter})
+          }
+        },
+        legend: {
+          display: false,
+        },
+        tooltips: {
+          mode: 'x',
+          intersect:'false',
+          filter:(e,data)=>{
+            return (e.datasetIndex==0 && data.datasets[1].data[e.index]+data.datasets[2].data[e.index]==0) || (e.datasetIndex>0 && Number(e.value)>0)
+          },
+          callbacks: {
+            label: (e, data) => {
+              let booked=data.datasets[2].data[e.index]+data.datasets[0].data[e.index]
+              let needed=data.datasets[1].data[e.index]+data.datasets[0].data[e.index]
+              let txt=data.datasets[e.datasetIndex].label+": "+e.value+" (Needed: "+needed+" / Booked: "+booked+")"
+              return txt
+            }
+          }
+        },
+        scales: {
+          xAxes: [{
+            stacked: true,
+            ticks:{
+              fontSize:18,
+            },
+            gridLines: {
+              display:false
+            }
+          }],
+          yAxes: [{
+            display:false,
+            stacked: true,
+            gridLines: {
+              display:false
+            }
+          }]
+        },
+        plugins: {
+          datalabels: {
+            display:false
+          }
+        },
+      }
+    }
+    if (barChart) {
+      barChart.destroy()
+    }
+    barChart = new Chart($('#weekChart')[0], barConfig)
+    return barChart
+  }
+  $(document).ready(function(e){
+    $('.selectFilters').on('change',function(e){
+      $('#updateReportBtn').show()
+    })
+    let s=$('#shift_search').val().length>0 && '<%=sessShift%>'!='0'?$('#shift_search').val():0
+    let d=$('#bookingWeek').val()
+    let t='<%=sessTeam%>'
+    console.log($('#shift_search').val(),'<%=sessShift%>',s)
+    var agentTable=new Tabulator("#agentTable",{
+      ajaxURL:'/booking-hub-data/'+s+"/"+t+"/"+d,
+      ajaxParams:{day:dayFilter},
+      ajaxResponse:(url,params,resp)=>{
+        let tableData=resp.booking.filter(el=>!el.agentLeft).map(el=>({...el,...{shiftsReq:Object.keys(el).filter(k=>k.indexOf('shift_'+(dayFilter===''?'':dayFilter))>-1 && k.indexOf('req')<0).map(k=>el[k]).filter(s=>s.st)}}))
+        if (!lineChart) {
+          buildChart(resp.agents,resp.kpis)
+        }
+        let bar=buildBar(tableData,resp.needed)
+        if (dayFilter!=='') {
+          highlightDay(bar)
+        }
+        console.log(tableData);
+        return tableData
+      },
+      autoResize:true,
+      height:'40vh',
+      layout:"fitColumns",
+      index:'agentID',
+      columns:[
+        {field:'agentName',minWidth:160,title:'Agent',formatter:nameHover},
+        {field:'contractName',visible:false,download:true,title:'Contract version'},
+        {field:'fixedHours',width:40,hozAlign:'center',title:'',download:false,formatter:(c,p,onR)=>{
+          onR(()=>{
+            $(c.getElement()).tooltip({
+              title:c.getData().contractName
+            })
+          })
+          return c.getValue()?'<i class="fas fa-file-contract"></i>':''
+        }},
+        {field:'teamName',title:'Team'},
+        {field:'isEve',title:'Shift',formatter:cell=>cell.getValue()==1?'Eve':'Day',accessor:val=>val==1?'Eve':'Day'},
+        {title:'Recent avg',columns:[
+          {field:'avgShifts',cssClass:'explanitory',title:'Shifts',minWidth:70},
+          {field:'avgHours',cssClass:'explanitory',title:'Hours',minWidth:72},
+        ]},
+        {title:'Pending requests',columns:[
+          {field:'shiftsRequested',mutator:(val,data)=>data.shiftsReq.length,title:'Shifts',minWidth:70,formatter:cell=>cell.getValue()?cell.getValue():''},
+          {field:'hoursRequested',mutator:(val,data)=>data.shiftsReq.reduce((a,b)=>a+Number(moment.utc(b.en,"hh:mm:ss").diff(moment.utc(b.st,"hh:mm:ss"),'hours')),0),title:'Hours',minWidth:72,formatter:cell=>cell.getValue()?cell.getValue():''},
+        ]},
+        {title:'Booked',columns:[
+          {field:'shiftsBooked',title:'Shifts',minWidth:70},
+          {field:'hoursBooked',title:'Hours',minWidth:72},
+        ]},
+        {field:'absenceCount',title:'Booked absence',minWidth:105,formatter:(cell,p,onRendered)=>{
+          onRendered(()=>{
+            let d=cell.getData()
+            if (cell.getValue()) {
+              $(cell.getElement()).tooltip({
+                title:'Holiday: '+(d.holDays?d.holDays:0)+"<br>"+'Sick: '+(d.sickDays?d.sickDays:0)+"<br>"+'Cancelled: '+(d.canxDays?d.canxDays:0),
+                html:true,
+                sanitize:false
+              })
+            }
+          })
+          return cell.getValue()?cell.getValue():''
+        }},
+        {field:'sends',title:'Prompts sent',headerSort:false,accessorDownload:val=>val.length,formatter:(cell,p,onRendered)=>{
+          let arr=cell.getValue()
+          let txt=""
+          if (arr.length>0) {
+            onRendered(function(){
+              $(cell.getElement()).find('.sendIcons').each(function(e){
+                let data=cell.getValue().find(el=>el.sendID==$(this).attr('data-sendID'))
+                let html="<div class='msgCont'>To: "+data.contact+"<br>Date: "+moment(data.sendDate).format('DD/MMM HH:mm:ss')+"<br>Message: <div class='msgBox'>"+data.message+"</div></div>"
+                $(this).tooltip({
+                  title:html,
+                  html:true,
+                  sanitize:false,
+                  boundary:'window'
+                })
+              })
+            })
+            txt=arr.map(el=>'<span class="sendIcons" data-sendID="'+el.sendID+'"><i class="'+(el.sendType=='email'?'far fa-envelope':'fas fa-sms')+'"></i></span>').join("")
+          }
+          return txt
+        }},
+        {field:'isWorkingNow',title:'',visible:false,titleDownload:'Working now?',width:83,mutator:(val,data)=>{
+          let time=(t)=>t?Number(t.split("T")[1].split(":")[0])*60+Number(t.split("T")[1].split(":")[1]):null
+          return time(moment().format())>time(data.startTime) && time(moment().format())<time(data.endTime)
+        },formatter:cell=>cell.getValue()?'<span class="badge badge-warning">Working now</span>':''},
+        {title:'Prompt now',columns:[
+          {title:'',field:'sendEmail',visible:moment($('#bookingWeek').val()).isSameOrAfter(moment(),'day'),download:false,cssClass:'btnCell',width:45,headerSort:false,formatter:cell=>`<button type="button" class="`+(cell.getValue()?'btn btn-sm btn-outline-success':'btn btn-sm btn-primary')+` actionBtns" title="Via email" onclick="resendEmail(`+cell.getData().agentID+`)"><i class="`+(cell.getValue()?'fas fa-check':'far fa-envelope')+`"></i></button>`},
+          {title:'',field:'sendText',visible:moment($('#bookingWeek').val()).isSameOrAfter(moment(),'day'),download:false,cssClass:'btnCell',width:45,headerSort:false,formatter:cell=>`<button type="button" class="`+(cell.getValue()?'btn btn-sm btn-outline-success':'btn btn-sm btn-primary')+` actionBtns" title="Via text" onclick="resendText(`+cell.getData().agentID+`)"><i class="`+(cell.getValue()?'fas fa-check':'fas fa-sms')+`"></i></button>`},
+          {title:'Email',visible:false,download:true,field:'email'},
+          {title:'Mob',visible:false,download:true,field:'telnum'},
+        ]},
+        {field:'note',title:'Notes',headerSort:false,accessor:val=>val?val:'',editor:'input',minWidth:200,cellEdited:cell=>{
+          updateNote($('#bookingWeek').val(),cell.getValue(),'agentTable',cell.getData().agentID)
+        }}
+      ],
+      renderComplete:()=>{
+        let updateTitle=(col,title)=>$(agentTable.getColumns().find(el=>el.getField()==col)._column.parent.contentElement).text(title)
+        updateTitle('avgShifts','Recent avg'+(dayFilter!==''?' ('+moment().isoWeekday(dayFilter+1).format("dddd")+'s)':''))
+        updateTitle('shiftsRequested','Pending requests'+(dayFilter!==''?' ('+moment($('#bookingWeek').val()).isoWeekday(dayFilter+1).format("ddd Do")+')':''))
+        updateTitle('shiftsBooked','Booked'+(dayFilter!==''?' ('+moment($('#bookingWeek').val()).isoWeekday(dayFilter+1).format("ddd Do")+')':''))
+        updateTitle('absenceCount','Booked absence'+(dayFilter!==''?' ('+moment($('#bookingWeek').val()).isoWeekday(dayFilter+1).format("ddd Do")+')':''))
+        // agentTable.updateColumnDefinition("avgGroup", {title:'Recent avg'+(dayFilter!==''?' ('+moment().isoWeekday(dayFilter+1).format("dddd")+'s)':'')})
+        // agentTable.updateColumnDefinition("reqGroup", {title:'Pending requests'+(dayFilter!==''?' ('+moment($('#bookingWeek').val()).isoWeekday(dayFilter+1).format("ddd")+')':'')})
+        // agentTable.updateColumnDefinition("bookedGroup", {title:'Booked'+(dayFilter!==''?' ('+moment($('#bookingWeek').val()).isoWeekday(dayFilter+1).format("ddd")+')':'')})
+        // agentTable.updateColumnDefinition("absenceCount", {title:'Booked absence'+(dayFilter!==''?' ('+moment($('#bookingWeek').val()).isoWeekday(dayFilter+1).format("ddd")+')':'')})
+      }
+    })
+    $('#table_filters').on('change',function(e){
+      let filters=[]
+      let sel=$(this).val()
+      agentTable.clearFilter()
+      agentTable.setFilter(function(data){
+        let checks=[]
+        if (sel.includes('notBooked')) {
+          checks.push(data.shiftsBooked<1)
+        }
+        if (sel.includes('usuallyBooks')) {
+          checks.push(data.avgShifts>0)
+        }
+        if (sel.includes('bookedLess')) {
+          checks.push(data.hoursBooked<data.avgHours && data.hoursBooked>0)
+        }
+        if (sel.includes('noAbsence')) {
+          checks.push(data.absenceCount==0)
+        }
+        if (sel.includes('notAllAbsence')) {
+          checks.push(data.absenceCount<5)
+        }
+        if (sel.includes('underMinimum')) {
+          checks.push(data.hoursBooked<16 && data.hoursBooked>0)
+        }
+        if (sel.includes('workingNow')) {
+          checks.push(data.isWorkingNow)
+        }
+        if (sel.includes('notWorkingNow')) {
+          checks.push(!data.isWorkingNow)
+        }
+        if (sel.includes('hasRequests')) {
+          checks.push(data.shiftsRequested)
+        }
+        if (sel.includes('noRequests')) {
+          checks.push(!data.shiftsRequested)
+        }
+        return (checks.filter(el=>!el).length?false:true)
+      })
+    })
+  })
+</script>
+</body>
+</html>

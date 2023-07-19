@@ -1,0 +1,95 @@
+<script src='/js/bootstrap.bundle.min.js'></script>
+<script src='/js/bootstrap.min.js'></script>
+<link rel='stylesheet' href='/css/bootstrap.min.css'>
+<style>
+
+  :root {
+    --tsbg: #630727;
+    --primary:#630727;
+    --subtle:#f0ebed;
+    --highlight:#b15a79;
+    --secondary:#b15a79;
+    --warning:#bc8d00;
+    --danger:#af0c0c;
+    --success:#006818;
+  }
+  body{
+    font-family: 'Arial Nova', sans-serif;
+  }
+  .load {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    text-align: center;
+    background: rgb(255 255 255 / 74%);
+    backdrop-filter: saturate(0) blur(4px);
+  }
+  .btn {
+    border-radius: 0px;
+    border: none;
+    color: white;
+    box-shadow: 0px 3px 9px -2px #00000030;
+    transition: 0.1s all
+  }
+  .btn:hover {
+    color: var(--primary);
+    background: white!important;
+  }
+  .btn:focus {
+    box-shadow: 0 0 0 .2rem #6307273d;
+  }
+
+  .btn:not(.btn-danger):not(.btn-outline-danger):hover{
+    box-shadow: 0px 3px 9px -2px var(--primary);
+  }
+  .btn-light {
+    background: white!important;
+    color:var(--primary)!important;
+  }
+  .btn:not(.btn-danger):not(.btn-outline-danger):active{
+    background: white!important;
+  }
+  .btn:active{
+    color: var(--primary)!important;
+    transform: translate(0px, 3px);
+    box-shadow: none!important;
+  }
+
+  .btn-primary {
+    font-weight: bold;
+    background: var(--primary);
+  }
+  [type="submit"],.submit {
+      padding: 19px 20px 15px;
+      letter-spacing: 0px;
+      font-weight: bold;
+      display: block;
+      margin: auto;
+      width: auto!important;
+      margin-bottom: 30px;
+  }
+  .submit.btn-sm,[type="submit"].btn-sm{
+    padding: 12px 17px 5px;
+    margin-bottom: 14px;
+  }
+
+.container {
+  text-align: center;
+  padding: 20px;
+  border-radius: 20px;
+}
+
+</style>
+  <title><%= title %></title>
+<body>
+  <div class="container">
+    <h1>503 - Closed for maintenance</h1>
+    <h6>This page is temporarily undergoing maintenance. Please check back later.</h6>
+    <a class="text-center btn-primary btn" href="/home">Back home</a>
+  </div>
+
+</body>

@@ -1,0 +1,39 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px; padding-left:0px; min-width:400px;">
+  <div class="card text-dark mb-2 text-center">
+    <div class="card-body">
+      <h3>Edit allocation for <%= fDate %></h3>
+      <form role="form" action="" method="post">
+        <table class="table table-sm table-striped table-bordered" id="allocated-total">
+          <thead>
+            <tr>
+              <th>Project</th>
+              <th>Interviewer</th>
+              <th>Allocated hours</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% projects.forEach((project , index) => { jobs.forEach((job , index) => { if(job.jobID == project.jobID){%>
+              <% allocationsInts.forEach((allocationInt, index) =>{
+                if((allocationInt.jobID == job.jobID) && (allocationInt.agentAllocationDate.getMonth() == date.getMonth()) && (allocationInt.agentAllocationDate.getFullYear() == date.getFullYear()) && (allocationInt.agentAllocationDate.getDate() == date.getDate())) {%>
+                  <tr>
+                    <td><%= project.quoteNo %> <%= project.quoteName %> <%= job.jobName %></td>
+                    <td><%= allocationInt.agentName %></td>
+                    <td>
+                      <input type="number" class="form-control" name="<%= job.jobID %>_<%= allocationInt.agentID %>" id="<%= job.jobID %>_<%= allocationInt.agentID %>" value="<%= allocationInt.agentAllocationHours %>" style="width:150px; margin:auto;">
+                    </td>
+                  </tr>
+                  <% }
+                })
+              }
+            })
+          }) %>
+        </tbody>
+      </table>
+      <button class="btn-primary btn" action="submit" style="width:100%;">Submit changes</button>
+    </form>
+  </div>
+</div>
+</div>
+</body>
+</html>

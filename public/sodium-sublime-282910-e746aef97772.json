@@ -1,0 +1,10 @@
+{
+  "type": "service_account",
+  "project_id": "sodium-sublime-282910",
+  "client_email": "ja2-751@sodium-sublime-282910.iam.gserviceaccount.com",
+  "client_id": "111316238732827329447",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/ja2-751%40sodium-sublime-282910.iam.gserviceaccount.com"
+}

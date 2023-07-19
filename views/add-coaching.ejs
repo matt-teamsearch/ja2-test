@@ -1,0 +1,813 @@
+<%- include('partials/'+versionPages.header) %>
+<%
+function dateIf(inDate, seperator, order){
+  let day =''
+  if (new Date(inDate).getDate() < 10) {
+    day = '0' + new Date(inDate).getDate()
+  } else {
+    day = new Date(inDate).getDate()
+  }
+  let month =''
+  if (new Date(inDate).getMonth()+1 < 10) {
+    month = '0' + (new Date(inDate).getMonth()+1)
+  } else {
+    month = (new Date(inDate).getMonth()+1)
+  }
+  let year = new Date(inDate).getFullYear()
+  if(order=="f"){
+    return(day+seperator+month+seperator+year)
+  }
+  if(order=="r"){
+    return(year+seperator+month+seperator+day)
+  }
+}
+%>
+<script type="text/javascript">
+  function getErrorMessage(jqXHR, exception) {
+    var msg = '';
+    if (jqXHR.status === 0) {
+       msg = 'Not connect.\n Verify Network.';
+    } else if (jqXHR.status == 404) {
+       msg = 'Requested page not found. [404]';
+    } else if (jqXHR.status == 500) {
+       msg = 'Internal Server Error [500]. '+JSON.parse(jqXHR.responseText).error;
+    } else if (exception === 'parsererror') {
+       msg = 'Requested JSON parse failed.';
+    } else if (exception === 'timeout') {
+       msg = 'Time out error.';
+    } else if (exception === 'abort') {
+       msg = 'Ajax request aborted.';
+    } else {
+       msg = 'Uncaught Error.\n' + jqXHR.responseText;
+    }
+    return msg;
+  }
+  $(document).ready(function () {
+    $('.stats').reportTiles([
+    {preset:'coachingSessions',presetParams:{stDate:'<%=dateIf(stdate,"-","r")%>',enDate:'<%=dateIf(endate,"-","r")%>'},presetConfig:{width:'66.66%'}},
+    {preset:'coachingEffectiveness',presetParams:{stDate:'<%=dateIf(stdate,"-","r")%>',enDate:'<%=dateIf(endate,"-","r")%>'}}
+    ])
+    var buttonCommon = {
+      exportOptions: {
+        format: {
+          body: function (data, row, column, node) {
+            let val=data
+            if (column === 7 || column === 1) {
+              val=data.replace( /\n.*|<[^>]*>/g, '' )
+            }
+            return val;
+          }
+        }
+      }
+    };
+    let qcTable=$('#monitorChecksTable').DataTable({
+      ordering: false,
+      info: false,
+      length:10,
+      bLengthChange: false,
+      language: {
+        zeroRecords: "No matching records - try expanding the date period at the top of the page, or choose another agent"
+      },
+      ajax: {
+        url: '/all-QC-checks/<%=dateIf(stdate,"-","r")%>/<%=dateIf(endate,"-","r")%>/true',
+        dataSrc: ''
+      },
+      pageLength: 10,
+      columns: [
+        { data: 'isFinished',
+          visible:false
+          },
+        { data: 'qualityControlID',
+          visible:false
+          },
+        { data: 'jobID',
+          visible:false
+          },
+        { data: 'agentID',
+          visible:false
+          },
+        { data: 'dateMonitored',
+          fnCreatedCell: function (nTd, sData, oData, iRow, iCol) {
+            $(nTd).html(dateIf(oData.dateMonitored,"/","f"));
+          }
+         },
+        { data: 'type' },
+        { data: 'agentName' },
+        { data: 'jobName' ,
+          fnCreatedCell: function (nTd, sData, oData, iRow, iCol) {
+            var txt=oData.quoteName+" - "+oData.jobName
+            $(nTd).html(txt.substring(0,35)+"...");
+          }},
+        { data: 'interviewDate',
+          fnCreatedCell: function (nTd, sData, oData, iRow, iCol) {
+            $(nTd).html(dateIf(oData.interviewDate,"/","f"));
+          }
+         },
+        { data: 'recordingID',
+          fnCreatedCell: function (nTd, sData, oData, iRow, iCol) {
+            var txt=oData.recordingID.substring(oData.recordingID.indexOf("=")+1,oData.recordingID.indexOf("=")+9)
+            $(nTd).html(txt);
+          } },
+        { data: 'serial' },
+      ],
+      createdRow: function ( row, data, index ) {
+        $(row).addClass('hover-content QCrow')
+        $(row).attr('data-href',data['qualityControlID'])
+      },
+      initComplete: function( settings, json ) {
+        $body.removeClass("loading")
+      }
+    });
+    $('#monitorChecksTable tbody').on( 'click', 'tr', function () {
+      var rdata=qcTable.row(this).data()
+      let qcids=JSON.parse($("#QCID").attr("value"))
+      if (qcids.includes(rdata['qualityControlID'][0])) {
+        qcids=qcids.filter(el=>el!=rdata['qualityControlID'][0])
+        $(this).removeClass("rowSelected")
+      }else {
+        qcids.push(rdata['qualityControlID'][0])
+        $(this).addClass("rowSelected")
+      }
+      if (qcTable.row('.rowSelected').data()) {
+        $('#agent').val(qcTable.row('.rowSelected').data().agentID[0]).selectpicker("refresh")
+        $('#job').val(qcTable.row('.rowSelected').data().jobID[0]).selectpicker("refresh")
+      }else {
+        $('#agent').val('').selectpicker("refresh")
+        $('#job').val('').selectpicker("refresh")
+      }
+      $("#QCID").attr("value",JSON.stringify(qcids))
+      var data=[]
+      var jsonData={}
+      jsonData.QCID=JSON.parse($('#QCID').attr("value"))
+      data.push(jsonData)
+      $('#issue').val([]);
+      $("#issue").selectpicker('refresh')
+      $.ajax({
+          url: '/get-qc-issues-for-coaching',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify(data),
+          success: function (response) {
+            console.log(response)
+            if (JSON.parse(response).length>0) {
+              $.each(JSON.parse(response), function(idx, val) {
+                $("#issue option[value='"+val.issueID+"']").prop("selected", true);
+              });
+            }
+            $("#issue").selectpicker('refresh')
+          },
+          error: function (jqXHR, exception) {
+            alert(getErrorMessage(jqXHR, exception))
+          },
+      });
+    });
+    $('#tabContainer').hide()
+    let table = $('#coaching_sessions').DataTable({
+      paging: true,
+      order: [],
+      // info: false,
+      bLengthChange: false,
+      dom: 'Bfrtip',
+      oLanguage: {
+        sInfo: "_TOTAL_ entries (showing _START_ to _END_)",
+        sInfoFiltered: " (filtered from _MAX_ entries)"
+      },
+      buttons: [
+          $.extend( true, {}, buttonCommon, {
+             extend: 'copyHtml5'
+         } ),
+         $.extend( true, {}, buttonCommon, {
+             extend: 'excelHtml5'
+         } ),
+         $.extend( true, {}, buttonCommon, {
+             extend: 'pdfHtml5'
+         } ),
+         {
+           extend: 'collection',
+           text: 'Type',
+           className: 'btn dropdown-toggle',
+           buttons: [
+           {
+             text: "All",
+             action: function( e, dt, button, config ) {
+               filterTable(":contains(Type)","",button)
+             }
+           },
+           {
+             text: "General feedback",
+             action: function( e, dt, button, config ) {
+               filterTable(":contains(Type)","General",button)
+             }
+           },
+           {
+             text: "Coaching",
+             action: function( e, dt, button, config ) {
+               filterTable(":contains(Type)","Coaching",button)
+             }
+           },
+           {
+             text: "QC feedback",
+             action: function( e, dt, button, config ) {
+               filterTable(":contains(Type)","QC",button)
+             }
+           },
+           {
+             text: "Intro checks",
+             action: function( e, dt, button, config ) {
+               filterTable(":contains(Type)","Intro",button)
+             }
+           },
+           ]
+         },
+         {
+           extend: 'collection',
+           text: 'Team',
+           className: 'btn dropdown-toggle',
+           buttons: [
+             {
+               text: "All",
+               action: function( e, dt, button, config ) {
+                 filterTable(":contains(Team)","")
+               }
+             },
+             <%cStats.forEach((stat, i) => {%>
+             {
+               text: "<%=stat.teamName%>",
+               action: function( e, dt, button, config ) {
+                 filterTable(":contains(Team)","<%-stat.teamName%>",button)
+               }
+             },
+             <%})%>
+           ]
+         },
+         {
+           extend: 'collection',
+           text: 'Follow-up',
+           className: 'btn dropdown-toggle',
+           buttons: [
+           {
+             text: "All",
+             action: function( e, dt, button, config ) {
+               filterTable(":contains(Status)","",button)
+             }
+           },
+           {
+             text: "Completed",
+             action: function( e, dt, button, config ) {
+               filterTable(":contains(Status)","Followed up",button)
+             }
+           },
+           {
+             text: "Due later",
+             action: function( e, dt, button, config ) {
+               filterTable(":contains(Status)","Due later",button)
+             }
+           },
+           {
+             text: "Overdue",
+             action: function( e, dt, button, config ) {
+               filterTable(":contains(Status)","Overdue",button)
+             }
+           }
+           ]
+         }
+      ],
+      columnDefs: [
+        { "visible": false, "targets": 'hidden' }
+      ],
+    });
+    var tdy = new Date()
+    $("#coachDate").val(tdy.toISOString().split("T")[0])
+    $("#followUpDate").attr("min",$("#coachDate").val())
+    $('.issue').change(function() {
+        if ($("#issue option[value=Other]:selected").length > 0) {
+          if ($("#issueOtherBox .form-group").length<1) {
+            var $elem = $("#OtherBoxContent .OthContainer").data( "arr", [ 1 ] ),
+            $clone = $elem.clone( true )
+              // Deep copy to prevent data sharing
+              .data( "arr", $.extend( [], $elem.data( "arr" ) ) )
+              .appendTo( "#issueOtherBox" );
+            }
+        }else {
+          $('#issueOtherBox').children().remove()
+          var otherTotal = [];
+          var cnt=-1
+          $("[name='issueOther']").each(function() {
+            if (this.value!="") {
+              otherTotal.push(this.value);
+            }
+            cnt=+1
+          });
+          $("#otherTotal").val(otherTotal.join(";"));
+          $("#otherCount").val(cnt);
+        };
+    });
+    $(document).on('change', '#type', function(evt) {
+      if ($(this).val()=="QC") {
+        $('#tabContainer').show()
+      }else {
+        $('#QCID').attr("value","[]")
+        $('#issue').val([]);
+        $('#issue').selectpicker('refresh')
+        $('#tabContainer').hide()
+        $('.rowSelected').removeClass("rowSelected")
+      }
+    })
+    $(document).on('click', '#submitCoaching', function(evt) {
+      if ($('#type').val()=="QC" && $('#QCID').attr("value")=="[]") {
+        $('#type')[0].setCustomValidity('Please select a QC check')
+        $('#type')[0].reportValidity()
+      }else if ($('#audited').is(":checked") && !$('#auditor').val()) {
+        $('#auditor')[0].setCustomValidity('Please select an auditor')
+        $('#auditor')[0].reportValidity()
+      }else if($('#auditor')[0].checkValidity()){
+        $('#hiddenSubmit').click()
+      }
+    })
+    $(document).on('change', '#coachDate, #agent, #job', function(evt) {
+      var data =[]
+      var jsonData={};
+      var obj=this
+      jsonData.agentID=$('#agent').val()
+      jsonData.dte=$('#coachDate').val()
+      data.push(jsonData)
+      if ($('#agent').val() && $('#coachDate').val()) {
+        $.ajax({
+            url: '/check-agent-date',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function (response) {
+              if (response) {
+                $(obj).addClass('is-invalid')
+                if (confirm('This agent is not registered as working on this date. Do you want to continue?')) {
+                  $(obj).removeClass('is-invalid')
+                  obj.setCustomValidity('')
+                  obj.reportValidity()
+                }else {
+                  obj.setCustomValidity('This agent is not registered as working on this date')
+                  obj.reportValidity()
+                }
+              }else {
+                $(obj).removeClass('is-invalid')
+                obj.setCustomValidity('')
+                obj.reportValidity()
+              }
+            },
+            error: function (jqXHR, exception) {
+              alert(getErrorMessage(jqXHR, exception))
+            },
+        });
+      }
+    })
+    $('.issueOtherClose').click(function() {
+      if ($(".OthContainer").length<3) {
+        $("#issue option[value=Other]").removeAttr("selected");
+      }
+      $(this).parent().parent().remove()
+      $('.issue').selectpicker('refresh');
+      var otherTotal = [];
+      var cnt=-1
+      $("[name='issueOther']").each(function() {
+        if (this.value!="") {
+          otherTotal.push(this.value);
+        }
+      });
+      $("#otherTotal").val(otherTotal.join(";"));
+      $("#otherCount").val(cnt);
+    })
+    $('.newIssue').click(function() {
+      var $elem = $("#OtherBoxContent .OthContainer").data( "arr", [ 1 ] ),
+      $clone = $elem.clone( true )
+        // Deep copy to prevent data sharing
+        .data( "arr", $.extend( [], $elem.data( "arr" ) ) )
+        .appendTo( "#issueOtherBox" );
+    })
+    $("[name='issueOther']").change(function() {
+      var otherTotal = [];
+      var cnt=-1
+      $("[name='issueOther']").each(function() {
+        if (this.value!="") {
+          otherTotal.push(this.value);
+        }
+        cnt=+1
+      });
+      $("#otherTotal").val(otherTotal.join(";"));
+      $("#otherCount").val(cnt);
+    })
+    $('[data-toggle="tooltip"]').tooltip()
+    $('#coaching_sessions').on( 'draw.dt', function () {
+      $('[data-toggle="tooltip"]').tooltip()
+    })
+
+  })
+  function deleteSession(id){
+    if (confirm("Deleting a coaching session will also delete any follow-ups associated with it. Are you sure you want to delete this coaching session?")) {
+      location.href='/delete-coaching-session/'+id
+    }
+  }
+  $(document).on('change', '#coachDate', function(evt) {
+    $("#followUpDate").attr("min",$(this).val())
+  })
+  $(document).on('change', '#audited', function(evt) {
+    if ($(this).prop('checked')) {
+      $('[data-id="auditor"]').show()
+    }else {
+      $('[data-id="auditor"]').hide()
+    }
+  })
+  $(document).on("change","select.customfilters",function(e){
+    var selectedid=this.id
+    var selected=$("#"+selectedid)
+    $('#coaching_sessions').DataTable()
+      .columns(selected.attr("data-col"))
+      .search(selected.val())
+      .draw();
+  })
+  function filterTable(col,val,button){
+    $(button).parent().children('.dt-button').removeClass('activeFilter')
+    if (val==="") {
+      $("[aria-expanded='true']").removeClass('activeFilter')
+    }else {
+      $("[aria-expanded='true']").addClass('activeFilter')
+      $(button).addClass('activeFilter')
+    }
+    $('#coaching_sessions').DataTable()
+      .columns(col)
+      .search(val)
+      .draw();
+    $(".dt-button-background").trigger("click");
+  }
+</script>
+<style>
+  .stats {
+      display: flex;
+      flex-direction: row;
+      justify-content: space-evenly;
+      margin: 50px 0px;
+      background: transparent;
+  }
+  .OtherBox{
+    display:contents;
+  }
+  .table-sm{
+    margin: 0px!important;
+  }
+  .table-sm thead th, .table-sm tbody td {
+    /* white-space: nowrap; */
+    /* font-size: smaller; */
+    padding: 5px!important;
+  }
+  .hover-content{
+    cursor:pointer;
+  }
+  .overdue{
+    color:red;
+  }
+  .followup{
+    white-space:nowrap;
+    font-weight:100;
+    text-align: left;
+  }
+  .fa-check{
+    color:green;
+  }
+  div.dt-button-collection{
+    width:auto;
+  }
+  #monitorChecksTable {
+    font-size: smaller;
+    white-space:nowrap;
+  }
+  #tabContainer {
+    width: 100%;
+    margin: auto;
+    padding-left: 30px;
+    background: #ececec;
+    border: 1px solid #d8d8d8;
+    border-radius: 5px;
+  }
+  div#monitorChecksTable_paginate {
+    font-size: small;
+  }
+  .rowSelected {
+    background-color: var(--primary)!important;
+    color: white;
+  }
+  .activeFilter{
+    background-blend-mode: multiply;
+  }
+  [data-id="auditor"]{
+    display:none;
+  }
+  .dropdown-menu.show{
+    min-width: auto!important;
+    max-width: 700px;
+  }
+  .noneOption {
+    border-bottom: 1px solid gainsboro;
+    font-weight: 300;
+  }
+  .targetSuffix {
+      position: absolute;
+      right: 23px;
+      top: 50%;
+      transform: translateY(-50%);
+  }
+  .word-wrap{
+    white-space: break-spaces!important;
+  }
+  .note-asterisk{
+    font-size: large;
+    line-height: 1px;
+    font-weight: bold;
+  }
+</style>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+  <% if (message) { %>
+    <p class="text-center text-danger"><%= message %></p>
+    <% } %>
+
+    <div class="card-body viewerHeight">
+      <div class="card-header text-center"><h5>From: <input type="date" style="display:inline; width:auto;" class="form-control inputdate selectFilters" id="stdate" name="stdate" style="width:200px; margin:auto;"> to: <input type="date" style="display:inline; width:auto;" class="selectFilters inputdate form-control" id="endate" name="endate" style="width:200px; margin:auto;"></h5></div>
+      <div class="alert alert-danger fade show" id="datemessage" role="alert">Please enter a valid date range</div>
+      <div class="row">
+        <div class="card text-center col-sm border-info stats" style="width: 18rem;">
+        </div>
+      </div>
+        <table class="table table-hover table-sm" id="coaching_sessions" style="width:100%;">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Interviewer</th>
+              <th>Job</th>
+              <th>Team</th>
+              <th>Advisories</th>
+              <th class="hidden">Advisories detail</th>
+              <th>Follow-up</th>
+              <th class="hidden">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+          <%sessions.forEach((session, i) => {
+            let tooltipTxt=[]
+            advisories.forEach((advisory, i) => {
+              if (advisory.coachingID==session.coachingID) {
+                tooltipTxt.push(advisory.issue)
+              }
+            });
+            let status=""
+            if (session.followUpDate!=null) {
+              if (session.coachingFollowedUpDate) {
+                status="Followed up"
+              }else if (new Date(session.followUpDate)>new Date()) {
+                status="Due later"
+              }else if (new Date(session.followUpDate)<new Date()) {
+                status="Overdue"
+              }
+            }
+            %>
+            <tr class="hover-content" onclick="goToFollowUp(<%=session.coachingID%>)">
+              <td><%=session.qcType=='Intro'?'Intro':session.coachingType%></td>
+              <td data-sort="<%=dateIf(session.coachingDate,"-","r")%>"><%=dateIf(session.coachingDate,"/","f")%></td>
+              <td><%=session.agentName%><%if(new Date(session.pdpEndDate)>=new Date().setHours(0,0,0,0)){%> <span class="badge badge-danger">PDP</span><%}%></td>
+              <td><%=session.jobName%></td>
+              <td><%=session.teamName%></td>
+              <td data-toggle="tooltip" data-html="true" title="<%=tooltipTxt.join("<br>")%>"><%=session.issuesCount%></td>
+              <td><%=tooltipTxt.join(", ")%></td>
+              <td data-sort="<%=dateIf(session.followUpDate,"-","r")%>" class="followup <%= (status=="Overdue") ? "overdue" : "" %>"><%=session.followUpDate==null ? "" : dateIf(session.followUpDate,"/","f")%><%if(session.coachingFollowedUpDate){%> <i class="fas fa-check"></i><%}%></td>
+              <td><%=status%></td>
+            </tr>
+          <%});%>
+          </tbody>
+        </table>
+        <h2>Add coaching session</h2>
+        <form autocomplete="off" id="add-coaching-form" class="add-coaching-form form-styles" action="/add-coaching" method="post" enctype="multipart/form-data">
+          <input type="text" name="user" id="user" style="display:none;">
+          <div class="form-group">
+            <input type="date" class="form-control" name="coachDate" id="coachDate" value="" required>
+          </div>
+          <div class="form-group">
+            <select class="selectpicker type" data-width="100%" data-live-search="true" name="type" id="type" required>
+              <option value="" disabled selected>Select type</option>
+              <option value="General">General feedback</option>
+              <option value="Coaching">Coaching</option>
+              <option value="QC">QC feedback (select a QC check)</option>
+            </select>
+            <div id="tabContainer">
+              <table id="monitorChecksTable" class="table table-compact table-hover table-sm">
+                <thead><th> </th><th> </th><th> </th><th> </th><th>Date monitored</th><th>Type</th><th>Agent</th><th>Job</th><th>Interview date</th><th>Recording</th><th>Serial</th></thead>
+                <tbody>
+              </table>
+            </div>
+            <input type="text" name="QCID" id="QCID" value="" style="display:none">
+          </div>
+          <div class="form-group">
+            <select class="selectpicker agent" data-width="100%" data-live-search="true" name="agent" id="agent" required>
+              <option value="" disabled selected>Select the interviewer</option>
+              <%agents.forEach((agent , index) => {%>
+                <option value="<%= agent.agentID %>"><%= agent.agentName %></option>
+              <%})%>
+            </select>
+          </div>
+          <div class="form-group">
+            <select class="selectpicker job" data-width="100%" data-live-search="true" name="job" id="job" required>
+              <option value="" disabled selected>Select the project</option>
+              <%jobs.forEach((job , index) => {%>
+                <option value="<%= job.jobID %>"><%= job.quoteNo + " " + job.quoteName + " - " + job.jobName %></option>
+              <%})%>
+            </select>
+          </div>
+          <div class="form-group form-inline" id="issuesGroup">
+            <select class="selectpicker issue" title="Select advisories..." onchange="if($(this).val().includes('')){$(this).val('').selectpicker('toggle')}" multiple data-width="100%" data-container="body" data-live-search="true" name="issue" id="issue">
+              <option value="" class="noneOption">No advisories</option>
+              <%issues.forEach((issue , index) => {%>
+                <option value="<%= issue.issueID %>"><%= issue.issue %></option>
+              <%})%>
+              <option value="Other">Other...</option>
+            </select>
+            <div id="issueOtherBox" class="OtherBox">
+            </div>
+          </div>
+
+          <div class="form-group">
+            <select class="selectpicker" data-width="100%" data-container="body" required title="Follow-up required?" name="followupCheck" id="followupCheck" onchange="if($('#followupCheck').val()){$(followUpCont).show()}else{$(followUpCont).hide()}">
+              <option value="1">Yes</option>
+              <option value="">No</option>
+            </select>
+          </div>
+          <div id="followUpCont" style="display:none;">
+            <div class="card-header sub">Follow-up (if required)</div>
+            <div class="form-group row">
+              <label for="followUpDate" class="col-sm-2 col-form-label">Date to follow-up</label>
+              <div class="col-sm-10">
+                <input type="date" class="form-control" name="followUpDate" id="followUpDate" value="">
+              </div>
+            </div>
+            <div class="form-group row">
+              <label for="followUpNotes" class="col-sm-2 col-form-label">Notes</label>
+              <div class="col-sm-10">
+                <textarea class="form-control" name="followUpNotes" id="followUpNotes" placeholder=""></textarea>
+              </div>
+            </div>
+            <div class="form-group row ">
+              <label for="followUpNotes" class="col-sm-2 col-form-label">Audited?</label>
+              <div class="col-sm-10 text-left">
+                <input type="checkbox" name="audited" id="audited" style="transform: scale(2);margin:10px;">
+                <select class="selectpicker" title="Select auditor" data-live-search="true" name="auditor" id="auditor">
+                  <%staff.forEach((st , index) => {%>
+                    <option value="<%= st.staffID %>"><%= st.staffName %></option>
+                    <%})%>
+                  </select>
+                </div>
+          </div>
+          </div>
+          <input type="text" id="otherTotal" name="otherTotal" style="display:none;"/>
+          <input type="number" id="otherCount" style="display:none;"/>
+          <button type="submit" style="display:none;" id="hiddenSubmit">Add Coaching</button>
+        </form>
+        <button type="button" class="btn btn-primary float-center submit" id="submitCoaching">Add Coaching</button>
+        <hr>
+        <h2>One-to-ones</h2>
+        <div id="o2oTable">
+
+        </div>
+        <h2>Add one-to-one</h2>
+        <form autocomplete="off" id="add-one2one-form" class="add-coaching-form form-styles" action="/add-one2one" method="post" enctype="multipart/form-data" style="background: #d5ede13d!important;">
+          <div class="form-group">
+            <input type="date" class="form-control" name="coachDate" value="<%=tdy%>" required>
+          </div>
+          <div class="form-group">
+            <select class="selectpicker agent" data-width="100%" data-live-search="true" name="agent" title="Select the interviewer...." required>
+              <%agents.forEach((agent , index) => {%>
+                <option value="<%= agent.agentID %>"><%= agent.agentName %></option>
+              <%})%>
+            </select>
+          </div>
+          <h5 style="text-align: left;padding: 0 11px;">Targets for next time</h5>
+          <%
+          let o2oTargets=[
+            {name:'Contribution',field:"cont",suffix:"%"},
+            {name:'QC Score',field:"qc",suffix:""},
+            {name:'Dials',field:"dials",suffix:"ph"},
+            {name:'% On target',field:"onTarget",suffix:"%"},
+            {name:'Attendance',field:"attendance",suffix:"%"},
+          ]
+          o2oTargets.forEach((target, i) => {%>
+            <div class="form-group row" style="align-items: center;">
+              <label class="col-md-2" style="margin-bottom: 0px!important;" for="<%=target.field%>Target"><%=target.name%></label>
+              <div class="col-md-1" style="position:relative;">
+                <input class="noArrows form-control o2oTargets" placeholder="Target" type="number" step="0.01" id="<%=target.field%>Target" name="<%=target.field%>Target" required><span class="targetSuffix"><%=target.suffix%></span>
+              </div>
+              <input class="form-control o2oTargetNotes col-md-5" maxlength="255" placeholder="Comments" type="text" name="<%=target.field%>Note" value="">
+            </div>
+          <%});%>
+          <h5 style="text-align: left;padding: 0 11px;">"What am I going to do?"</h5>
+          <div class="form-group">
+            <textarea name="one2oneNote" class="form-control" rows="8" cols="80" placeholder="Specific, Measurable, Achievable, Realistic, Timeframe..."></textarea>
+          </div>
+          <button type="submit" style="display:none;" id="hiddenOne2oneSubmit"></button>
+        </form>
+        <button type="button" class="btn btn-primary float-center submit" id="submitOne2one" onclick="$('#hiddenOne2oneSubmit').click()">Add One-to-one</button>
+
+        </div>
+        </div>
+        </div>
+        <div style="display:none;">
+        <div id="OtherBoxContent" class="form-group ">
+          <div class="form-group OthContainer">
+            <input type="text" class="form-control" name="issueOther" placeholder="Other issue" required>
+            <div class="input-group-append">
+              <button id="issueOtherClose" class="issueOtherClose btn btn-outline-secondary" type="button">&times;</button>
+              <button id="newIssue" class="newIssue btn btn-outline-secondary" type="button">&plus;</button>
+            </div>
+          </div>
+        </div>
+        </div>
+        <script>
+          $(document).ready(function() {
+            $('#datemessage').css("display","none")
+            $("#stdate").val('<%=stdate%>')
+            $("#endate").val('<%=endate%>')
+            $('#QCID').attr("value","[]")
+            $('.selectFilters').change(function() {
+              refreshReport()
+            })
+          })
+          function goToFollowUp(i){
+            window.location.href=("/coaching-follow-up/" + i)
+          }
+          function refreshReport(){
+            let en=new Date($("#endate").val())
+            let st=new Date($("#stdate").val())
+            let empty=new Date("1970-01-01")
+            if (st<=en && en > empty && st > empty) {
+              $('#datemessage').css("visibility","hidden")
+              window.location.href=("/add-coaching/" + dateIf(st,"-","r") + "/" + dateIf(en,"-","r"))
+            }else if (st>en) {
+              $("#datemessage").text('Start date cannot be after end date')
+              $('#datemessage').css("display","block")
+            }else if (en <= empty || st <= empty) {
+              $("#datemessage").text('Must enter both dates')
+              $('#datemessage').css("display","block")
+            }
+          }
+          function dateIf(inDate, seperator, order){
+            let day =''
+            if (new Date(inDate).getDate() < 10) {
+              day = '0' + new Date(inDate).getDate()
+            } else {
+              day = new Date(inDate).getDate()
+            }
+            let month =''
+            if (new Date(inDate).getMonth()+1 < 10) {
+              month = '0' + (new Date(inDate).getMonth()+1)
+            } else {
+              month = (new Date(inDate).getMonth()+1)
+            }
+            let year = new Date(inDate).getFullYear()
+            if(order=="f"){
+              return(day+seperator+month+seperator+year)
+            }
+            if(order=="r"){
+              return(year+seperator+month+seperator+day)
+            }
+          }
+          let o2oCols=[
+            {field:"agentName",title:"Agent"},
+            {field:"staffName",title:"TL"},
+            {field:"o2oDate",title:"Date",formatter:c=>moment(c.getValue()).format("DD/MM/YYYY")},
+          ]
+          let o2oTargets=[
+          {name:'Contribution',field:"cont",suffix:"%"},
+          {name:'QC Score',field:"qc",suffix:""},
+          {name:'Dials',field:"dials",suffix:"ph"},
+          {name:'% On target',field:"onTarget",suffix:"%"},
+          {name:'Attendance',field:"attendance",suffix:"%"},
+          ]
+          let targetCols=[]
+          o2oTargets.forEach((target, i) => {
+            targetCols.push({field:target.field+"Target",title:target.name,tooltip:(e,c)=>c.getData()[target.field+"Note"]?"*"+c.getData()[target.field+"Note"]:"",formatterParams:{suffix:target.suffix},formatter:(c,p,onR)=>{
+              let v=c.getValue()?c.getValue()+p.suffix:'n/a'
+              if (c.getData()[target.field+"Note"]) {
+                v+="<span class='note-asterisk'>*</span>"
+              }
+              return v
+            }})
+          });
+          o2oCols.push({title:"Targets for next time",columns:targetCols})
+          o2oCols.push({field:"o2oNote",title:"Note",cssClass:"word-wrap"})
+          var o2oTable=new Tabulator("#o2oTable",{
+            pagination:'local',
+            paginationSize:10,
+            layout:"fitDataStretch",
+            ajaxURL:"/all-one2ones/",
+            ajaxParams:{stdate:'<%=stdate%>',endate:'<%=endate%>'},
+            columns:o2oCols
+          })
+        </script>
+      </div>
+    </body>
+    </html>

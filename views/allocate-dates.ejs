@@ -1,0 +1,485 @@
+<%- include('partials/'+versionPages.header) %>
+
+<%
+date=new Date(date)
+date.setHours(0,0,0,0)
+var horseDay = 8;
+var horseEve = 4;
+var shiftType = "shifts";
+var notShift = "hours"
+var viewDays = 2;
+if(viewType == 2){
+  horseDay = 1;
+  horseEve = 1;
+  shiftType = "hours"
+  notShift = "shifts";
+  viewDays = 1;
+}
+var visibleJobs = [];
+
+const dateIf = (inDate, seperator, order) => {
+  let day =''
+  if (new Date(inDate).getDate() < 10) {
+    day = '0' + new Date(inDate).getDate()
+  } else {
+    day = new Date(inDate).getDate()
+  }
+  let month =''
+  if (new Date(inDate).getMonth()+1 < 10) {
+    month = '0' + (new Date(inDate).getMonth()+1)
+  } else {
+    month = (new Date(inDate).getMonth()+1)
+  }
+  let year = new Date(inDate).getFullYear()
+  if(order=="f"){
+  return(day+seperator+month+seperator+year)
+  }
+  if(order=="r"){
+  return(year+seperator+month+seperator+day)
+  }
+}
+
+      const getBusinessDatesCount = (sDate, eDate) => {
+        var count = 0;
+        var curDate = sDate
+        while (curDate < eDate) {
+          var dayOfWeek = curDate.getDay();
+          if(!((dayOfWeek == 6) || (dayOfWeek == 0)))
+          count++;
+          curDate.setDate(curDate.getDate() + 1);
+        }
+        return count;
+      };
+      function ProjectStats(id, interviewsLeft, strikeRate, daysLeft) {
+        this.id = id;
+        this.interviewsLeft = interviewsLeft;
+        this.strikeRate = strikeRate;
+        this.daysLeft = daysLeft;
+      };
+
+      let projectsArray = [];
+
+  projects.forEach((project, index) => {
+    jobs.forEach((job , index) => {
+      if(job.jobID == project.jobID){
+
+      var today = new Date()
+      today.setHours(0,0,0,0);
+      var pStart = new Date(job.startDate);
+      var endDate = new Date(job.endDate).setHours(0,0,0,0);
+      var intTarget = (job.interviewsTarget - job.PanelInterviews - job.CATIInterviews)
+      var strikeRate = (job.CATIInterviews > 0 ? job.CATIInterviews / job.Hours : job.hourlyTarget)
+      var daysLeft = (pStart > today ? getBusinessDatesCount(pStart, endDate) : getBusinessDatesCount(today, endDate))
+
+      let projectToAdd = new ProjectStats(job.jobID, intTarget, strikeRate, daysLeft+1);
+      projectsArray.push(projectToAdd)
+    }
+   });
+  });
+  console.log("after projectsArray: "+date)
+%>
+<style>
+  .hover-content{
+    cursor: pointer;
+  }
+
+  .modal-backdrop.show:nth-of-type(odd) {
+      z-index: 1052 !important;
+  }
+</style>
+<script>
+  function fnExcelReportModal(id)
+  {
+      var tab_text="<table border='2px'><tr bgcolor='#87AFC6'>";
+      var textRange; var j=0;
+      tab = document.getElementById(id); // id of table
+
+      for(j = 0 ; j < tab.rows.length ; j++)
+      {
+          tab_text=tab_text+tab.rows[j].innerHTML+"</tr>";
+          //tab_text=tab_text+"</tr>";
+      }
+
+      tab_text=tab_text+"</table>";
+      tab_text= tab_text.replace(/<A[^>]*>|<\/A>/g, "");
+      tab_text= tab_text.replace(/<a[^>]*>|<\/a>/g, "");
+      tab_text= tab_text.replace(/<img[^>]*>/gi,"");
+      tab_text= tab_text.replace(/<input[^>]*>|<\/input>/gi, "");
+
+      var ua = window.navigator.userAgent;
+      var msie = ua.indexOf("MSIE ");
+
+      if (msie > 0 || !!navigator.userAgent.match(/Trident.*rv\:11\./))
+      {
+          txtArea1.document.open("txt/html","replace");
+          txtArea1.document.write(tab_text);
+          txtArea1.document.close();
+          txtArea1.focus();
+          sa=txtArea1.document.execCommand("SaveAs",true,"Allocation.xls");
+      }
+      else
+          sa = window.open('data:application/vnd.ms-excel,' + encodeURIComponent(tab_text));
+
+      return (sa);
+  }
+  </script>
+
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <a href="/view-planner/1/14" class="btn btn-sm btn-outline-secondary">Back to resource planner</a>
+    <div class="card-body">
+      <h3 class="card-title">Allocate <%= dateIf(date,"/","f") %></h3>
+      <button class="btn btn-sm btn-secondary" data-toggle="modal" data-target="#Modal_total" class="hover-content">View/download allocation</button>
+      <table class="table table-sm table-striped table-bordered" id="allocation_table">
+        <thead>
+        <th scope='col'>Projects</th>
+        <th scope='col'>Required <%= shiftType %></th>
+        <th scope='col'>Allocated <%= shiftType %></th>
+        <th scope='col'>Remaining</th>
+        <th scope='col'>IPH</th>
+        <th scope='col'>Required interviews</th>
+        <th scope='col'>Expected interviews</th>
+        </thead>
+        <tbody>
+          <% projects.forEach((project , index) => {
+            jobs.forEach((job , index) => {
+              projectsArray.forEach((pArray, index) =>{
+                var hoursNeeded = ((pArray.interviewsLeft / pArray.strikeRate) / pArray.daysLeft)
+                if(job.jobID == project.jobID && pArray.id == job.jobID) {
+                  if(job.jobID == project.jobID) {
+                  if ((pArray.interviewsLeft > 0) && (date.setHours(0,0,0,0) <= job.endDate) ||
+                    ((pArray.interviewsLeft > 0) && (date.setHours(0,0,0,0) > job.endDate)) && (today.getDate() == date.getDate()) && (today.getMonth() == date.getMonth()))
+              {
+                        visibleJobs.push(job.jobID)%>
+          <tr>
+            <td data-toggle="modal" href="#Modal_<%= job.jobID %>" class="hover-content">
+              <%= project.quoteNo %> <%= project.quoteName %> <%= project.jobName %>
+            </td>
+            <!-- REQUIRED HOURS -->
+            <td>
+              <% var dataDisplay = 0
+                if (((date.setHours(0,0,0,0) <= job.endDate) && (date.setHours(0,0,0,0) >= job.startDate.setHours(0,0,0,0))) || (((date.setHours(0,0,0,0) > job.endDate)) && (today.getDate() == date.getDate()) && (today.getMonth() == date.getMonth())))
+              {
+                dataDisplay = ((pArray.interviewsLeft / pArray.strikeRate) / pArray.daysLeft)
+              } else { }
+              if(dataDisplay > 0 && date.getDay() != 0  && date.getDay() != 6){
+              %>
+                <%= job.isJobDay ? Math.ceil(dataDisplay/horseDay): Math.ceil(dataDisplay/horseEve) %>
+              <% } %>
+            </td>
+            <!-- ALLOCATION CALCS -->
+            <td>
+              <% allocations.forEach((allocation, index) =>{ if (allocation.jobID == job.jobID && (allocation.agentAllocationDate.getMonth() == date.getMonth()) && (allocation.agentAllocationDate.getFullYear() == date.getFullYear()) && (allocation.agentAllocationDate.getDate() == date.getDate())){
+              if (project.isJobDay == 1){%>
+                <%= (allocation.hours/ horseDay) %>
+              <%}else{%>
+                <%= (allocation.hours/ horseEve) %>
+              <%}}})%>
+            </td>
+            <td>
+              <% allocations.forEach((allocation, index) =>{
+                if (allocation.jobID == job.jobID && (allocation.agentAllocationDate.getMonth() == date.getMonth()) && (allocation.agentAllocationDate.getFullYear() == date.getFullYear()) && (allocation.agentAllocationDate.getDate() == date.getDate()) && date.getDay() != 0  && date.getDay() != 6){ %>
+                  <%= job.isJobDay ? Math.ceil(dataDisplay-allocation.hours/horseDay) : Math.ceil(dataDisplay-allocation.hours/horseEve) %>
+              <%}}) %>
+            </td>
+            <td <%if(pArray.strikeRate >= project.hourlyTarget){%>style="color:green"<%} else {%>style="color:red"<%}%>>
+              <%= pArray.strikeRate.toFixed(2) %>
+            </td>
+            <!-- REMAINING INTERVIEWS -->
+            <td>
+              <% if(date.getDay() != 0  && date.getDay() != 6){ %>
+              <%= Math.ceil(pArray.interviewsLeft/pArray.daysLeft) %>
+              <% } %>
+            </td>
+            <td>
+              <% allocations.forEach((allocation, index) =>{
+                if (allocation.jobID == job.jobID && (allocation.agentAllocationDate.getMonth() == date.getMonth()) && (allocation.agentAllocationDate.getFullYear() == date.getFullYear()) && (allocation.agentAllocationDate.getDate() == date.getDate())){ %>
+              <%= Math.round(allocation.hours*pArray.strikeRate) %>
+              <%}
+              })
+            %>
+            </td>
+          </tr>
+          <%}
+          }
+        }
+      });
+    });
+  });%>
+
+        </tbody>
+        </table>
+        <div>
+          <button class="btn btn-sm btn-secondary" id="btnExport" onclick="fnExcelReportModal('allocation_table')" style="float:right"> Download to excel </button>
+        </div>
+        <form class="tally-form" action="" method="post" enctype="multipart/form-data"
+          style="border:1px solid #ced4da; padding:50px;">
+          <div class="form-row">
+          <div class="form-group col-md-12" style="border:solid 1px #ced4da; border-radius:5px; padding:10px;">
+            <label for="Interviewers">
+              <h3>Select interviewers to allocate</h3>
+            </label>
+          <select class="selectpicker" multiple data-live-search="true" data-width="100%" name="allocatedInterviewers" id="allocatedInterviewers" required>
+            <% var matchCount=0
+             interviewers.forEach((interviewer , index) => {
+               if (interviewer.HoursBooked>0 && ((shift=="day" && interviewer.isDay==1) || (shift=="eve" && interviewer.isEve==1))) {
+               matchCount=0%>
+              <option value="<%= interviewer.agentID %>"
+                selected="selected"
+                data-tokens="<%= interviewer.agentName %>"
+                <% if (interviewer.agentID < 2){%>style="display:none;" <%}%>><%= interviewer.agentName %>
+              </option>
+            <% }}) %>
+          </select>
+         </div>
+        </div>
+        <div class="form-row">
+        <div class="form-group col-md-12" style="border:solid 1px #ced4da; border-radius:5px; padding:10px;">
+          <label for="Jobs">
+            <h3>Select jobs to allocate</h3>
+          </label>
+        <select class="selectpicker" multiple data-live-search="true" data-width="100%" name="alloJobId" id="alloJobId" required>
+          <%
+           allJobs.forEach((job , index) => {
+             matchCount=0
+             allocationsInts.forEach((alloc, index) => {
+               if(alloc.jobID==job.jobID){
+                 matchCount++
+               }
+             })
+             console.log(job.isJobDay)%>
+            <option value="<%= job.jobID %>"
+              <%if (job.jobID>8 && ((shift=="day" && job.isJobDay==1) || (shift=="eve" && job.isJobEve==1)) || matchCount>0) {%>
+                selected="selected"
+              <%}%>
+              data-tokens="<%= job.jobName %>"><%= job.jobName %>
+            </option>
+          <% }) %>
+        </select>
+       </div>
+      </div>
+        <button type="submit" class="btn btn-success tally" style="width:100%">Allocation
+        </button>
+        <p></p>
+        <a class="btn btn-secondary tally" style="width:100%; color:white;" href="/reallocate/<%= shift %>/<%= dateIf(date,"-","r") %>/0">Use yesterdays allocation
+        </a>
+        </form>
+
+
+        <form role="form" action="/send-email" method="post">
+          <br style="clear:both">
+          <div class="form-group">
+            <input type="text" class="form-control" id="subject" name="subject" placeholder="Subject" value="Allocation for <%= dateIf(date,"/","f") %>" style="display:none;">
+          </div>
+          <input type="text" class="message" style="display:none;" name="message" value=''>
+          <div class="text-center" style="display:none;">
+            <button type="submit" id="submit" name="submit" class="btn btn-sm btn-secondary">Send allocation email</button>
+          </div>
+      </form>
+<!-- Allocation Modal -->
+        <% projects.forEach((project , index) => { jobs.forEach((job , index) => { if(job.jobID == project.jobID){%>
+        <div class="modal" style="z-index: 1051 !important;" id="Modal_<%= job.jobID %>" role="dialog">
+          <div class="modal-dialog modal-lg" role="document">
+          <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body">
+  <!-- Allocation Table -->
+          <table class="table table-sm table-striped table-bordered" id="allocation_ints_<%= job.jobID %>">
+          <thead>
+            <tr>
+              <th colspan=2>
+                <%= project.quoteNo %>
+                <%= project.quoteName %>
+                <%= job.jobName %>
+                Interviewer allocation
+              </th>
+            </tr>
+            <tr>
+              <th>Interviewer</th>
+              <th>Allocated <%= shiftType %></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% allocationsInts.forEach((allocationInt, index) =>{
+             if((allocationInt.jobID == job.jobID) && (allocationInt.agentAllocationDate.getMonth() == date.getMonth()) && (allocationInt.agentAllocationDate.getFullYear() == date.getFullYear()) && (allocationInt.agentAllocationDate.getDate() == date.getDate())) {%>
+             <tr>
+              <td><%= allocationInt.agentName %></td>
+              <td>
+                <%if (project.isJobDay == 1){%>
+                  <%= Math.round((allocationInt.agentAllocationHours/ horseDay)*4)/4.00 %>
+                <%}else{%>
+                  <%= Math.round((allocationInt.agentAllocationHours/ horseEve)*4)/4.00 %>
+                <%}%>
+              </td>
+             </tr>
+             <%}})%>
+            </tbody>
+            </table>
+
+<!-- Interviewer performance table -->
+      <table class="table table-sm table-striped table-bordered" id="interviewer_performance_<%= job.jobID %>">
+        <thead>
+          <tr>
+          <th colspan=4>
+            <%= project.quoteNo %>
+            <%= project.quoteName %>
+            <%= job.jobName %>
+            Interviewer performance (Job IPH
+              <% var dataDisplay = 0;
+              if (job.Hours > 0){
+                dataDisplay = Math.round(((job.CATIInterviews) / job.Hours)*4)/4.0
+              }else{
+                dataDisplay = project.hourlyTarget
+              }%>
+            <%= dataDisplay %>)
+          </th>
+          </tr>
+          <tr>
+            <th scope='col'>Interviewer</th>
+            <th scope='col'>Hours</th>
+            <th scope='col'>Interviews</th>
+            <th scope='col'>AHR</th>
+          </tr>
+          </thead>
+          <tbody>
+          <% dailys.forEach((daily, index) => { if(daily.jobID == job.jobID) {%>
+          <tr>
+            <td data-toggle="modal" href="#Modal_<%= job.jobID %>_<%= daily.agentID %>" class="hover-content">
+              <% interviewers.forEach((interviewer , index) => { if(daily.agentID == interviewer.agentID){%><%= interviewer.agentName %>
+              <%}});%>
+            </td>
+            <td>
+              <%= daily.Hours %>
+            </td>
+            <td>
+              <%= daily.Interviews %>
+            </td>
+            <td>
+              <%= Math.round((daily.Interviews / daily.Hours)*10)/10.0 %>
+            </td>
+          </tr>
+
+          <%}})%>
+        </tbody>
+      </table>
+    </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<%}})})%>
+<% projects.forEach((project , index) => { jobs.forEach((job , index) => { if(job.jobID == project.jobID){%>
+<% dailys.forEach((daily, index) => { if(daily.jobID == job.jobID) {%>
+<div class="modal" style="z-index: 1054 !important;" id="Modal_<%= daily.jobID %>_<%= daily.agentID %>" role="dialog">
+  <div class="modal-dialog modal-lg" role="document">
+  <div class="modal-content">
+  <div class="modal-header">
+
+    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+      <span aria-hidden="true">&times;</span>
+    </button>
+  </div>
+  <div class="modal-body">
+    <table class="table table-sm table-striped table-bordered" id="daily_performance_<%= daily.jobID %>_<%= daily.agentID %>">
+      <thead>
+        <tr>
+          <th colspan="4">
+            <%=project.quoteNo%> <%=project.quoteName%> - <%=job.jobName%>
+          </th>
+        </tr>
+        <tr>
+          <th colspan="4">
+            <% interviewers.forEach((interviewer , index) => { if(daily.agentID == interviewer.agentID){%><%= interviewer.agentName %>
+            <%}});%>
+          </th>
+        </tr>
+        <tr>
+          <th>Date</th>
+          <th>Hours</th>
+          <th>Interviews</th>
+          <th>AHR</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% allDailys.forEach((allDaily, index) => {
+          if (allDaily.jobID == job.jobID && allDaily.agentID == daily.agentID) {%>
+        <tr>
+          <td><%=allDaily.inputDate.getDate()+"/"+(allDaily.inputDate.getMonth()+1)+"/"+allDaily.inputDate.getFullYear()%></td>
+          <td><%=allDaily.inputHours%></td>
+          <td><%=allDaily.inputInterviews%></td>
+          <td><%=(allDaily.inputInterviews/allDaily.inputHours).toFixed(2)%></td>
+        </tr>
+        <%}});%>
+      </tbody>
+      </table>
+  </div>
+  </div>
+  </div>
+</div>
+<%}})%>
+<%}})})%>
+    </div>
+  </div>
+</div>
+
+<!-- Allocation Modal Total-->
+  <% if(allocationsInts.length > 0){ %>
+        <div class="modal" id="Modal_total" role="dialog">
+          <div class="modal-dialog modal-lg" role="document">
+          <div class="modal-content">
+          <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+        <div class="modal-body">
+         <button class="btn btn-sm btn-secondary" id="btnExport" onclick="fnExcelReportModal('allocated-total');" style="float:left;"> Download to excel </button>
+  <!-- Allocation Table -->
+          <table class="table table-sm table-striped table-bordered" id="allocated-total">
+            <thead>
+              <tr>
+                <th>Project</th>
+                <th>Interviewer</th>
+                <th>Allocated hours</th>
+              </tr>
+            </thead>
+            <tbody>
+            <% projects.forEach((project , index) => { jobs.forEach((job , index) => { if(job.jobID == project.jobID){%>
+            <% allocationsInts.forEach((allocationInt, index) =>{
+             if((allocationInt.jobID == job.jobID) && (allocationInt.agentAllocationDate.getMonth() == date.getMonth()) && (allocationInt.agentAllocationDate.getFullYear() == date.getFullYear()) && (allocationInt.agentAllocationDate.getDate() == date.getDate())) {%>
+             <tr>
+              <td><%= project.quoteNo %> <%= project.quoteName %> <%= job.jobName %></td>
+              <td><%= allocationInt.agentName %></td>
+              <td>
+                <%if (project.isJobDay == 1){%>
+                  <%= (allocationInt.agentAllocationHours/ horseDay).toFixed(2) %>
+                <%}else{%>
+                  <%= (allocationInt.agentAllocationHours/ horseEve).toFixed(2) %>
+                <%}%>
+              </td>
+             </tr>
+             <%}})%>
+            <%}})})%>
+            </tbody>
+            </table>
+    </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        <a class="btn btn-primary" href='/edit_allocation/<%= shift %>/<%= dateIf(date,"-","r")%>'>Edit</a>
+      </div>
+    </div>
+  </div>
+</div>
+<% } %>
+    </div>
+  </div>
+</div>
+</body>
+
+</html>

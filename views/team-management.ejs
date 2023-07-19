@@ -1,0 +1,287 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+
+  $( function() {
+    $( "<%teams.forEach((team, i) => {%>#agentlist_<%=team.agentTeamID%>, <%})%>#0").sortable({
+      connectWith: ".connectedSortable",
+      distance: 5,
+      cursor: "move",
+      placeholder: "sortable-placeholder",
+      forcePlaceholderSize: true,
+      revert: true,
+      tolerance: "pointer",
+      scrollSensitivity: 100
+    }).disableSelection();
+  });
+  $(document).ready(function () {
+    $('.selectpicker:last').on('loaded.bs.select',function(e){
+      $('.dropdown-toggle.bs-placeholder').tooltip()
+      $('.btn.dropdown-toggle').each(function(e){
+        $(this).attr('title',$('#'+$(this).attr('data-id')).attr('title')).tooltip()
+      })
+    })
+    <%teams.forEach((team, i) => {%>
+    $('#team_<%=team.agentTeamID%>_toggle').click(function(){
+      $('#team_<%=team.agentTeamID%>').toggle();
+      if ($('#team_<%=team.agentTeamID%>_toggle').html()=="Hide") {
+        $('#team_<%=team.agentTeamID%>_toggle').html("Show")
+      }else {
+        $('#team_<%=team.agentTeamID%>_toggle').html("Hide")
+      }
+      $(this).tooltip('hide')
+    });
+    $("select.agentSearch_<%=team.agentTeamID%>").change(function(){
+        var selectedAgent = $(this).children("option:selected").val();
+        $( "ul" ).each(function( index ) {
+          $("#agentlist_"+index+" #"+selectedAgent).appendTo('#agentlist_<%=team.agentTeamID%>');
+        })
+        var data =[]
+        var jsonData={};
+        jsonData.agentTeamID=<%=team.agentTeamID%>
+        jsonData.agentID=selectedAgent
+        data.push(jsonData)
+        $.ajax({
+            url: '/update-agent-team',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function (response) {
+              $("#agentlist_<%=team.agentTeamID%>").fadeOut(100).fadeIn(200);
+            },
+            error: function (jqXHR, exception) {
+              alert(getErrorMessage(jqXHR, exception))
+            },
+        });
+        this.val("")
+    });
+    <%})%>
+    $(function () {
+      $('[data-toggle="tooltip"]').tooltip()
+    })
+  })
+  </script>
+<style>
+  <%teams.forEach((team, i) => {%>
+  #agentlist_<%=team.agentTeamID%>{
+    background:<%=team.teamColour%>;
+  }
+  #teamName_<%=team.agentTeamID%>{
+    color:<%=team.teamColour%>;
+    font-size: larger!important;
+  }
+  <%})%>
+  .teamColour {
+    height: 38px;
+    cursor: pointer;
+  }
+  .agentList{
+    background-color: #6c757d;
+  }
+  .sortable {
+    border: 1px solid #eee;
+    min-height: 800px;
+    list-style-type: none;
+    margin: 0;
+    padding: 2px;
+    float: left;
+    width:100%;
+  }
+  .sortable li, .sortable li {
+      margin: 0 0 0 0;
+      padding: 0;
+      cursor: pointer;
+      background: white;
+      color: var(--primary);
+      border: 1px solid gainsboro;
+      margin: 1px 0px;
+  }
+  .sortable-placeholder{
+    background-color:white;
+  }
+  input[type=checkbox], input[type=radio] {
+    transform: scale(1.5);
+    margin:3px;
+  }
+.flash-container .flash-message.flash-success:after{display:none;}
+.flash-container {
+    font-size: 20px;
+}
+.flash-message i.fas.fa-graduation-cap {
+    color: #4caf50;
+}
+.hidden{
+  visibility:hidden;
+}
+</style>
+<div class="container" style="padding-top:70px;">
+  <% if (message != '') { %>
+    <h1 class="text-center text-success"><%= message %></h1>
+    <% } %>
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body viewerHeight">
+        <h5 class="card-title">Manage teams</h5>
+        <div class="d-flex" style="width:100%;height: 90vh;">
+        <table>
+          <tr>
+        <%teams.forEach((team, i) => {%>
+          <td style="vertical-align:top">
+            <a href="#" data-toggle="tooltip" data-placement="top" class="badge btn btn-sm badge-pill btn-light" title="<%=team.teamName%>" id="team_<%=team.agentTeamID%>_toggle">Hide</a>
+            <div id="team_<%=team.agentTeamID%>">
+              <%if (team.agentTeamID<2) {%>
+                <h6 style="height:255px; width:207px; line-height:68px;"><%=team.teamName%></h6>
+              <%}else {%>
+                <input style="min-width: 207px;" type="text" class="form-control teamName update" data-teamid="<%=team.agentTeamID%>" name="teamName_<%=team.agentTeamID%>" id="teamName_<%=team.agentTeamID%>" value="<%=team.teamName%>"/>
+                <select class="selectpicker manager_select update" title="Manager" data-width="100%" data-teamid="<%=team.agentTeamID%>" data-style="btn-light" name="manager_select_<%=team.agentTeamID%>" id="manager_select_<%=team.agentTeamID%>">
+                  <optgroup label="Team Leader">
+                    <option value=""></option>
+                    <% managers.forEach((manager , index) => { %>
+                      <option value="<%= manager.staffID %>" <%if (manager.staffID == team.managerID) {%>selected<%}%>><%= manager.staffName %></option>
+                    <% }) %>
+                  </optgroup>
+                </select><br>
+                <select class="selectpicker shiftSwitch update" title="Shift" data-teamid="<%=team.agentTeamID%>" data-width="100%" data-style="btn-light" name="shiftSwitch_<%=team.agentTeamID%>" id="shiftSwitch_<%=team.agentTeamID%>">
+                  <optgroup label="Shift">
+                    <option id="shiftSwitch_day_<%=team.agentTeamID%>" value="Day" <%if (team.isDay == 1) {%>selected<%}%>>Day</option>
+                    <option id="shiftSwitch_eve_<%=team.agentTeamID%>" value="Evening" <%if (team.isEve == 1) {%>selected<%}%>>Evening</option>
+                  </optgroup>
+                </select><br>
+                <select class="selectpicker rcSelect update" data-teamid="<%=team.agentTeamID%>" title="RingCentral group" data-width="100%" data-style="btn-light" name="rcSelect_<%=team.agentTeamID%>" id="rcSelect_<%=team.agentTeamID%>">
+                  <option value=""></option>
+                  <optgroup label="Ring Central Group">
+                    <% rcGroups.forEach((rc, index) => {
+                      let teamRc=team.ringCentralID?team.ringCentralID:''
+                      %>
+                      <option value="<%= rc.id %>" <%if (rc.id.toString() == teamRc.toString()) {%>selected<%}%>><%= rc.name %></option>
+                    <% }) %>
+                  </optgroup>
+                </select><br>
+                <select class="selectpicker ccSelect update" data-teamid="<%=team.agentTeamID%>" title="Cc into emails" data-width="100%" data-style="btn-light" name="ccSelect_<%=team.agentTeamID%>" id="ccSelect_<%=team.agentTeamID%>" multiple data-live-search="true">
+                  <option value=""></option>
+                  <optgroup label="Staff member(s) to cc into emails">
+                    <% staff.forEach((staff , index) => { %>
+                      <option value="<%= staff.staffEmail %>" <%if ((team.emailCC?team.emailCC.split(";").includes(staff.staffEmail):false)) {%>selected<%}%>><%= staff.staffName %></option>
+                    <% }) %>
+                  </optgroup>
+                </select><br>
+                <div style="height: 38px;line-height: 38px;">
+                  <input type="checkbox" onchange="$(`#initialTrainingDaysBlock_<%=team.agentTeamID%>`).toggleClass('hidden')" class="update" data-teamid="<%=team.agentTeamID%>" name="isAllocatable_<%=team.agentTeamID%>" id="isAllocatable_<%=team.agentTeamID%>" <%if (team.isAllocatable!=1) {%>checked<%}%>>
+                  <label for="isAllocatable_<%=team.agentTeamID%>">Academy</label>
+                </div>
+                <div style="height: 38px;line-height: 38px;" id="initialTrainingDaysBlock_<%=team.agentTeamID%>" class="<%=team.isAllocatable==1?'hidden':''%>">
+                  <label for="initialTrainingDays_<%=team.agentTeamID%>">Training days:</label>
+                  <input type="number" style="width:63px;display: inline-block;" placeholder="#" class="form-control update" data-teamid="<%=team.agentTeamID%>" name="initialTrainingDays_<%=team.agentTeamID%>" id="initialTrainingDays_<%=team.agentTeamID%>" value="<%=team.initialTrainingDays || ''%>">
+                </div>
+              <%}%>
+              <input type="color" id="teamColour_<%=team.agentTeamID%>" class="teamColour form-control update" data-teamid="<%=team.agentTeamID%>" name="teamColour_<%=team.agentTeamID%>" value="<%=team.teamColour%>">
+            <select class="selectpicker agentSearch_<%=team.agentTeamID%>" data-width="100%" data-live-search="true" name="agentSearch_<%=team.agentTeamID%>" id="agentSearch_<%=team.agentTeamID%>" required>
+              <option value="">Search for an agent</option>
+              <%agents.forEach((agent , index) => {%>
+                <option value="<%= agent.agentID %>"><%= agent.agentName %></option>
+              <%})%>
+            </select>
+            <ul id="agentlist_<%=team.agentTeamID%>" class="sortable connectedSortable agentList" data-ringCentralID="<%=team.ringCentralID%>">
+              <%var added=0
+              agents.forEach((agent , index) => {
+                  if (agent.agentTeamID == team.agentTeamID) {
+                    added=added+1%>
+                    <li class="ui-state-default list-group-item list-group-item-action" data-ringCentralID="<%=agent.ringCentralID%>" id="<%=agent.agentID%>"><%=agent.agentName%></li>
+                <%}%>
+              <%})
+              if (added==0) {%>
+                <%# No agents added yet %>
+              <%}%>
+            </ul>
+            </div>
+          </td>
+        <%});%>
+        </tr>
+        </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    function getErrorMessage(jqXHR, exception) {
+       var msg = '';
+       if (jqXHR.status === 0) {
+           msg = 'Not connect.\n Verify Network.';
+       } else if (jqXHR.status == 404) {
+           msg = 'Requested page not found. [404]';
+       } else if (jqXHR.status == 500) {
+           msg = 'Internal Server Error [500]. '+JSON.parse(jqXHR.responseText).error;
+       } else if (exception === 'parsererror') {
+           msg = 'Requested JSON parse failed.';
+       } else if (exception === 'timeout') {
+           msg = 'Time out error.';
+       } else if (exception === 'abort') {
+           msg = 'Ajax request aborted.';
+       } else {
+           msg = 'Uncaught Error.\n' + jqXHR.responseText;
+       }
+       return msg;
+   }
+   $(document).ready(function () {
+    $( ".sortable" ).on( "sortreceive", function( e, ui ) {
+      var targetid=this.id
+      var origTeamID=$(ui.sender[0]).attr('id').replace("agentlist_","")
+      var fromAcademy=$('#isAllocatable_'+origTeamID+":checked").length>0
+      var data =[]
+      var jsonData={};
+      jsonData.agentTeamID=this.id.replace("agentlist_","")
+      jsonData.teamRCID=$('#rcSelect_'+jsonData.agentTeamID).val()
+      jsonData.agentID=ui.item.attr("id")
+      jsonData.agentRCID=$(ui.item).attr("data-ringCentralID")
+      data.push(jsonData)
+      $.ajax({
+          url: '/update-agent-team',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify(data),
+          success: function (response) {
+            $("#"+targetid).fadeOut(100).fadeIn(200);
+            if (fromAcademy) {
+              window.FlashMessage.success($(ui.item).text()+' graduated! <i class="fas fa-graduation-cap"></i>',{timeout: 4000});
+            }
+          },
+          error: function (jqXHR, exception) {
+            alert(getErrorMessage(jqXHR, exception))
+          },
+      });
+      return false;
+    });
+    $(".update").change(function(evt){
+      evt.preventDefault();
+      var teamID=$(this).attr('data-teamid')
+      var data =[]
+      var jsonData={};
+      var targetid=this.id
+      jsonData.agentTeamID=teamID
+      jsonData.teamName=$('#teamName_'+teamID).val()
+      jsonData.isAllocatable=$('#isAllocatable_'+teamID+":checked").length==0?1:0
+      jsonData.initialTrainingDays=$('#initialTrainingDays_'+teamID).val()
+      jsonData.managerID=$('#manager_select_'+teamID).val()
+      jsonData.isDay=+$("#shiftSwitch_day_"+teamID).prop("selected")
+      jsonData.isEve=+$("#shiftSwitch_eve_"+teamID).prop("selected")
+      jsonData.teamColour=$('#teamColour_'+teamID).val()
+      jsonData.ringCentralID=$('#rcSelect_'+teamID).val()
+      jsonData.emailCC=$('#ccSelect_'+teamID).val().join(";")
+      data.push(jsonData)
+      $.ajax({
+          url: '/update-team',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify(data),
+          success: function (response) {
+            $("#"+targetid).parent().fadeOut(100).fadeIn(200);
+          },
+          error: function (jqXHR, exception) {
+            alert(getErrorMessage(jqXHR, exception))
+          },
+      });
+      return false;
+    })
+  });
+  </script>
+</div>
+</body>
+</html>

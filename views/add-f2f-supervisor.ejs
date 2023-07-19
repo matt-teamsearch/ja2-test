@@ -1,0 +1,85 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  let areas=<%-JSON.stringify(areas.map(el=>el.area))%>
+  $(document).ready(function () {
+    $('#areaList option').each(function(e){
+      let el=this
+      if (areas.includes($(el).attr('value'))) {
+        $(el).prop('selected',true)
+      }
+    })
+    $('#areaList').selectpicker('refresh')
+  })
+</script>
+<style>
+  #isActive{
+    -webkit-transform: scale(2);
+    margin: 12px auto;
+    width:auto;
+    display: block;
+    text-align: center;
+  }
+</style>
+<div class="container" style="padding-top:70px;">
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body">
+        <h5 class="card-title"><%= sup.id?"Edit":"Add"%> supervisor</h5>
+        <form class="form-styles" action="/<%=sup.id?"edit":"add"%>-F2f-Supervisor/<%=sup.id?sup.id:""%>" method="post" enctype="multipart/form-data">
+          <input type="text" name="user" id="user" style="display:none;">
+          <input type="text" name="supervisorID" id="supervisorID" style="display:none;" value="<%=sup.id?sup.id:""%>">
+          <div class="form-row">
+          </div>
+          <div class="form-group col-md-12 d-flex">
+            <input type="text" class="form-control" name="supervisorName" id="supervisorName" placeholder="Supervisor name" value="<%=sup.id?sup.supervisorName:""%>" required>
+          </div>
+          <div class="form-group col-md-12">
+            <select id="areaList" name="areaList" title="Areas covered..." multiple data-width="100%" class="selectpicker customfilters" data-container="body" data-live-search="true">
+              <option value='North East'>North East</option>
+              <option value='North West'>North West</option>
+              <option value='Yorkshire & Humberside'>Yorkshire & Humberside</option>
+              <option value='East Midlands'>East Midlands</option>
+              <option value='West Midlands'>West Midlands</option>
+              <option value='East of England'>East of England</option>
+              <option value='London'>London</option>
+              <option value='South East'>South East</option>
+              <option value='South West'>South West</option>
+              <option value='Scotland'>Scotland</option>
+              <option value='Northern Ireland'>Northern Ireland</option>
+              <option value='Wales'>Wales</option>
+              <option value='Channel Islands'>Channel Islands</option>
+            </select>
+          </div>
+          <div class="form-group col-md-12 d-flex">
+            <input type="text" class="form-control" name="add1" id="add1" placeholder="Address line 1" value="<%=sup.id?sup.add1:""%>">
+            <input type="text" class="form-control" name="add2" id="add2" placeholder="Address line 2" value="<%=sup.id?sup.add2:""%>">
+            <input type="text" class="form-control" name="add3" id="add3" placeholder="Address line 3" value="<%=sup.id?sup.add3:""%>">
+            <input type="text" class="form-control" name="add4" id="add4" placeholder="Address line 4" value="<%=sup.id?sup.add4:""%>">
+            <input type="text" class="form-control" name="postcode" id="postcode" placeholder="Postcode" value="<%=sup.id?sup.postcode:""%>">
+          </div>
+          <div class="form-group col-md-12 d-flex">
+            <input type="text" class="form-control" name="landlinePhone" id="landlinePhone" placeholder="Landline" value="<%=sup.id?sup.landlinePhone:""%>" >
+          </div>
+          <div class="form-group col-md-12 d-flex">
+            <input type="text" class="form-control" name="mobilePhone" id="mobilePhone" placeholder="Mobile" value="<%=sup.id?sup.mobilePhone:""%>" >
+          </div>
+          <div class="form-group col-md-12 d-flex">
+            <input type="email" class="form-control" name="email" id="email" placeholder="Email" value="<%=sup.id?sup.email:""%>" >
+          </div>
+          <div class="form-group col-md-12">
+            <input type="checkbox" class="form-control" name="isActive" id="isActive" <%=sup.id?(sup.isActive?'checked':""):""%> >
+            <label for="isActive">Active</label>
+          </div>
+          <div class="form-group col-md-12">
+            <button type="submit" class="btn btn-primary "><%= sup.id?"Update":"Add"%> Supervisor</button>
+            <% if(sup.id){%>
+            <a href="/delete-f2f-supervisor/<%= sup.id%>" type="button" class="btn btn-danger">Delete Supervisor</a>
+            <%}%>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+</div>
+</body>
+</html>

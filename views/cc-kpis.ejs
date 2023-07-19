@@ -1,0 +1,182 @@
+<%- include('partials/'+versionPages.header) %>
+<style media="screen">
+  .tableCont {
+    width: 100%;
+    overflow-x: scroll;
+    overflow-y: clip;
+  }
+  #shiftsTable {
+    width: auto;
+    margin: auto;
+  }
+  #shiftsTable td {
+    width: 100%;
+  }
+  #shiftsTable th {
+    white-space: nowrap;
+  }
+  #shiftsTable td, table#shiftsTable th {
+    padding: 2px 10px;
+    border: 1px solid gainsboro;
+  }
+  #shiftsTable td:nth-child(1) {
+    text-align:left;
+    white-space: nowrap;
+  }
+  #shiftsTable td:not(:nth-child(1)) {
+    width: 85px;
+  }
+  #shiftsTable td:nth-child(2), #shiftsTable th:nth-child(2) {
+    padding-left: 340px;
+  }
+  #shiftsTable td:nth-child(1), #shiftsTable th:nth-child(1) {
+    position: fixed;
+    width: 320px;
+    background:#f8f9fa;
+    z-index:1;
+  }
+  #shiftsTable tr:nth-of-type(odd) td:nth-child(1){
+    background:#ebeced;
+  }
+  #shiftsTable th:nth-child(1) {
+    height: 65px;
+  }
+  .increase::after{
+    content: '\25B2';
+    margin: 0px 2px;
+    color: var(--success);
+  }
+  .decrease::after{
+    content: '\25BC';
+    margin: 0px 2px;
+    color: var(--danger);
+  }
+  .increase.reverse::after{
+    color: var(--danger);
+  }
+  .decrease.reverse::after{
+    color: var(--success);
+  }
+</style>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5 class="card-title">Call Centre Manager KPIs</h5>
+      <label for="fromDate">From:<input type="date" class="form-control selectFilters" id="fromDate" name="fromDate" value="<%=fromDate%>"></label>
+      <div class="tableCont">
+        <table id="shiftsTable" class="table table-striped"></table>
+      </div>
+      <div class="teamsTable"></div>
+    </div>
+  </div>
+</div>
+<script type="text/javascript">
+  let qtrSt=[5,8,11,2]
+  let getQtrSt=(dte)=>moment(dte).subtract(dte.month()<2?1:0,'years').set("month",qtrSt[dte.fquarter(6).quarter-1]).startOf('month')
+  let getMonths=(dte)=>{
+    let currDte=getQtrSt(dte)
+    let monthArr=[]
+    while (currDte.fquarter(6).quarter==dte.fquarter(6).quarter) {
+      monthArr.push(moment(currDte))
+      currDte.add(1,'month')
+    }
+    return monthArr
+  }
+  function getReport(){
+    let dates=Array.from(moment.range($('#fromDate').val(),moment().subtract(1,'d')).by('day'));
+    let qtrs=dates.map(el=>({txt:el.fquarter(6).toString(),info:getMonths(el).map(m=>m.format("MMMM YYYY"))})).filter((el,i,self)=>self.map(s=>s.txt).indexOf(el.txt)==i)
+    let addRow=(title,field,data,form,p={dp:1,lowerIsBetter:false},info)=>{
+      p.dp=(p.dp>=0?p.dp:1)
+      $('#shiftsTable tbody').append(`<tr><td>`+title+(info?`<span class="infoHover">`+info+`</span>`:'')+`</td>`+qtrs.map(q=>`<td>`+form(data.find(d=>d.qtr==q.txt).b2b[field],p.dp,data.find(d=>d.qtr==q.txt).b2b[field+"-prev"],p.lowerIsBetter)+`</td><td>`+form(data.find(d=>d.qtr==q.txt).cons[field],p.dp,data.find(d=>d.qtr==q.txt).cons[field+"-prev"],p.lowerIsBetter)+`</td>`).join("")+"</tr>")
+    }
+    let addDiff=(txt,val,prev,reverse)=>{
+      return '<span class="'+(prev!=null && val!=null?(val>prev?'increase':'decrease'):'')+(reverse?' reverse':'')+'">'+txt+'</span>'
+    }
+    let nfPerc=(val,dp,prev,rev)=>addDiff((val>=0?Math.round((val*100)*Math.pow(10,dp))/Math.pow(10,dp):'-')+"%",val,prev,rev)
+    let nfNum=(val,dp,prev,rev)=>addDiff(val>=0?Math.round(val*Math.pow(10,dp))/Math.pow(10,dp):'-',val,prev,rev)
+    let qtrHeads=qtrs.map(q=>`<th colspan="2">`+q.txt+`<span class="infoHover">`+q.info.join("<br>")+`</span></th>`).join("")
+    let shiftHeads=qtrs.map(q=>`<th>B2B</th><th>Cons</th>`).join("")
+    $('#shiftsTable').html(`<thead><tr><th></th>`+qtrHeads+"</tr><tr><th></th>"+shiftHeads+"</tr></thead><tbody></tbody>")
+    $.ajax({
+      url: '/cc-kpi-data/',
+      data:{fromDate:$('#fromDate').val()},
+      type: 'GET',
+      contentType: 'application/json',
+      success: function (resp) {
+        function makeTable(id,data,colField,cols,rowDefs){
+          let tableData=cols.map((q,i)=>{
+            let b2bPrev=data.find(s=>s[colField]==cols[i-1] && s.isEve==0)
+            let consPrev=data.find(s=>s[colField]==cols[i-1] && s.isEve==1)
+            let b2bCurr=data.find(s=>s[colField]==q && s.isEve==0)
+            let b2b={}
+            if (b2bCurr) {
+              Object.keys(b2bCurr).forEach((k, i) => {
+                b2b[k]=b2bCurr[k]
+                b2b[k+"-prev"]=b2bPrev?b2bPrev[k]:null
+              });
+            }
+            let consCurr=data.find(s=>s[colField]==q && s.isEve==1)
+            let cons={}
+            if (consCurr) {
+              Object.keys(consCurr).forEach((k, i) => {
+                cons[k]=consCurr[k]
+                cons[k+"-prev"]=consPrev?consPrev[k]:null
+              });
+            }
+            return {
+              qtr:q,
+              b2b:b2b,
+              cons:cons,
+            }
+          })
+          try{
+            rowDefs.forEach((row, i) => {
+              addRow(row.title,row.field,tableData,row.formatter,row.formParams,row.info)
+            });
+          }catch(err){
+            console.log(err)
+          }finally{
+            $('.infoHover').each(function(i) {
+              $(this).tooltip({
+                html:true,
+                placement:'right',
+                title:$(this).html()
+              })
+              $(this).html(' <i class="fas fa-info-circle"></i>')
+            });
+          }
+        }
+        let shiftsRows=[
+          {title:"Average of <u>hours</u> booked v conducted",info:"% of booked hours that do not end up being worked, including all absences/no shows",field:"percLost",formatter:nfPerc},
+          {title:"Average of <u>shifts</u> booked v conducted",info:"% of booked shifts that do not end up being worked, including all absences/no shows",field:"percShiftsLost",formatter:nfPerc},
+          {title:"Average contribution",info:"CATI agents' pay as a % of CATI sales",field:"cont",formatter:nfPerc,formParams:{lowerIsBetter:true}},
+          {title:"Average quality score",info:"Average of all QC scores excluding intro checks",field:"avgScore",formatter:nfNum},
+          {title:"% of staff with one2one",info:"% of staff with at least 1 one-to-one entered into JA2",field:"o2os",formatter:nfPerc},
+          {title:"% of no shows",info:"No show shifts as a percentage of all booked shifts",field:"percNoShow",formatter:nfPerc,formParams:{lowerIsBetter:true}},
+          {title:"% of sick",info:"Sickness shifts as a percentage of all booked shifts",field:"percSick",formatter:nfPerc,formParams:{lowerIsBetter:true}},
+          {title:"% of canx",info:"'Cancelled by agent' absences as a percentage of all booked shifts",field:"percCanx",formatter:nfPerc,formParams:{lowerIsBetter:true}},
+          {title:"% of manager canx",info:"'Cancelled by manager' absences as a percentage of all booked shifts",field:"percCanxM",formatter:nfPerc,formParams:{lowerIsBetter:true}},
+          {title:"% of shifts without any info",info:"Where the TL has forgotten to add hours/ints for an agent. Usually the shift has not been worked but TL has failed to enter an absence",field:"missedEntries",formatter:nfPerc,formParams:{dp:2,lowerIsBetter:true}},
+        ]
+        makeTable('shiftsTable',resp.shifts,'qtr',qtrs.map(q=>q.txt),shiftsRows)
+
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  $(document).ready(function(){
+    getReport()
+  })
+  $('#fromDate').on('blur',function(){
+    let dte=moment($(this).val())
+    if (dte.isValid()) {
+      $('#fromDate').val(moment(dte).subtract(dte.month()<2?1:0,'years').set("month",qtrSt[dte.fquarter(6).quarter-1]).startOf('month').format("YYYY-MM-DD"))
+      window.FlashMessage.warning('Date snapped to start of quarter');
+      getReport()
+    }
+  })
+</script>
+</body>
+</html>

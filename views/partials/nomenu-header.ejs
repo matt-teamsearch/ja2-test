@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <link rel="icon" href="https://teamsearchmr.sharefile.com/styles/images/1e5ffe03-b78a-4052-af71-f7c1e17094b6.png">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js"></script>
+  <script src='/js/jquery-3.5.1.js'></script>
+  <script src='/js/jquery.gauge.js'></script>
+  <script src='/js/Chart.bundle.min.js'></script>
+  <script src='/js/mustache.js'></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.4/dist/Chart.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@0.7.0"></script>
+  <link rel="stylesheet" href="//code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <link rel="stylesheet" href="/css/jquery.timepicker.css">
+  <link rel="stylesheet" href="/resources/demos/style.css">
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+  <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js"></script>
+  <link rel='stylesheet' href='/css/bootstrap.min.css'>
+  <link rel='stylesheet' href='/css/fa.all.min.css'>
+  <link rel='stylesheet' href='/css/fontawesome.min.css'>
+  <script type="text/javascript" src="https://cdn.datatables.net/1.10.19/js/jquery.dataTables.min.js"></script>
+  <link href="https://cdn.datatables.net/1.10.19/css/jquery.dataTables.min.css" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.1/js/bootstrap-select.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-select/1.13.1/css/bootstrap-select.css" />
+  <link rel="stylesheet" href="https://use.fontawesome.com/releases/v5.6.3/css/all.css" integrity="sha384-UHRtZLI+pbxtHCWp1t77Bi1L4ZtiqrqD80Kn4Z8NTSRyMA2Fd33n5dQ8lWUE00s/" crossorigin="anonymous">
+  <script type="text/javascript" src="https://cdn.datatables.net/fixedcolumns/3.3.0/js/dataTables.fixedColumns.min.js"></script>
+  <script type="text/javascript" src="https://cdn.datatables.net/buttons/1.6.1/js/dataTables.buttons.min.js"></script>
+  <script type="text/javascript" src="https://cdn.datatables.net/fixedheader/3.1.6/js/dataTables.fixedHeader.min.js"></script>
+  <link href="https://cdn.datatables.net/buttons/1.6.1/css/buttons.dataTables.min.css" rel="stylesheet" />
+  <link href="https://cdn.datatables.net/fixedcolumns/3.3.0/css/fixedColumns.dataTables.min.css" rel="stylesheet" />
+  <link href="https://cdn.datatables.net/fixedheader/3.1.6/css/fixedHeader.dataTables.min.css" rel="stylesheet" />
+  <script type='text/javascript' src='https://cdn.datatables.net/buttons/1.6.5/js/dataTables.buttons.min.js'></script>
+  <script type='text/javascript' src='https://cdn.datatables.net/buttons/1.6.5/js/buttons.flash.min.js'></script>
+  <script type='text/javascript' src='https://cdn.datatables.net/buttons/1.6.5/js/buttons.html5.min.js'></script>
+  <script type='text/javascript' src='https://cdn.datatables.net/buttons/1.6.5/js/buttons.print.min.js'></script>
+  <script type="text/javascript" src="/js/moment.js"></script>
+  <title><%= title %></title>
+  <script>
+  function goBack() {
+    window.history.back();
+  }
+  function goForward() {
+    window.history.forward();
+  }
+
+  $("#popover").popover({ trigger: "hover" });
+
+  sendFeedback = function(){
+    window.open('/feedback/' + "'" + window.location.href.replace(/[&\/\\#,+()$~%.'":*?<>{}]/g, '') + "'", '_blank');
+  }
+</script>
+</head>
+<style>
+.table-wrapper {
+  margin-top: 50px;
+}
+
+body{
+  background-color:#2d2d2d;
+  color:#fff;
+}
+
+form, table{
+  background:#f2f6ff!important;
+  color:black;
+}
+
+.card-header{
+  background:#d5deed; color:#000; border:0px; border-top-left-radius:5px; border-top-right-radius:5px;
+}
+
+.btn-info {
+  color: #000!important;
+  background-color: #fff!important;
+  border-radius: 5px!important;
+  border-color:#ced4da;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+
+}
+
+::-webkit-scrollbar-track {
+  -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.3);
+  border-radius: 10px;
+  background:#efefef;
+  border:1px solid #efef;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 10px;
+  -webkit-box-shadow: inset 0 0 6px rgba(0,0,0,0.5);
+  background:#3a586d;
+  border:1px solid #efef;
+}
+
+.container{
+  min-width:1020px;
+}
+
+.form-styles {
+  border:1px solid #ced4da;
+  padding:50px;
+}
+
+</style>
+<body>
+  <div class="page-wrapper">
+    <nav class="navbar navbar-dark" style="position:fixed; width:100%; min-width:1020px; height:50px; top:0px; background-color:#3a586d; z-index:999; padding:0px;">
+    </nav>

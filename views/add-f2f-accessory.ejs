@@ -1,0 +1,106 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  function saveImg(){
+    var reader = new FileReader();
+    reader.readAsDataURL($('#profileImg')[0].files[0]);
+    reader.onload = function () {
+     $.ajax({
+       url: '/save-img/',
+       type: 'POST',
+       data: JSON.stringify({folder:'F2F Accessories',b64:reader.result,ext:$('#profileImg').val().split(".")[1],isTemp:true,filename:'<%=acc.accID%>'}),
+       contentType: 'application/json',
+       success: function (response) {
+         $('#avatarImg').prop("src",response)
+       },
+       error: function (jqXHR, exception) {
+         alert(getErrorMessage(jqXHR, exception))
+       },
+     });
+    };
+    reader.onerror = function (error) {
+     console.log('Error: ', error);
+    };
+  }
+  $(document).ready(function(e){
+    $('#accType').val('<%=acc.accType%>').selectpicker('refresh')
+  })
+</script>
+<style>
+  #isActive{
+    -webkit-transform: scale(2);
+    margin: auto;
+    width: auto;
+    display: block;
+    text-align: center;
+  }
+  .form-row {
+    justify-content: center;
+    margin-bottom: 8px;
+    width: 30%;
+    margin: auto;
+  }
+  .avatarImg {
+    border-radius: 8px;
+    border: 2px solid black;
+  }
+  .input-group {
+    justify-content: center;
+  }
+  label {
+    margin-bottom: 0px;
+    vertical-align: bottom;
+    line-height: 38px;
+    padding: 0px 6px
+  }
+  .form-group.col-md-12.d-flex {
+      justify-content: space-evenly;
+  }
+</style>
+<div class="container" style="padding-top:70px;">
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body">
+        <h5 class="card-title"><%= acc.accID?"Edit":"Add"%> F2F Accessory</h5>
+        <form class="form-styles" action="/<%=acc.accID?"edit":"add"%>-F2f-Accessory/<%=acc.accID?acc.accID:""%>" method="post" enctype="multipart/form-data">
+          <input type="text" name="user" id="user" style="display:none;">
+          <input type="text" name="accID" id="accID" style="display:none;" value="<%=acc.accID?acc.accID:""%>">
+          <div class="form-row col-md-12" style="text-align:center;margin-bottom:0px">
+            <%if(acc.accID){%>
+              <img src='<%=profileImg?"/F2F Accessories/"+profileImg:"/noTablet.png"%>' width="187px" id="avatarImg" class="avatarImg" alt="Image is missing">
+            <%}%>
+          </div>
+          <div class="form-row col-md-12" style="text-align:center">
+            <input onchange="saveImg()" type="file" name="profileImg" id="profileImg" class="filestyle" data-input="false" data-text="Upload a photo" accept=".png,.jpeg,.jpg">
+          </div>
+          <div class="form-group col-md-12 d-flex">
+            <div class="form-row">
+              <label for="accType">Type:</label>
+              <select class="form-control" name="accType" id="accType" title="Select..." required>
+                <option value="Case">Case</option>
+                <option value="Powerpack">Powerpack</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label for="accName">Name:</label>
+              <input type="text" class="form-control" name="accName" id="accName" placeholder="Accessory name" value="<%=acc.accID?acc.accName:""%>" required>
+            </div>
+            <div class="form-row">
+              <label for="accModel">Model:</label>
+              <input type="text" class="form-control" name="accModel" id="accModel" placeholder="Model" value="<%=acc.accID?acc.accModel:""%>" required>
+            </div>
+          </div>
+          <div class="form-group col-md-12">
+            <input type="checkbox" class="form-control" name="isActive" id="isActive" <%=acc.accID?(acc.isActive?'checked':""):""%> >
+            <label for="isActive">Active</label>
+          </div>
+          <div class="form-group col-md-12">
+            <button type="submit" class="btn btn-primary "><%= acc.accID?"Update":"Add"%> Accessory</button>
+            <% if(acc.accID){%>
+            <a href="/delete-f2f-accessory/<%= acc.accID%>" style="display:none;" type="button" class="btn btn-danger">Delete Accessory</a>
+            <%}%>
+          </div>
+        </form>
+      </div>
+    </div>
+</div>
+</body>
+</html>

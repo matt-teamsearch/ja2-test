@@ -1,0 +1,92 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+	$(document).ready(function () {
+		$('#projects_table').DataTable({
+			"paging": false,
+		});
+	});
+</script>
+<div class="container" style="padding-top:70px; padding-left:0px; min-width:400px;">
+	<div class="card text-dark mb-2 text-center">
+		<div class="card-body">
+			<%
+			let totalInterviews = 0;
+			let totalCosts = 0;
+			let totalSales = 0;
+			panelJobs.forEach((panelJob, index) =>{
+				totalInterviews =+ panelJob.completesNumber;
+				totalCosts =+ panelJob.interviewCost
+				totalSales =+ panelJob.completesNumber * panelJob.jobCPI;
+
+			});%>
+			<h3>Performance for <%= panelJobs[0].onlinePanelName %></h3>
+			<div style="height:400px; margin:auto; padding:10px;"><canvas id="panelChart" style="width:auto; height:auto;"></canvas></div>
+			<h5> Total interviews: <%= totalInterviews %></h5>
+			<h5> Total sales: £<%= totalSales %></h5>
+			<h5> Total spend: £<%= totalCosts %></h5>
+			<h5> Average contribution: <%= (totalCosts/totalSales*100).toFixed(2) %>%</h5>
+			<table class="table table-sm table-striped table-bordered" id="projects_table">
+				<thead>
+					<th>Project Name </th>
+					<th>Interviews </th>
+					<th>Cost </th>
+					<th>Sales </th>
+					<th>Contribution </th>
+				</thead>
+				<tbody>
+					<% panelJobs.forEach((panelJob, index) =>{ %>
+						<tr>
+							<td>
+								<a href="/overview/<%= panelJob.quoteID %>"><%= panelJob.quoteNo %> <%= panelJob.quoteName %> <%= panelJob.jobName %></a>
+							</td>
+							<td>
+								<%= panelJob.completesNumber %>
+							</td>
+							<td>
+								£<%= panelJob.interviewCost %>
+							</td>
+							<td>
+								£<%= panelJob.completesNumber * panelJob.jobCPI %>
+							</td>
+							<td>
+								<%= (panelJob.interviewCost/(panelJob.completesNumber * panelJob.jobCPI)*100).toFixed(2) %>%
+							</td>
+						</tr>
+					<% });%>
+				</tbody>
+			</table>
+
+		</div>
+	</div>
+</div>
+<script>
+  var catiC = $('#panelChart');
+  var catiChart = new Chart(catiC, {
+    type: 'pie',
+    data: {
+      labels: ['Total Sales','Total Spend'],
+      datasets: [{
+        data: [<%= totalSales %>,<%= totalCosts %>],
+        backgroundColor: [
+        'rgba(155,236,195, 0.8)',
+        'rgba(203,32,74, 0.8)',
+        ],
+        borderColor: [
+        'rgba(155,236,195, 1)',
+        'rgba(203,32,74, 1)',
+        ],
+        borderWidth: 1
+      }]
+    },
+    options: {
+			responsive: true,
+			maintainAspectRatio: false,
+      title: {
+        display: true,
+        text: 'Sales and spend'
+      }
+    }
+  });
+</script>
+</body>
+</html>

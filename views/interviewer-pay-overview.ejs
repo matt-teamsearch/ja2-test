@@ -1,0 +1,516 @@
+<%- include('partials/'+versionPages.header) %>
+<%
+
+const dateIf = (inDate, seperator, order) => {
+  let day =''
+  if (new Date(inDate).getDate() < 10) {
+    day = '0' + new Date(inDate).getDate()
+  } else {
+    day = new Date(inDate).getDate()
+  }
+  let month =''
+  if (new Date(inDate).getMonth()+1 < 10) {
+    month = '0' + (new Date(inDate).getMonth()+1)
+  } else {
+    month = (new Date(inDate).getMonth()+1)
+  }
+  let year = new Date(inDate).getFullYear()
+  if(order=="f"){
+    return(day+seperator+month+seperator+year)
+  }
+  if(order=="r"){
+    return(year+seperator+month+seperator+day)
+  }
+}
+const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const years=[]
+for (var i = 2020; i <= currPayYear; i++) {
+  years.push(i)
+}
+%>
+<script type="text/javascript">
+  const dateIf = (inDate, seperator, order) => {
+    let day =''
+    if (new Date(inDate).getDate() < 10) {
+      day = '0' + new Date(inDate).getDate()
+    } else {
+      day = new Date(inDate).getDate()
+    }
+    let month =''
+    if (new Date(inDate).getMonth()+1 < 10) {
+      month = '0' + (new Date(inDate).getMonth()+1)
+    } else {
+      month = (new Date(inDate).getMonth()+1)
+    }
+    let year = new Date(inDate).getFullYear()
+    if(order=="f"){
+      return(day+seperator+month+seperator+year)
+    }
+    if(order=="r"){
+      return(year+seperator+month+seperator+day)
+    }
+  }
+    let jobStats=<%-jobs%>
+    let shiftStats=<%-shiftStats%>
+    function format ( d ) {
+      // `d` is the original data object for the row
+      var cont= '<div class="sliderBox"><table class="table-hover" cellpadding="5" cellspacing="0" border="0" style="padding-left:50px;">'
+        cont=cont+'<thead><th>Date</th><th></th><th>Hours</th><th>Wage</th><th>Sales</th><th>Cont (for bonus)</th><th>Band</th></thead>'
+      var totals={}
+      totals.hrs=0
+      totals.Pay=0
+      totals.sales=0
+      totals.dates=[]
+      totals.dateCount=[]
+      let hrsIcon={
+        'Fixed':'<i class="fas fa-file-contract" data-toggle="tooltip" title="Fixed contract hours"></i>',
+        'Fixed+':'<span data-toggle="tooltip" title="Extra hours completed on top of contracted hours"><i class="fas fa-file-contract"></i><i class="fas fa-plus"></i></span>',
+        'Variable':''
+      }
+      shiftStats.filter(function(r) {return r.agentID == d[0];}).forEach((shift, i) => {
+        totals.dates.push(shift.inputDate)
+        totals.hrs=totals.hrs+shift.hrs
+        totals.Pay=totals.Pay+shift.Pay
+        totals.sales=totals.sales+shift.sales
+        console.log(shiftStats)
+        var jobsArr=jobStats.filter(function(r) {return r.agentID == d[0] && r.inputDate==shift.inputDate;}).map(job => "<span class='"+(job.excludeFromBonus?'excl':'')+"'>"+job.jobName+' ('+job.hrs+' hrs)</span>').join('<br>')
+        var tooltip=jobsArr+'<br>'+((shift.fatalCount>0)?'QC fail':'')
+        if (jobsArr.length==0) {
+          tooltip=shift.absenceType
+        }
+        cont=cont+'<tr data-html="true" data-href="'+dateIf(shift.inputDate,"-","r")+'" class="tooltip-row shiftRow '+((shift.absenceType=='Paid leave')?'paidLeave':'')+' '+((shift.fatalCount>0)?'qcFail':'')+'" data-toggle="tooltip" title="'+tooltip+'">'+
+          '<td>'+dateIf(shift.inputDate,"/","f")+'</td>'+
+          '<td>'+hrsIcon[shift.hoursType]+'</td>'+
+          '<td>'+shift.hrs+'</td>'+
+          '<td>£'+shift.Pay.toFixed(2)+'</td>'+
+          '<td>£'+shift.sales.toFixed(2)+'</td>'+
+          '<td>'+(shift.cont?(shift.cont*100).toFixed(2):'-')+'%</td>'+
+          '<td>'+((shift.band)?shift.band:"n/a")+'</td>'
+      });
+      totals.dateCount=new Set(totals.dates).size
+      cont=cont+'</tr><tr><td>Total: '+totals.dateCount+'</td><td></td><td>'+totals.hrs+'</td><td>£'+totals.Pay.toFixed(2)+'</td><td>£'+totals.sales.toFixed(2)+'</td><td>'+d[15]+'</td><td>'+d[16]+'</td>';
+      cont=cont+'</tr></table></div>';
+
+      return cont
+    }
+    function downloadFile(url){
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download="";
+      document.body.appendChild(a);
+      console.log(url)
+      a.click();
+      window.URL.revokeObjectURL(url);
+    }
+    function stripHtml(html){
+      let tmp = document.createElement("DIV");
+      tmp.innerHTML = html;
+      return tmp.textContent || tmp.innerText || "";
+    }
+    $.fn.dataTable.ext.buttons.Export = {
+      text: 'Export payroll',
+      action: function ( e, dt, node, config ) {
+        let data={}
+        data.month="<%=monthNames[searchMonth-1]%>"
+        data.year="<%=searchYear%>"
+        let cols=dt.context[0].aoHeader[0].map(th=>({title:$(th.cell).text(),xlName:$(th.cell).attr('data-xlname')}))
+        data.rows=dt.data().toArray().map((rowData,rowIndex)=>{
+          let row={}
+          rowData.forEach((el,cellIndex)=>{
+            let title=cols[cellIndex].xlName
+            if (title) {
+              row[title]=el.indexOf("£")>-1?Number(stripHtml(el).replace("£","")):stripHtml(el)
+            }
+          })
+          return row
+        })
+        console.log(data)
+        $.ajax({
+          url: '/payroll-excel',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify(data),
+          success: function (response) {
+            console.log(response)
+            downloadFile(response)
+          },
+          error: function (jqXHR, exception) {
+            console.log(jqXHR)
+            alert("Error downloading file")
+          },
+        })
+      }
+    };
+
+    $(document).ready(function () {
+      try{
+        $().reportFilter({
+          onRefresh:(vals)=>{
+            window.location.href=("/view-interviewer-pay/"+moment(vals.enDate).format("M")+"/"+moment(vals.enDate).format("YYYY")+"/"+(vals.rigourHourly?0:130))
+          },
+          filters:{
+            stDate:{val:'<%=startDate%>',disabled:true},
+            enDate:{val:'<%=endDate%>',disabled:true},
+            rigourHourly:<%=clientExcl==0%>
+          },
+          quickDates:{
+            calMonth:false,
+            qtr:false,
+            calYear:false,
+            busYear:false,
+          }
+        })
+      }catch(e){
+        $('#selectFilterGroup').show()
+      }
+      $('[data-toggle="tooltip"]').tooltip()
+      var buttonCommon = {
+        exportOptions: {
+          columns: ':not(.viewOnly)',
+          format: {
+            body: function ( data, row, column, node ) {
+              if ($(node).find('strike').length>0) {
+                return '£0.00'
+              }else {
+                return $(node).text()
+              }
+            }
+          }
+        }
+      };
+      var table=$('#pay_table').DataTable({
+        paging: false,
+        columnDefs:[
+          { "sorting": false, "targets": [1,2] },
+          { "visible": false, "targets": ['downloadOnly','hide'] }
+        ],
+        "order": [[ 7, "asc" ]],
+        dom: 'Bfrtip',
+        buttons: [
+          'Export'
+        ]
+      });
+      $('.gridTooltip').on('mouseout', function(e) {
+        $(this).tooltip('dispose')
+      })
+      $('.gridTooltip').on('mouseover', function(e) {
+        $(this).tooltip('dispose')
+         var rowData = table.row($(this).parent()[0]).data()
+         let row={}
+         rowData.forEach((el,i)=>{
+           let title=table.row($(this).parent()[0]).settings()[0].aoColumns.find(c=>c.idx==i).sTitle
+           row[title]=el
+         })
+         let bandsTxt=[]
+         let isEve=row['isEve']==1
+         console.log(row)
+         let payRate=Number(row['Pay rate'].replace("£",""))?row['Pay rate']:row['Fixed pay rate']
+         let weighting=(Number(payRate.replace("£",""))/Number(<%=maxPayRate%>))*(isEve?0.95:1)
+         let bands=[<%=bonusScoring.map(el=>el.contribution).join(",")%>]
+         let bonusBands=[<%=bonusScoring.map(el=>el.score).join(",")%>]
+         let hrBands=[<%=hourBanding.map(el=>el.hourBand).join(",")%>]
+         let addBonusBands=[<%=hourBanding.map(el=>el.addBonus).join(",")%>]
+         let hours=Number(row['Hours for bonus'])
+         let cont=Number(row['Contribution'].replace("%",""))
+         let bandLabs=["A","B","C","D","E"]
+         let current=null
+         let currentHr=-1
+         for (var i = 0; i < hrBands.length; i++) {
+           if (hours>=hrBands[i]) {
+             currentHr=i
+           }
+         }
+         if (hours) {
+           console.log(weighting,Number(payRate.replace("£","")),Number(<%=maxPayRate%>),isEve)
+           bandsTxt.push("<"+(bands[0]*weighting).toFixed(2)+"%")
+           if (cont<=bands[0]*weighting && current===null) {
+             current=0
+           }
+           for (var i = 1; i < bands.length; i++) {
+             bandsTxt.push(((bands[i-1]+0.01)*weighting).toFixed(2)+"% - "+(bands[i]*weighting).toFixed(2)+"%")
+             if (cont<=bands[i]*weighting && current===null) {
+               current=i
+             }
+           }
+           let title="<div class='bandCont'>"
+             +"<div class='flrow bandHead'><div class='flcol'></div><div class='flcol "+(currentHr==-1?'currHrBand':'')+"'><"+hrBands[0]+"</div>"
+             for (var i = 0; i < hrBands.length-1; i++) {
+               title=title+"<div class='flcol "+(currentHr==i?'currHrBand':'')+"'>"+(hrBands[i])+"-"+(hrBands[i+1]-0.1)+"</div>"
+             }
+             title=title+"<div class='flcol'>"+hrBands[hrBands.length-1]+"+</div></div>"
+             +bandLabs.map((el,i)=>"<div class='flrow "+(current==i?'currBand':'')+"'><div class='band bandHead flcol "+bandLabs[i]+" '>"+bandsTxt[i]+"</div><div class='band flcol "+bandLabs[i]+" "+(currentHr==-1?'currHrBand':'')+"'>£0</div>"+hrBands.map((hr,h)=>"<div class='band flcol "+bandLabs[i]+" "+(currentHr==h?'currHrBand':'')+"'>£"+(bonusBands[i]+addBonusBands[h])+"</div>").join("")+"</div>").join("")
+             +"</div>"
+          $(this).tooltip({
+            html:true,
+            delay:{
+              show:500,
+              hide:0
+            },
+            placement:"top",
+            boundary:'window',
+            title:title
+          }).tooltip("show")
+         }
+      })
+      $(document).on('click', '.shiftRow', function () {
+        window.location.href = "/tally-sheet/"+$(this).attr('data-href')+"/0/0/1/1"
+      })
+      $('#pay_table tbody').on('click', 'td.details-control', function () {
+        var tr = $(this).closest('tr');
+        var row = table.row( tr );
+        if ( row.child.isShown() ) {
+          // This row is already open - close it
+          $('div.sliderBox', row.child()).slideUp( function () {
+            row.child.hide();
+            tr.removeClass('shown');
+          });
+        }
+        else {
+          // Open this row
+          row.child( format(row.data()) , 'no-padding' ).show();
+          tr.addClass('shown');
+          $('div.sliderBox', row.child()).slideDown();
+        }
+        $('[data-toggle="tooltip"]').tooltip({html:true, width:"200px"})
+      });
+    });
+    $(document).on('change', '.selectFilters', function(evt) {
+      // console.log("/view-interviewer-pay/"+$('#month').val()+"/"+$('#year').val())
+      window.location.href=("/view-interviewer-pay/"+$('#month').val()+"/"+$('#year').val()+"/"+$('#clientExcl').val())
+    })
+
+  </script>
+  <style>
+    .details-control{
+      padding:0px!important
+    }
+    .chevron{
+      padding: 0px;
+      width: 100%;
+      height: 100%;
+      border: none;
+      border-radius: 0px;
+      line-height: 2.5em;
+    }
+    div.sliderBox {
+      display: none;
+    }
+    table.dataTable tbody td.no-padding {
+      padding: 0;
+    }
+    .tooltip-inner {
+      max-width: 400px;
+    }
+    .tooltip-row:hover{
+      cursor:pointer;
+    }
+    .qcFail, strike{
+      color: #ce3636;
+    }
+    .paidLeave{
+      color: #92b509;
+    }
+    .bandCont{
+      display: table;
+    }
+    .bandHead{
+      /* font-size:10px; */
+      font-weight:bold;
+      color:black;
+      padding:3px;
+      white-space:nowrap;
+    }
+    .flrow{
+      display:table-row;
+    }
+    .flcol{
+      display:table-cell;
+      min-width:70px;
+    }
+    .band.A{
+      background-color:#f2d235;
+    }
+    .band.B{
+      background-color:#e3d07b;
+    }
+    .band.C{
+      background-color:#c2c2c2;
+    }
+    .band.D{
+      background-color:#c7a67f;
+    }
+    .band.E{
+      background-color:#d99f4c;
+    }
+    .band{
+      padding:3px;
+      white-space:no-wrap;
+      border:none;
+    }
+    .currBand>div{
+      border-top:2px solid black;
+      border-bottom:2px solid black;
+    }
+    .currHrBand{
+      border-left:2px solid black;
+      border-right:2px solid black;
+    }
+    .tooltip-inner {
+      background-color:white;
+      opacity:1!important;
+      box-shadow: 2px 2px 4px 1px #00000075;
+      max-width:900px;
+      color:black;
+    }
+    .gridTooltip{
+      cursor:pointer;
+    }
+    .excl{
+      text-decoration:line-through;
+    }
+    .chevron i {
+      transition:1s all;
+      transform:rotate(0deg);
+    }
+    .shown .chevron i {
+      transform:rotate(180deg);
+    }
+  </style>
+  <div class="container" style="padding-top:70px;">
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body viewerHeight">
+        <div id="selectFilterGroup" style="display:none;">
+          <select class="selectpicker selectFilters" data-container="body" data-live-search="true" id="month" name="month">
+          <% monthNames.forEach((month,i) => { %>
+            <option value="<%=i+1%>" <%if((i+1)==searchMonth){%>selected<%}%>><%=month%></option>
+          <% }) %>
+          </select>
+          <select class="selectpicker selectFilters" data-container="body" data-live-search="true" id="year" name="year">
+          <% years.forEach((year,i) => { %>
+            <option value="<%=year%>" <%if(year==searchYear){%>selected<%}%>><%=year%></option>
+          <% }) %>
+          </select>
+          <select class="selectpicker selectFilters" data-container="body" data-live-search="true" id="clientExcl" name="clientExcl">
+            <option value="0" <%if(clientExcl==0){%>selected<%}%>>Hourly Rigour included</option>
+            <option value="130" <%if(clientExcl==130){%>selected<%}%>>Hourly Rigour excluded</option>
+          </select>
+        </div>
+        <h5 class="card-title">Interviewer pay from <%= dateIf(startDate,"/","f") %> to <%= dateIf(endDate,"/","f") %></h5>
+              <table class="table table-sm table-striped table-bordered" id="pay_table">
+                <thead>
+                  <th class="viewOnly hide">AgentID</th>
+                  <th class="viewOnly"> </th>
+                  <th class="viewOnly"> </th>
+                  <th class="downloadOnly" data-xlName="EMPLOYEE NUMBER">Employee Number</th>
+                  <th class="downloadOnly" data-xlName="Join date">Join date</th>
+                  <th class="downloadOnly" data-xlName="Shift">Shift</th>
+                  <th class="downloadOnly" data-xlName="Contract">Contract version</th>
+                  <th class="downloadOnly" data-xlName="Contract start">Contract start</th>
+                  <th style="width:30%;" data-xlName="INT NAME">Agent</th>
+                  <th class="downloadOnly" data-xlName="EMAIL">Email</th>
+                  <th class="downloadOnly" data-xlName="D.O.B.">DOB</th>
+                  <th class="downloadOnly" data-xlName="Leaving Date">Leaving date</th>
+                  <%if(searchMonth==4){%>
+                    <th class="downloadOnly" data-xlName="PAY PERIOD (Mar)">Pay period end</th>
+                    <th class="downloadOnly" data-num data-xlName="HOURS (Mar)">Hours (<%=searchYear-1%>)</th>
+                    <th class="downloadOnly" data-num data-xlName="Rate (Mar)">Pay rate (<%=searchYear-1%>)</th>
+                    <th class="downloadOnly" data-num data-xlName="FIXED HOURS (Mar)">Fixed hours (<%=searchYear-1%>)</th>
+                    <th class="downloadOnly" data-num data-xlName="Fixed Rate (Mar)">Fixed pay rate (<%=searchYear-1%>)</th>
+                    <th class="downloadOnly" data-xlName="PAY PERIOD (Apr)">Pay period end</th>
+                    <th class="downloadOnly" data-num data-xlName="HOURS (Apr)">Hours (<%=searchYear%>)</th>
+                    <th class="downloadOnly" data-num data-xlName="Rate (Apr)">Pay rate (<%=searchYear%>)</th>
+                    <th class="downloadOnly" data-num data-xlName="FIXED HOURS (Apr)">Fixed hours (<%=searchYear%>)</th>
+                    <th class="downloadOnly" data-num data-xlName="Fixed Rate (Apr)">Fixed pay rate (<%=searchYear%>)</th>
+                    <th class="hide" data-num data-xlName="Rate">Pay rate</th>
+                    <th class="hide" data-num data-xlName="Fixed rate">Fixed pay rate</th>
+                  <%}else {%>
+                    <th class="downloadOnly" data-xlName="PAY PERIOD">Pay period end</th>
+                  <%}%>
+                  <th data-xlName="HOURS" data-num>Hours</th>
+                  <th data-xlName="FIXED HOURS" data-num>Fixed Hours</th>
+                  <th class="downloadOnly">Notes</th>
+                  <th class="downloadOnly" data-num>Age</th>
+                  <%if(searchMonth!=4){%>
+                    <th class="downloadOnly" data-num data-xlName="Rate">Pay rate</th>
+                    <th class="downloadOnly" data-num data-xlName="Fixed rate">Fixed pay rate</th>
+                  <%}%>
+                  <th data-xlName="" data-num>Basic</th>
+                  <th class="viewOnly">Contribution</th>
+                  <th class="viewOnly">Bonus band</th>
+                  <th class="viewOnly">Hours for bonus</th>
+                  <th data-xlName="BONUS">Bonus</th>
+                  <%if(searchMonth==4){%>
+                    <th class="downloadOnly" data-num data-xlName="">Hol pay (<%=searchYear-1%>)</th>
+                    <th class="downloadOnly" data-num data-xlName="">Hol pay (<%=searchYear%>)</th>
+                  <%}%>
+                  <th class="downloadOnly" data-num data-xlName="">Hol pay</th>
+                  <th class="downloadOnly" data-num data-xlName="">Adjustments</th>
+                  <th class="downloadOnly" data-num data-xlName="">Total pay</th>
+                  <th class="downloadOnly" data-num data-xlName="">Expenses (non-taxable)</th>
+                  <th class="viewOnly hide">isEve</th>
+                </thead>
+                <tbody>
+                  <%monthStats.forEach((stat, index) =>{
+                    var breatheAgent=breatheAgents.find(el=>el.id==stat.breatheID)
+                    %>
+                  <tr>
+                    <td><%= stat.agentID %></td>
+                    <td class="details-control"><span class="btn btn-outline-secondary chevron"><i class="fas fa-chevron-down"></i></span></td>
+                    <td><img src='/BreatheCloud.png' height='15px' <%if(!breatheAgent){%>class='disabledImg'<%}%>></td>
+                    <td><%=stat.payrollID%></td>
+                    <td><%=dateIf(stat.agentJoined,"/","f")%></td>
+                    <td><%=stat.isEve==1?"Eve":"Day"%></td>
+                    <td><%=stat.contractName%></td>
+                    <td><%=dateIf(stat.contractStart,"/","f")%></td>
+                    <td><a id="<%= stat.agentID %>_A" href="/int-performance/<%=startDate%>/<%=endDate%>/<%=stat.agentID%>/0"><%= stat.agentName %></a></td>
+                    <td><%=breatheAgent?breatheAgent.email:''%></td>
+                    <td><%= dateIf(stat.agentDOB,"/","f") %></td>
+                    <td><%= stat.agentLeft?dateIf(stat.agentLeft,"/","f"):'' %></td>
+                    <%if(searchMonth==4){%>
+                      <td><%= moment.utc(endDate).startOf('month').subtract(1,'d').format("DD/MM/YYYY") %></td>
+                      <td><%= stat.hrsOld %></td>
+                      <td>£<%= stat.payRateOld %></td>
+                      <td><%= stat.hrsOldFixed %></td>
+                      <td>£<%= stat.payRateOldFixed %></td>
+                      <td><%= dateIf(endDate,"/","f") %></td>
+                      <td><%= stat.hrsNew %></td>
+                      <td>£<%= stat.payRateNew %></td>
+                      <td><%= stat.hrsNewFixed %></td>
+                      <td>£<%= stat.payRateNewFixed %></td>
+                      <td>£<%= stat.payRate %></td>
+                      <td>£<%= stat.payRateFixed %></td>
+                    <%}else{%>
+                      <td><%= dateIf(endDate,"/","f") %></td>
+                    <%}%>
+                    <td><%= stat.hrs %></td>
+                    <td><%= stat.hrsFixed %></td>
+                    <td></td>
+                    <td><%= stat.agentAge %></td>
+                    <%if(searchMonth!=4){%>
+                      <td>£<%= stat.payRate %></td>
+                      <td>£<%= stat.payRateFixed %></td>
+                    <%}%>
+                    <td>£<%= (stat.Pay+stat.PayFixed).toFixed(2) %></td>
+                    <td><%= stat.cont.toFixed(2) %>%</td>
+                    <td class="gridTooltip"><%= stat.band %></td>
+                    <td><%= stat.bonusHours %></td>
+                    <td class="gridTooltip">£<%= stat.bonus.toFixed(0) %></td>
+                    <%if(searchMonth==4){%>
+                      <td>£<%= ((stat.PayOld)*0.1207).toFixed(2) %></td>
+                      <td>£<%= ((stat.PayNew)*0.1207).toFixed(2) %></td>
+                    <%}%>
+                    <td>£<%= ((stat.Pay)*0.1207).toFixed(2) %></td>
+                    <td></td>
+                    <td>£<%= (((stat.Pay)*1.1207)+stat.PayFixed+stat.bonus).toFixed(2) %></td>
+                    <td></td>
+                    <td><%= stat.isEve %></td>
+                  </tr>
+                  <%});%>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        </body>
+        </html>

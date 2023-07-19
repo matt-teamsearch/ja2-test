@@ -1,0 +1,59 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .tabulator-col-content,.tabulator-cell{
+    padding:3px!important;
+    font-size:small;
+  }
+</style>
+
+<div class="container" style="padding-top:70px;max-width:97%">
+  <div class="card viewerHeight text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5 class="card-title">Complaints Log</h5>
+      <a href="/add-complaint" class="btn btn-primary"><i class="fas fa-plus"></i> New complaint</a>
+      <div id="complaintsTable"></div>
+  </div>
+</div>
+<script>
+  $(document).ready(function(e){
+    const queriesTable = new Tabulator("#complaintsTable", {
+      ajaxURL:"/get-complaints-log/",
+      autoResize:true,
+      layout:"fitColumns",
+      responsiveLayout:"hide",
+      height:'67vh',
+      movableRows: true,
+      resizableRows:false,
+      rowFormatter:row=>{
+        row.getCells().forEach((cell, i) => {
+          let content=$(cell.getElement()).text()
+          if (content.length>20) {
+            $(cell.getElement()).tooltip({title:content})
+          }
+        });
+      },
+      ajaxResponse:function(url, params, response){
+        return response.complaints
+      },
+      columns:[
+        {visible:false, field:"complaintID"},
+        {field:'raisedDate',title:'Raised',formatter:(cell=>moment.utc(cell.getValue()).format("DD/MM/YYYY HH:mm"))},
+        {field:'categoryName',title:'Category'},
+        {field:'ownerName',title:'Owner'},
+        {field:'complainantName',title:'Complainant'},
+        {field:'projectName',title:'Project'},
+        {field:'reason',title:'Complaint'},
+        {field:'action',title:'Required action'},
+        {title:'Status',field:'status'},
+        {title:'Next stage due',field:'nextDue',formatter:cell=>cell.getData().status=='Closed'?'n/a':(cell.getValue()==null?'':moment.utc(cell.getValue()).format("DD/MM/YYYY"))}
+      ],
+      rowClick:function(e,row){
+        window.location.href="/edit-complaint/"+row.getData().complaintID
+      },
+    })
+  })
+</script>
+<script src="/js/JA2tableFuncs.js" type="text/javascript"></script>
+<link rel='stylesheet' href='/css/JA2tables.css'>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<%- include('partials/'+versionPages.header) %>
+<div id="contentContainer">
+</div>
+<script src="/socket.io/socket.io.js"></script>
+<button type="button" class="btn btn-primary" onclick="reallocate()">Re-allocate</button>
+<div id="allocations">
+
+</div>
+<style media="screen">
+  .tabulator .tabulator-header .tabulator-col.jobHeader .tabulator-col-title {
+      white-space: normal;
+  }
+  .tabulator .tabulator-header .tabulator-col.jobHeader .tabulator-col-content,.tabulator .tabulator-calcs .jobHeader {
+      padding: 1px 3px;
+      font-size: smaller;
+  }
+  .tabulator .tabulator-header .tabulator-col.tabulator-sortable.jobHeader .tabulator-col-title {
+      padding-right: unset;
+  }
+  .ahrBox {
+    position: absolute;
+    font-size: smaller;
+    right: 0;
+    top: 0;
+    color: gray;
+  }
+  table.jobTopCalc {
+    text-align: left;
+    margin: auto;
+}
+table.jobTopCalc tr {
+    border-bottom: 1px solid gainsboro;
+}
+
+.dayRow, .tabulator .tabulator-header .tabulator-col.dayHeader {
+  background-color: #ffc40075;
+}
+.tabulator-row.tabulator-row-even.dayRow{
+  background-color: #ffc4008a;
+}
+.eveRow, .tabulator .tabulator-header .tabulator-col.eveHeader{
+  background-color: #fff0bc9e;
+}
+.tabulator-row.tabulator-row-even.eveRow{
+  background-color: #faeab4d1;
+}
+.dayRow:not(.tabulator-calcs) .tabulator-cell.tabulator-frozen{
+  background-color: #ffe48a;
+}
+.tabulator-row.tabulator-row-even.dayRow:not(.tabulator-calcs) .tabulator-cell.tabulator-frozen{
+  background-color: #ffdd6f;
+}
+.eveRow:not(.tabulator-calcs) .tabulator-cell.tabulator-frozen{
+  background-color: #fff7e0;
+}
+.tabulator-row.tabulator-row-even.eveRow:not(.tabulator-calcs) .tabulator-cell.tabulator-frozen{
+  background-color: #fbeec2;
+}
+</style>
+<script type="text/javascript">
+  let dte='2023-06-15'
+  let allocTable
+  function reallocate(){
+    $.ajax({url:"/auto-allocate-date",method:"post",data:{
+      allocDate:dte,
+      shifts:["Day","Eve"]
+    }}).done(e=>{
+      getAllocTable()
+    })
+  }
+  function getAllocTable(){
+    $.ajax("/auto-allocations?allocDate="+dte).done(data=>{
+      if (allocTable) {
+        allocTable.destroy()
+      }
+      let jobTopCalc=(vals,data,params)=>{
+        return {allocated:vals.reduce((a,b)=>a+Number(b||0),0),needed:params.job.resourceHours}
+      }
+      let jobCols=data.jobs.map(job=>{
+        console.log(job)
+        let col={
+          field:"allocations."+job.jobID+".allocHours",
+          title:job.jobName,
+          cssClass:"jobHeader "+(job.isJobEve?"eveHeader":"dayHeader"),
+          visible:job.resourceHours>0,
+          width:100,
+          hozAlign:"center",
+          movableColumns: true,
+          headerHozAlign:"center",
+          topCalc:jobTopCalc,
+          topCalcFormatter:c=>{
+            let calcEl=document.createElement("table")
+            calcEl.classList.add("jobTopCalc")
+            let diff=(c.getValue().allocated-c.getValue().needed)
+            calcEl.innerHTML=`
+            <tr><td>Needed</td><td>`+c.getValue().needed+`</td></tr>
+            <tr><td>Allocated</td><td>`+c.getValue().allocated+`</td></tr>
+            <tr><td>Diff</td><td class="`+(diff>=0?"good":"bad")+`">`+(diff>0?"+":"")+diff+`</td></tr>
+            `
+            return calcEl
+          },
+          topCalcParams:{job:job},
+          formatterParams:{job:job},
+          formatter:(c,p,onR)=>{
+            onR(()=>{
+              let jobHistory=c.getData().jobHistory[p.job.jobID]||{}
+              if (jobHistory.agentAhr) {
+                let ahrBox=document.createElement("div")
+                ahrBox.classList.add("ahrBox")
+                ahrBox.innerHTML=Math.round(jobHistory.agentAhr*100)/100+"ph ("+numberToOrdinal(jobHistory.agentRank)+")"
+                c.getElement().append(ahrBox)
+              }
+            })
+            return c.getValue()?c.getValue():""
+          }
+        }
+        return col
+      })
+      let defaultCols=[
+      {field:"agentName",title:"Agent"},
+      {field:"booked",title:"Booked"},
+      {field:"allocHours",title:"Allocated",mutator:(v,d)=>Object.keys(d.allocations).reduce((a,b)=>a+Number(d.allocations[b].allocHours),0)},
+      ]
+      allocTable=new Tabulator("#allocations",{
+        data:data.agents,
+        columns:defaultCols.concat(jobCols),
+        rowFormatter:row=>{
+          if (row.getData().isAgentDay) {
+            $(row.getElement()).addClass('dayRow')
+          }else {
+            $(row.getElement()).addClass('eveRow')
+          }
+        }
+      })
+    })
+  }
+  getAllocTable()
+</script>
+</body>
+</html>

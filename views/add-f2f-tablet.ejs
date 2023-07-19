@@ -1,0 +1,136 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  function updateSoftware(s){
+    $("#"+s+"Updated").val(moment($("#"+s+"Date").val()).format("YYYY-MM-DD HH:mm:ss"))
+  }
+  function saveImg(){
+    var reader = new FileReader();
+    reader.readAsDataURL($('#profileImg')[0].files[0]);
+    reader.onload = function () {
+     $.ajax({
+       url: '/save-img/',
+       type: 'POST',
+       data: JSON.stringify({folder:'F2F Tablets',b64:reader.result,ext:$('#profileImg').val().split(".")[1],isTemp:true,filename:'<%=tablet.tabletID%>'}),
+       contentType: 'application/json',
+       success: function (response) {
+         $('#avatarImg').prop("src",response)
+       },
+       error: function (jqXHR, exception) {
+         alert(getErrorMessage(jqXHR, exception))
+       },
+     });
+    };
+    reader.onerror = function (error) {
+     console.log('Error: ', error);
+    };
+  }
+</script>
+<style>
+  #isActive{
+    -webkit-transform: scale(2);
+    margin: auto;
+    width: auto;
+    display: block;
+    text-align: center;
+  }
+  .form-row{
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+  .avatarImg {
+    border-radius: 8px;
+    border: 2px solid black;
+  }
+  .input-group {
+    justify-content: center;
+  }
+  .softwareChecks{
+    transform: scale(1.5);
+  }
+  #softwareTable{
+    border: 1px solid gainsboro;
+    margin:auto;
+  }
+  #softwareTable td,#softwareTable th {
+    padding: 3px 13px;
+    text-align: left;
+    border-bottom: 1px solid gainsboro;
+    height:37px;
+  }
+  label {
+    margin-bottom: 0px;
+    vertical-align: bottom;
+    line-height: 38px;
+    padding: 0px 6px
+  }
+</style>
+<div class="container" style="padding-top:70px;">
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body">
+        <h5 class="card-title"><%= tablet.tabletID?"Edit":"Add"%> F2F Tablet</h5>
+        <form class="flexForm form-styles" action="/<%=tablet.tabletID?"edit":"add"%>-F2f-Tablet/<%=tablet.tabletID?tablet.tabletID:""%>" method="post" enctype="multipart/form-data">
+          <input type="text" name="user" id="user" style="display:none;">
+          <input type="text" name="tabletID" id="tabletID" style="display:none;" value="<%=tablet.tabletID?tablet.tabletID:""%>">
+          <div class="form-row col-md-12" style="text-align:center;margin-bottom:0px">
+            <%if(tablet.tabletID){%>
+              <img src='<%=profileImg?"/F2F Tablets/"+profileImg:"/noTablet.png"%>' width="187px" id="avatarImg" class="avatarImg" alt="Image is missing">
+            <%}%>
+          </div>
+          <div class="form-row col-md-12" style="text-align:center">
+            <input onchange="saveImg()" type="file" name="profileImg" id="profileImg" class="filestyle" data-input="false" data-text="Upload a photo" accept=".png,.jpeg,.jpg">
+          </div>
+          <div class="form-group col-md-6 d-flex">
+            <label for="tabletName">Name:</label>
+            <input type="text" class="form-control" name="tabletName" id="tabletName" placeholder="Tablet name" value="<%=tablet.tabletID?tablet.tabletName:""%>" required>
+          </div>
+          <div class="form-group col-md-6 d-flex">
+            <label for="tabletModel">Model:</label>
+            <input type="text" class="form-control" name="tabletModel" id="tabletModel" placeholder="Model" value="<%=tablet.tabletID?tablet.tabletModel:""%>" >
+          </div>
+          <div class="form-group col-md-12 d-flex">
+            <table id="softwareTable">
+              <th>Software</th><th></th><th>Last updated</th>
+              <%
+              function proper(str) {
+                if (str.length<3) {
+                  str=str.toUpperCase()
+                }else {
+                  str = str.toLowerCase().split(' ');
+                  for (var i = 0; i < str.length; i++) {
+                    str[i] = str[i].charAt(0).toUpperCase() + str[i].slice(1);
+                  }
+                  str=str.join(' ');
+                }
+                return str;
+              }
+              let software=['os','askia','confirmit','teamviewer','surveytogo']
+              software.forEach((item, i) => {%>
+                <tr><td><%=proper(item)%></td>
+                  <td>
+                    <input type="checkbox" id="<%=item%>Check" class="softwareChecks" onchange="$('#<%=item%>Date').toggle();$('#<%=item%>Date').prop('required',!$('#<%=item%>Date').prop('required'))" <%=tablet.tabletID?(tablet[item+"Updated"]?'checked':""):""%>>
+                  </td>
+                  <td>
+                    <input type="date" name="<%=item%>Updated" id="<%=item%>Date" style="<%=tablet.tabletID?(tablet[item+"Updated"]?'':'display:none;'):''%>" <%=tablet.tabletID?(tablet[item+"Updated"]?'required':''):''%> value="<%=tablet.tabletID?(tablet[item+"Updated"]?moment(tablet[item+"Updated"]).format("YYYY-MM-DD"):""):""%>" onchange="updateSoftware('<%=item%>')">
+                  </td>
+                </tr>
+              <%});%>
+            </table>
+          </div>
+          <div class="form-group col-md-12">
+            <input type="checkbox" class="form-control" name="isActive" id="isActive" <%=tablet.tabletID?(tablet.isActive?'checked':""):""%> >
+            <label for="isActive">Active</label>
+          </div>
+          <div class="form-group col-md-12">
+            <button type="submit" class="btn btn-primary "><%= tablet.tabletID?"Update":"Add"%> Tablet</button>
+            <% if(tablet.tabletID){%>
+            <a href="/delete-f2f-tablet/<%= tablet.tabletID%>" style="display:none;" type="button" class="btn btn-danger">Delete Tablet</a>
+            <%}%>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+</div>
+</body>
+</html>

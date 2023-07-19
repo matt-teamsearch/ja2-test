@@ -1,0 +1,245 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .noPadding{
+    padding:0px!important;
+  }
+  .historyBtn{
+    height:100%;
+    width:100%;
+    border-radius:0px;
+  }
+  .form-row {
+    margin-bottom: 25px;
+  }
+  .histTable td{
+    white-space:nowrap;
+  }
+  #Modal-history .modal-dialog{
+    max-width:100%;
+    width:fit-content;
+  }
+  .status{
+    width: 13px;
+    height: 13px;
+    margin-bottom: -1px;
+    opacity:0.7;
+    display: inline-block;
+    border-radius: 20px;
+  }
+  .active{
+    background-color: var(--success);
+  }
+  .inactive{
+    background-color: var(--danger);
+  }
+  .modal-body{
+    overflow-y: scroll;
+    max-height: 450px;
+  }
+</style>
+<script>
+  let updateNote=function(cell){
+    var data =[]
+    var jsonData={};
+    var vals=[]
+    jsonData.tableName='inboundLines'
+    console.log(cell.getRow().getPosition())
+    jsonData.otherID=cell.getRow().getPosition()
+    jsonData.page='inbound-lines'
+    jsonData.note=cell.getValue()
+    data.push(jsonData)
+    $.ajax({
+        url: '/update-note',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  }
+  let data=[
+  <%lines.forEach((line, i) => {
+    let project=assignments.find(el=>el.lineID==line.id)
+    let note=notes.find(el=>el.otherID==i)
+    %>
+  {
+    lineID:'<%=line.id%>',
+    phoneNumber:'<%=line.phoneNumber%>',
+    label:'<%=line.label%>',
+    extensionID:'<%=line.extension.id%>',
+    extensionName:'<%=line.extension.name%>',
+    assignments:<%-JSON.stringify(assignments.filter(el=>el.lineID==line.id))%>,
+    projectID:'<%-JSON.stringify(project && line.label?project.projectID:'')%>',
+    notes:'<%-note?note.note:''%>'
+  },
+  <%})%>
+  ]
+  let projects=<%-JSON.stringify(projects)%>
+  $(document).ready(function(e){
+    let table=new Tabulator('#lines',{
+      data: data,
+      layout:'fitColumns',
+      dataTree:true,
+      headerSort:false,
+      columns:[
+        {field:"lineID",visible:false},
+        {title:"Phone Number", width:150, field:"phoneNumber",formatter:function(cell){return cell.getValue().replace("+44","0")}},
+        {title:"Project", field:"projectID",cssClass:'noPadding',formatter:function(cell){
+          let sel=`
+          <select class="projectID" data-val="`+cell.getValue()+`" data-live-search="true" data-lineID="`+cell.getData().lineID+`" data-container="body" data-width="100%" title="Select a project...">`
+            sel=sel+`<option value=""></option>`
+          projects.forEach((project, i) => {
+            sel=sel+`<option `+(project.projectID==cell.getValue()?'selected':'')+` data-clientName="`+project.clientName+`" value="`+project.projectID+`" data-content="<span class='status `+(project.isLive?'active':'inactive')+`'></span> `+project.quoteNo+` `+project.quoteName+`">`+project.quoteNo+" "+project.quoteName+`</option>`
+          });
+          `</select>
+          `
+          return sel
+        }},
+        {title:"Calling from..",width:150, field:"label",editor:'input',editorParams:{
+          elementAttributes:{
+            maxlength:"15", //set the maximum character length of the input element to 10 characters
+          }
+        }},
+        {title:"Display name", field:"extensionName",editor:'input'},
+        {title:"Notes", field:"notes",editor:'input',cellEdited:updateNote},
+        {title:"", cssClass:'noPadding',width:100,formatter:function(cell){
+          return '<button type="button" class="btn btn-sm btn-flat btn-secondary historyBtn">View history</button>'
+        }, field:"assignments",cellClick:function(e,cell){
+          $('#Modal-history').find('.modal-title').html("Historic log of "+cell.getData().phoneNumber)
+          let hist="<table class='table table-striped table-sm histTable'><tr><th>Date changed</th><th>Project</th></tr>"+cell.getValue().map(el=>"<tr><td>"+moment.utc(el.createdDate).format("DD/MM/YYYY HH:mm:ss")+"</td><td>"+el.quoteNo+" "+el.quoteName+"</td></tr>").join("")+"</table>"
+          $('#Modal-history').find('.modal-body').html(hist)
+          $('#Modal-history').modal('show')
+        }},
+        {title:"lineID", field:"extensionID",visible:false},
+      ],
+      cellEdited:function(cell){
+        if (cell.getData().extensionName && cell.getData().label && cell.getField()!="projectID") {
+          $.ajax({
+            url: '/update-inbound-line/',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(cell.getData()),
+            success:function(response){
+            },
+            error: function (jqXHR, exception) {
+              alert(jqXHR)
+            },
+          });
+        }
+      },
+      dataLoaded:function(data){
+        $('.projectID').selectpicker()
+      },
+    })
+  })
+  $(document).on('change', 'select.projectID', function(evt) {
+    let el=this
+    let table=Tabulator.prototype.findTable('#lines')[0];
+    let data=table.getData().find(el2=>el2.lineID.toString()==$(el).attr("data-lineID").toString())
+    if ($(el).val()) {
+      $('#newLineDisplayName').val($(el).find('option:selected').text())
+      $('#newLineCallingFrom').val($(el).find('option:selected').attr('data-clientName').substring(0,15))
+      $('#Modal').modal("show")
+      $('#cancelAddLine').one('click',function(e){
+        $(el).val($(el).attr("data-val"))
+        $(el).selectpicker("refresh")
+        $('#Modal').modal("hide")
+      })
+      $('#addLine').one('click',function(e){
+        data.extensionName=$('#newLineDisplayName').val()
+        data.label=$('#newLineCallingFrom').val()
+        data.projectID=$(el).val()
+        $.ajax({
+          url: '/update-inbound-line/',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify(data),
+          success:function(response){
+            $('#Modal').modal("hide")
+            table.getRows().forEach((row, i) => {
+              if (row.getData().lineID==$(el).attr("data-lineID").toString()) {
+                row.update(data).then(function(e){
+                  $('.projectID').selectpicker()
+                })
+              }
+            });
+          },
+          error: function (jqXHR, exception) {
+            alert(jqXHR)
+          },
+        });
+      })
+    }else {
+      data.extensionName='UNUSED'
+      data.label=''
+      data.projectID=''
+      $.ajax({
+        url: '/update-inbound-line/',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success:function(response){
+          table.getRows().forEach((row, i) => {
+            if (row.getData().lineID==$(el).attr("data-lineID").toString()) {
+              row.update(data).then(function(e){
+                $('.projectID').selectpicker()
+              })
+            }
+          });
+        },
+        error: function (jqXHR, exception) {
+          alert(jqXHR)
+        },
+      });
+    }
+  })
+
+</script>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5 class="card-title">Inbound lines</h5>
+      <div id="lines"></div>
+    </div>
+  </div>
+</div>
+<div class='modal fade' role='dialog' id='Modal'>
+  <div class='modal-dialog modal-dialog-centered' role='document'>
+    <div class='modal-content'>
+      <div class='modal-body' id='modal-body'>
+        <div class="form-row">
+          <label for="newLineDisplayName">Display name:</label>
+          <input type="text" id="newLineDisplayName" class="form-control">
+        </div>
+        <div class="form-row">
+          <label for="newLineCallingFrom">Calling from:</label>
+          <input type="text" id="newLineCallingFrom" maxlength="15" class="form-control">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" id="addLine">Add</button>
+        <button type="button" class="btn btn-secondary" id="cancelAddLine">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class='modal fade' role='dialog' id='Modal-history'>
+  <div class='modal-dialog modal-dialog-centered' role='document'>
+    <div class='modal-content'>
+      <div class='modal-header'>
+        <h5 class='modal-title' id='Modal-title'></h5>
+        <button type='button' class='close modalClose' data-dismiss='modal' aria-label='Close'>
+          <span aria-hidden='true'>&times;</span>
+        </button>
+      </div>
+      <div class='modal-body' id='modal-body'>
+
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,77 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  
+  function searchQuotes() {
+    if ($('#start_date').val()==0 || $('#end_date').val()==0){
+      alert("Please select a date range")
+    }
+    else {
+      window.location.href=("/getquotes/" + $('#start_date').val() + "/" + $('#end_date').val() + "/")
+    }
+  };
+
+  function searchQuarter1(year) {
+    window.location.href=("/getquotes/" + year + "-06-01/" + year + "-08-31/")
+  };
+
+  function searchQuarter2(year) {
+    window.location.href=("/getquotes/" + year + "-09-01/" + year + "-11-30/")
+  };
+
+  function searchQuarter3(year) {
+    window.location.href=("/getquotes/" + (year) + "-12-01/" + (year+1) + "-02-28/")
+  };
+
+  function searchQuarter4(year) {
+    window.location.href=("/getquotes/" + (year+1) + "-03-01/" + (year+1) + "-05-31/")
+  };
+
+  function searchYear(year) {
+    window.location.href=("/getquotes/" + year + "-06-01/" + (year+1) + "-05-31/")
+  };
+
+  function allQuotes() {
+    window.location.href=("/getquotes/1999-01-01/9999-12-31/")
+  };
+
+</script>
+
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <div class="card-header text-center py-2"><strong>Search Quote Date Range</strong></div>
+      <table class="table table-bordered">
+        <thead class="thead">
+          <th>Start date</th>
+          <th>End date</th>
+          <th>Search for date range</th>
+          <th>View all quotes</th>
+        </thead>
+        <tbody>
+          <tr>
+            <td><input type="date" id="start_date" name="start_date" class="form-control" required></td>
+            <td><input type="date" id="end_date" name="end_date" class="form-control" required></td>
+            <td><input type="submit" class="btn btn-outline-secondary" id="Redirect" value="Search" onclick="searchQuotes()"></td>
+            <td><input type="submit" class="btn btn-outline-secondary" id="Redirect" value="All quotes" onclick="allQuotes()"></td>
+          </tr>
+        </tbody>
+      </table>
+      <% quoteyears.forEach((quoteyear, index) => { %>
+        <div class="card-header text-center py-2"><strong>Quotes in <%= quoteyear.yearquoted %>/<%= quoteyear.yearquoted+1 %></strong></div>
+        <table class="table table-bordered">
+          <tbody>
+            <tr>
+              <td><input type="submit" class="btn btn-outline-secondary" id="Redirect" value="Quarter 1" onclick="searchQuarter1(<%= quoteyear.yearquoted %>)"></td>
+              <td><input type="submit" class="btn btn-outline-secondary" id="Redirect" value="Quarter 2" onclick="searchQuarter2(<%= quoteyear.yearquoted %>)"></td>
+              <td><input type="submit" class="btn btn-outline-secondary" id="Redirect" value="Quarter 3" onclick="searchQuarter3(<%= quoteyear.yearquoted %>)"></td>
+              <td><input type="submit" class="btn btn-outline-secondary" id="Redirect" value="Quarter 4" onclick="searchQuarter4(<%= quoteyear.yearquoted %>)"></td>
+              <td><input type="submit" class="btn btn-outline-secondary" id="Redirect" value="<%= quoteyear.yearquoted %>/<%= quoteyear.yearquoted+1 %> full year overview" onclick="searchYear(<%= quoteyear.yearquoted %>)"></td>
+            </tr>
+          </tbody>
+        </table>
+        <%})%>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

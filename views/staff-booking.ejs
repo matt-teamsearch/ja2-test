@@ -1,0 +1,1311 @@
+<%- include('partials/'+versionPages.header) %>
+<script type="text/javascript">
+  <%
+  const dateIf = (d, s, order) => {
+    if(order=="f"){
+      return moment.utc(d).format("DD"+s+"MM"+s+"YYYY")
+    }
+    if(order=="r"){
+      return moment.utc(d).format("YYYY"+s+"MM"+s+"DD")
+    }
+  }
+  function getMonday(d) {
+    d = new Date(d);
+    var day = d.getDay(),
+        diff = d.getDate() - day + (day == 0 ? -6:1); // adjust when day is sunday
+    return new Date(d.setDate(diff));
+  }
+  let thisMonday=getMonday(new Date())
+  thisMonday.setDate(thisMonday.getDate()+(parseInt(currWeek)*7))
+  var week = new Array(
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday"
+  );
+  function stringToDate(str){
+    return str.substring(0,4)+"-"+str.substring(4,6)+"-"+str.substring(6,8)
+  }
+  function findBooking(a, d, field, contractShiftOnly){
+    var record=bookings.find(function (booking) {
+      return booking.agentID==a && dateIf(booking.bookingDate,"-","r")==d && (booking.isContractShift || !contractShiftOnly)
+    })
+    if (record) {
+      return record[field].toISOString().split("T")[1].substring(0,5)
+    }else {
+      return ""
+    }
+  }
+  function findBookingTeam(a, d, field){
+    var record=bookings.find(function (booking) {
+      return booking.agentID==a && dateIf(booking.bookingDate,"-","r")==d;
+    })
+    if (record) {
+      return record[field]
+    }else {
+      return ""
+    }
+  }
+  %>
+  $(document).ready(function () {
+    $('.time:not([data-firstFri=true])').timepicker({
+      forceRoundTime: true,
+      listWidth: 1,
+      selectOnBlur:true,
+      step:15,
+      stopScrollPropagation:true,
+      minTime:"9:00AM",
+      maxTime:"9:00PM",
+      timeFormat: 'H:i'
+    });
+    $('.time[data-firstFri=true]').timepicker({
+      forceRoundTime: true,
+      listWidth: 1,
+      selectOnBlur:true,
+      step:15,
+      stopScrollPropagation:true,
+      minTime:"9:00AM",
+      maxTime:"5:00PM",
+      timeFormat: 'H:i'
+    });
+    var buttonCommon = {
+      exportOptions: {
+        columns: [':not(:empty)'],
+        format: {
+          body: function (data, row, column, node) {
+            return column === 0 ?
+            data.replace( /\n.*|<[^>]*>/g, '' ) :
+            ($(data).is("input") ?
+            $(data).val():
+            data.replace( /\n.*|<[^>]*>/g, '' ));
+          }
+        }
+      }
+    };
+
+    let table = $('#booking_table_thisweek').DataTable({
+      paging: false,
+      order: false,
+      info: false,
+      bLengthChange: false,
+      info:false,
+      bFilter:false,
+      scrollY: '55vh',
+      scrollX: true,
+      deferRender: true,
+      "initComplete": function( settings, json ) {
+        $('#frame').css("visibility","visible");
+        $('#loading').hide()
+      },
+      dom: 'Bfrtip',
+      buttons: [
+        {
+          extend: 'collection',
+          text: 'Actions',
+          className: 'dt-button buttons-collection btn dropdown-toggle',
+          buttons: [
+            $.extend(true, {}, buttonCommon, {
+              extend: 'excelHtml5',
+              titleAttr: 'Download to Excel',
+              text: 'Download to Excel'
+            }),
+            {
+              text: "Import previous week's hours",
+              action: function( e, dt, button, config ) {
+                  importFromLastWeek()
+              }
+            },
+            {
+              text: "Clear all hours",
+              action: function( e, dt, button, config ) {
+                  clearAll()
+              }
+            },
+            {
+              text: "Apply all regular hours",
+              action: function( e, dt, button, config ) {
+                  applyAllReg()
+              }
+            },
+            {
+              text: "View booking requests",
+              action: function( e, dt, button, config ) {
+                  window.location.href="/booking-requests/0/0"
+              }
+            }
+          ]
+        }
+      ],
+      retrieve:true
+    });
+    table.draw();
+    $('#dte').val(dateIf('<%=thisMonday%>',"-","r"))
+  })
+  function getMonday(d) {
+    d = new Date(d);
+    var day = d.getDay(),
+        diff = d.getDate() - day + (day == 0 ? -6:1); // adjust when day is sunday
+    return new Date(d.setDate(diff));
+  }
+  function diff_weeks(dt2, dt1) {
+    var diff =(dt2.getTime() - dt1.getTime()) / 1000;
+    diff /= (60 * 60 * 24 * 7);
+    return Math.round(diff);
+  }
+  $(document).on('change', '#incFixed', function(evt) {
+    location.href='/staff-booking/'+$("#team").val()+'/<%=currWeek%>/ejs/'+$('#incFixed:checked').length
+  })
+  $(document).on('change', '#team', function(evt) {
+    location.href='/staff-booking/'+$("#team").val()+'/<%=currWeek%>/ejs/'+$('#incFixed:checked').length
+  })
+  $(document).on('change', '#dte', function(evt) {
+    var targetWeek=getMonday($('#dte').val())
+    var thisWeek=getMonday(new Date())
+    location.href='/staff-booking/'+$("#team").val()+'/'+diff_weeks(targetWeek,thisWeek)+'/ejs/'+$('#incFixed:checked').length
+  })
+  $('body').on('click', function (e) {
+    $('.cleanButton').each(function () {
+        // hide any open popovers when the anywhere else in the body is clicked
+        if (!$(this).is(e.target) && $(this).has(e.target).length === 0 && $('.popover').has(e.target).length === 0 && $('.ui-timepicker-wrapper').has(e.target).length === 0) {
+            $(this).popover('dispose');
+        }
+    });
+  })
+  $(document).on('change', '.time', function(evt) {
+    var baseID=this.id.replace("start_","").replace("end_","")
+    var stID="#start_"+baseID
+    var enID="#end_"+baseID
+    if ($(stID).val() == "" && $(enID).val()=="") {
+      $(stID).removeClass("is-invalid")
+      $(enID).removeClass("is-invalid")
+      var data =[]
+      var jsonData={};
+      jsonData.agentID=baseID.split("_")[0]
+      jsonData.days=[]
+      jsonData.days.push(stringToDate(baseID.split("_")[1]))
+      data.push(jsonData)
+      $.ajax({
+          url: '/delete-booking',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify(data),
+          success: function (response) {
+            $(stID).parent().fadeOut(100).fadeIn(200);
+            updateRC(jsonData.agentID,jsonData.days[0])
+          },
+          error: function (jqXHR, exception) {
+            $("#bookingTeam_"+baseID).attr('value',$("#bookingTeam_"+baseID).attr('data-oldValue'))
+            $(stID).val($(stID).attr('data-oldValue'))
+            $(enID).val($(enID).attr('data-oldValue'))
+            updateTeamBtn($("#bookingTeam_"+baseID).attr('data-oldValue'),jsonData.agentID,baseID.split("_")[1])
+            alert(getErrorMessage(jqXHR, exception))
+          },
+      });
+    }else {
+      if (validateShift($(stID).val(),$(enID).val(),$(enID))) {
+        $(stID).removeClass("is-invalid")
+        $(enID).removeClass("is-invalid")
+        var data =[]
+        var jsonData={};
+        jsonData.agentID=baseID.split("_")[0]
+        jsonData.bookingTeam=$("#bookingTeam_"+baseID).attr("value")
+        jsonData.days=[]
+        jsonData.days.push(stringToDate(baseID.split("_")[1]))
+        jsonData.stTime=$(stID).val()
+        jsonData.enTime=$(enID).val()
+        data.push(jsonData)
+        $.ajax({
+            url: '/update-booking',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function (response) {
+              $(stID).parent().fadeOut(100).fadeIn(200);
+              updateRC(jsonData.agentID,jsonData.days[0])
+            },
+            error: function (jqXHR, exception) {
+              $("#bookingTeam_"+baseID).attr('value',$("#bookingTeam_"+baseID).attr('data-oldValue'))
+              $(stID).val($(stID).attr('data-oldValue'))
+              $(enID).val($(enID).attr('data-oldValue'))
+              updateTeamBtn($("#bookingTeam_"+baseID).attr('data-oldValue'),jsonData.agentID,baseID.split("_")[1])
+              alert(getErrorMessage(jqXHR, exception))
+            },
+        });
+      }else {
+        $(stID).addClass("is-invalid")
+        $(enID).addClass("is-invalid")
+      }
+    }
+    return false;
+  })
+  $(document).on('change', '.reg', function(evt) {
+    var baseID=this.id.replace("regstart_","").replace("regend_","")
+    var stID="#regstart_"+baseID
+    var enID="#regend_"+baseID
+    if ($(stID).val() == "" && $(enID).val()==""){
+      $(stID).removeClass("is-invalid")
+      $(enID).removeClass("is-invalid")
+      var data =[]
+      var jsonData={};
+      jsonData.agentID=baseID.split("_")[0]
+      jsonData.weekday=baseID.split("_")[1]
+      data.push(jsonData)
+      $.ajax({
+          url: '/delete-regular-hours',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify(data),
+          success: function (response) {
+            $("#reg_hours_btn_"+baseID.split("_")[0]).click()
+          },
+          error: function (jqXHR, exception) {
+            alert(getErrorMessage(jqXHR, exception))
+          },
+      });
+    }else {
+      if (validateShift($(stID).val(),$(enID).val())) {
+        $(stID).removeClass("is-invalid")
+        $(enID).removeClass("is-invalid")
+        var data =[]
+        var jsonData={};
+        jsonData.agentID=baseID.split("_")[0]
+        jsonData.weekday=baseID.split("_")[1]
+        jsonData.stTime=$(stID).val()
+        jsonData.enTime=$(enID).val()
+        data.push(jsonData)
+        $.ajax({
+            url: '/update-regular-hours',
+            type: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify(data),
+            success: function (response) {
+              $("#reg_hours_btn_"+baseID.split("_")[0]).click()
+            },
+            error: function (jqXHR, exception) {
+              alert(getErrorMessage(jqXHR, exception))
+            },
+        });
+      }else {
+        $(stID).addClass("is-invalid")
+        $(enID).addClass("is-invalid")
+      }
+    }
+  })
+  $(document).on('click', '.hol_btn', function(evt) {
+    a=this.id.split("_")[2]
+    source=this.id
+    var data =[]
+    var jsonData={};
+    jsonData.agentID=a
+    jsonData.date=dateIf('<%=thisMonday%>',"-","r")
+    data.push(jsonData)
+    $.ajax({
+        url: '/get-holidays',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          createHolPopover(a,source,response)
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  })
+  $(document).on('click', '.sick_btn', function(evt) {
+    a=this.id.split("_")[2]
+    source=this.id
+    var data =[]
+    var jsonData={};
+    jsonData.agentID=a
+    jsonData.date=dateIf('<%=thisMonday%>',"-","r")
+    jsonData.absenceType=["'Sick'","'Paid leave'"]
+    data.push(jsonData)
+    $.ajax({
+        url: '/get-booking-absence',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          createSickPopover(a,source,response)
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  })
+  $(document).on('click', '.cancelled_btn', function(evt) {
+    a=this.id.split("_")[2]
+    source=this.id
+    var data =[]
+    var jsonData={};
+    jsonData.agentID=a
+    jsonData.date=dateIf('<%=thisMonday%>',"-","r")
+    jsonData.absenceType="'Cancelled by manager'"
+    data.push(jsonData)
+    $.ajax({
+        url: '/get-booking-absence',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          createCancelledPopover(a,source,response)
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  })
+  $(document).on('click', '.addHol_btn', function(evt) {
+    a=this.id.split("_")[2]
+    sd=new Date($("#addHolDateSt_"+a).val())
+    ed=new Date($("#addHolDateEn_"+a).val())
+    source=this.id
+    var data =[]
+    var jsonData={};
+    jsonData.agentID=a
+    let checkDate=new Date(sd)
+    let i=0
+    jsonData.days=[]
+    while (checkDate>=sd && checkDate<=ed) {
+      jsonData.days.push(dateIf(checkDate,"-","r"))
+      checkDate.setDate(checkDate.getDate()+1)
+      i++
+    }
+    jsonData.stTime="00:00:00"
+    jsonData.enTime="00:00:00"
+    data.push(jsonData)
+    $.ajax({
+        url: '/update-booking',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          $(".time_"+a).each(function () {
+            let d=this.id.split("_")[2]
+            let dDate=new Date(stringToDate(d))
+            if (dDate>=sd && dDate<=ed) {
+              $(".timeTD_"+a+"_"+d).parent().fadeOut(100).fadeIn(200);
+              $(".timeTD_"+a+"_"+d).addClass("holiday")
+              $(".timeTD_"+a+"_"+d).find("input").val("00:00")
+              $(".timeTD_"+a+"_"+d).find("input").trigger("change")
+              $(".timeTD_"+a+"_"+d).find("input").prop('disabled', true);
+              $(".timeTD_"+a+"_"+d).find("button").prop('disabled', true);
+              updateRC(a,moment(dDate).format("YYYY-MM-DD"))
+            }
+          })
+          $("#hol_btn_"+a).popover("dispose")
+          $("#hol_btn_"+a).click()
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  })
+  $(document).on('click', '.addSick_btn', function(evt) {
+    a=this.id.split("_")[2]
+    sd=new Date($("#addSickDateSt_"+a).val())
+    ed=new Date($("#addSickDateEn_"+a).val())
+    source=this.id
+    var data =[]
+    var jsonData={};
+    jsonData.agentID=a
+    let checkDate=new Date(sd)
+    let i=0
+    jsonData.days=[]
+    while (checkDate>=sd && checkDate<=ed) {
+      jsonData.days.push(dateIf(checkDate,"-","r"))
+      checkDate.setDate(checkDate.getDate()+1)
+      i++
+    }
+    jsonData.type="add"
+    jsonData.absenceType=$("#addSickPaid_"+a).val()=='paid'?"Paid leave":'Sick'
+    data.push(jsonData)
+    $.ajax({
+        url: '/update-booking-absence',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          $(".time_"+a).each(function () {
+            let d=this.id.split("_")[2]
+            let dDate=new Date(stringToDate(d))
+            if (dDate>=sd && dDate<=ed) {
+              $(".timeTD_"+a+"_"+d).find("input").prop('disabled', true);
+              $(".timeTD_"+a+"_"+d).find("button").prop('disabled', true);
+              $(".timeTD_"+a+"_"+d).addClass('sick');
+              updateRC(a,moment(dDate).format("YYYY-MM-DD"))
+            }
+          })
+          $("#sick_btn_"+a).popover("dispose")
+          $("#sick_btn_"+a).click()
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  })
+  $(document).on('click', '.addCancelled_btn', function(evt) {
+    a=this.id.split("_")[2]
+    sd=new Date($("#addCancelledDateSt_"+a).val())
+    ed=new Date($("#addCancelledDateEn_"+a).val())
+    source=this.id
+    var data =[]
+    var jsonData={};
+    jsonData.agentID=a
+    let checkDate=new Date(sd)
+    let i=0
+    jsonData.days=[]
+    while (checkDate>=sd && checkDate<=ed) {
+      jsonData.days.push(dateIf(checkDate,"-","r"))
+      checkDate.setDate(checkDate.getDate()+1)
+      i++
+    }
+    jsonData.type="add"
+    jsonData.absenceType="Cancelled by manager"
+    data.push(jsonData)
+    $.ajax({
+        url: '/update-booking-absence',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          $(".time_"+a).each(function () {
+            let d=this.id.split("_")[2]
+            let dDate=new Date(stringToDate(d))
+            if (dDate>=sd && dDate<=ed) {
+              $(".timeTD_"+a+"_"+d).find("input").prop('disabled', true);
+              $(".timeTD_"+a+"_"+d).find("button").prop('disabled', true);
+              $(".timeTD_"+a+"_"+d).addClass('cancelled');
+              updateRC(a,moment(dDate).format("YYYY-MM-DD"))
+            }
+          })
+          $("#cancelled_btn_"+a).popover("dispose")
+          $("#cancelled_btn_"+a).click()
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  })
+  $(document).on('click', '.sick_table_rem_btn', function(evt) {
+    a=this.id.split("_")[4]
+    sd=new Date(stringToDate(this.id.split("_")[5]))
+    ed=new Date(stringToDate(this.id.split("_")[6]))
+    aType=this.id.split("_")[7].replace("-"," ")
+    source=this.id
+    var data =[]
+    var jsonData={};
+    jsonData.agentID=a
+    let checkDate=new Date(sd)
+    let i=0
+    jsonData.days=[]
+    while (checkDate>=sd && checkDate<=ed) {
+      jsonData.days.push(dateIf(checkDate,"-","r"))
+      checkDate.setDate(checkDate.getDate()+1)
+      i++
+    }
+    jsonData.type="remove"
+    jsonData.absenceType=aType
+    data.push(jsonData)
+    $.ajax({
+        url: '/update-booking-absence',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          $(".time_"+a).each(function () {
+            let d=this.id.split("_")[2]
+            let dDate=new Date(stringToDate(d))
+            if (dDate>=sd && dDate<=ed) {
+              $(".timeTD_"+a+"_"+d+":not(.contracted)").find("input").prop('disabled', false);
+              $(".timeTD_"+a+"_"+d).find("button").prop('disabled', false);
+              $(".timeTD_"+a+"_"+d).removeClass('sick');
+              updateRC(a,moment(dDate).format("YYYY-MM-DD"))
+            }
+          })
+          $("#sick_btn_"+a).popover("dispose")
+          $("#sick_btn_"+a).click()
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  })
+  $(document).on('click', '.cancelled_table_rem_btn', function(evt) {
+    a=this.id.split("_")[4]
+    sd=new Date(stringToDate(this.id.split("_")[5]))
+    ed=new Date(stringToDate(this.id.split("_")[6]))
+    source=this.id
+    var data =[]
+    var jsonData={};
+    jsonData.agentID=a
+    let checkDate=new Date(sd)
+    let i=0
+    jsonData.days=[]
+    while (checkDate>=sd && checkDate<=ed) {
+      jsonData.days.push(dateIf(checkDate,"-","r"))
+      checkDate.setDate(checkDate.getDate()+1)
+      i++
+    }
+    jsonData.type="remove"
+    jsonData.absenceType="Cancelled by manager"
+    data.push(jsonData)
+    $.ajax({
+        url: '/update-booking-absence',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          $(".time_"+a).each(function () {
+            let d=this.id.split("_")[2]
+            let dDate=new Date(stringToDate(d))
+            if (dDate>=sd && dDate<=ed) {
+              $(".timeTD_"+a+"_"+d+":not(.contracted)").find("input").prop('disabled', false);
+              $(".timeTD_"+a+"_"+d).find("button").prop('disabled', false);
+              $(".timeTD_"+a+"_"+d).removeClass('cancelled');
+              updateRC(a,moment(dDate).format("YYYY-MM-DD"))
+            }
+          })
+          $("#cancelled_btn_"+a).popover("dispose")
+          $("#cancelled_btn_"+a).click()
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  })
+  $(document).on('click', '.pop-close', function(evt) {
+    $(this).parent().parent().popover("dispose")
+  })
+  $(document).on('change', '.addHolDateEn', function(evt) {
+    $(".addHolDateSt").attr("max",$(this).val())
+  })
+  $(document).on('change', '.addHolDateSt', function(evt) {
+    $(".addHolDateEn").attr("min",$(this).val())
+  })
+  $(document).on('change', '.addSickDateEn', function(evt) {
+    $(".addSickDateSt").attr("max",$(this).val())
+  })
+  $(document).on('change', '.addSickDateSt', function(evt) {
+    $(".addSickDateEn").attr("min",$(this).val())
+  })
+  $(document).on('change', '.addCancelledDateEn', function(evt) {
+    $(".addCancelledDateSt").attr("max",$(this).val())
+  })
+  $(document).on('change', '.addCancelledDateSt', function(evt) {
+    $(".addCancelledDateEn").attr("min",$(this).val())
+  })
+  $(document).on('click', '.hol_table_rem_btn', function(evt) {
+    a=this.id.split("_")[4]
+    sd=new Date(stringToDate(this.id.split("_")[5]))
+    ed=new Date(stringToDate(this.id.split("_")[6]))
+    source=this.id
+    var data =[]
+    var jsonData={};
+    jsonData.agentID=a
+    let checkDate=new Date(sd)
+    let i=0
+    jsonData.days=[]
+    while (checkDate>=sd && checkDate<=ed) {
+      jsonData.days.push(dateIf(checkDate,"-","r"))
+      checkDate.setDate(checkDate.getDate()+1)
+      i++
+    }
+    data.push(jsonData)
+    $.ajax({
+        url: '/delete-booking',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          $(".time_"+a).each(function () {
+            let d=this.id.split("_")[2]
+            let dDate=new Date(stringToDate(d))
+            if (dDate>=sd && dDate<=ed) {
+              if (response.find(r=>r.dte==stringToDate(d))) {
+                $("#start_"+a+"_"+d).val(response.find(r=>r.dte==stringToDate(d)).st.substring(0,5))
+                $("#end_"+a+"_"+d).val(response.find(r=>r.dte==stringToDate(d)).en.substring(0,5))
+              }else {
+                $("#start_"+a+"_"+d).val("")
+                $("#end_"+a+"_"+d).val("")
+              }
+              $(".timeTD_"+a+"_"+d+":not(.contracted)").find("input").prop('disabled', false);
+              $(".timeTD_"+a+"_"+d).removeClass("holiday")
+              $(".timeTD_"+a+"_"+d).find("button").prop('disabled', false);
+            }
+          })
+          $("#hol_btn_"+a).popover("dispose")
+          $("#hol_btn_"+a).click()
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  })
+  $('body').on('click', function (e) {
+    $('.hol_btn').each(function () {
+        // hide any open popovers when the anywhere else in the body is clicked
+        if (!$(this).is(e.target) && $(this).has(e.target).length === 0 && $('.popover').has(e.target).length === 0) {
+            $(this).popover('hide');
+        }
+    });
+  })
+
+  $(document).on('click', '.clear_agent_btn', function(evt) {
+    let a=this.id.split("_")[3]
+    let source=this.id
+    $(".time_"+a).each(function() {
+      if (!$(this).is(":disabled")) {
+        $(this).val("")
+        $(this).trigger("change")
+      }
+
+    })
+  })
+  $(document).on('click', '.reg_hours_btn', function(evt) {
+    $(this).popover("dispose")
+    let a=this.id.split("_")[3]
+    let source=this.id
+    let weekDays = new Array(
+        "Mon",
+        "Tue",
+        "Wed",
+        "Thu",
+        "Fri",
+        "Sat",
+        "Sun"
+    );
+    $.ajax({
+        url: '/get-regular-hours',
+        type: 'GET',
+        success: function (response) {
+          var cont=""
+          cont=cont+"<table class='table table-hover table-sm'>"
+          for (var i = 0; i < 7; i++) {
+            cont=cont+"<tr>"
+            cont=cont+"<td>"+weekDays[i]+"</td>"
+            cont=cont+`<td><button class='btn btn-secondary btn-flat dropdown-toggle presets' data-toggle='dropdown' aria-haspopup='true' aria-expanded='false'></button>
+                <div class='dropdown-menu'>
+                  <a class='dropdown-item' href='#' onclick='copyTime(`+a+`,`+i+`)'>Copy from last day</a>
+                  <a class='dropdown-item' href='#' onclick='setTime(`+a+`,`+i+`,"09",17)'>9am to 5pm</a>
+                  <a class='dropdown-item' href='#' onclick='setTime(`+a+`,`+i+`,13,21)'>1pm to 9pm</a>
+                  <a class='dropdown-item' href='#' onclick='setTime(`+a+`,`+i+`,17,21)'>5pm to 9pm</a>
+                  <a class='dropdown-item' href='#' onclick='clearTime(`+a+`,`+i+`)'>Clear</a>
+                </div></td>`
+            cont=cont+"<td class='regtimeTD_"+a+"_"+i+"'><input type='text' class='start reg' maxlength='5' name='regstart_"+a+"_"+i+"' id='regstart_"+a+"_"+i+"' value='"+findRegular(response, a, i, 'startTime')+"'></td>"
+            cont=cont+"<td class='regtimeTD_"+a+"_"+i+"'><input type='text' class='end reg' maxlength='5' name='regend_"+a+"_"+i+"' id='regend_"+a+"_"+i+"' value='"+findRegular(response, a, i, 'endTime')+"'></td>"
+            cont=cont+"<td><button id='applyReg_btn_"+a+"_"+i+"' class='btn btn-flat btn-outline-primary cleanButton applyReg_btn'><i class='fa fa-forward'></i></button></td>"
+          }
+          cont=cont+"</table>"
+          cont=cont+"<button style='float: right; margin-bottom: 10px;' id='applyAllReg_btn_"+a+"' class='btn btn-flat btn-outline-primary cleanButton applyAllReg_btn'>Apply all <i class='fa fa-forward'></i></button>"
+          $('#'+source).popover({
+            html: true,
+            sanitize: false,
+            title: "Regular hours <span class='close pop-close'>&times;</span>",
+            content: function() { return cont; }
+          });
+          $('#'+source).popover("show")
+          $('.reg').timepicker({
+            forceRoundTime: true,
+            listWidth: 1,
+            selectOnBlur:true,
+            step:15,
+            stopScrollPropagation:true,
+            minTime:"9:00AM",
+            maxTime:"9:00PM",
+            timeFormat: 'H:i'
+          });
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        }
+    });
+
+  })
+  function findRegular(arr, a, i, field){
+    var record=arr.find(function (rec) {
+      return rec.agentID==a && rec.weekday==i;
+    })
+    if (record) {
+      return record[field].split("T")[1].substring(0,5)
+    }else {
+      return ""
+    }
+  }
+  function setTime(agent, d, stTime, enTime){
+    var idSt="#start_"
+    var idEn="#end_"
+    if (d<8) {
+      idSt="#regstart_"
+      idEn="#regend_"
+    }
+    $(idSt+agent+"_"+d).val(stTime+":00")
+    $(idEn+agent+"_"+d).val(enTime+":00")
+    $(idEn+agent+"_"+d).trigger("change")
+  }
+  function clearTime(agent, d){
+    var idSt="#start_"
+    var idEn="#end_"
+    if (d<8) {
+      idSt="#regstart_"
+      idEn="#regend_"
+    }
+    if (!$(idSt+agent+"_"+d).is(":disabled")) {
+      $(idSt+agent+"_"+d).val("")
+      $(idEn+agent+"_"+d).val("")
+      $(idEn+agent+"_"+d).trigger("change")
+    }
+  }
+  function copyTime(agent, d){
+    if (d<8) {
+      var yday=d-1
+      $("#regstart_"+agent+"_"+d).val($("#regstart_"+agent+"_"+yday).val())
+      $("#regend_"+agent+"_"+d).val($("#regend_"+agent+"_"+yday).val())
+      $("#regend_"+agent+"_"+d).trigger("change")
+    }else {
+      var yday=new Date(stringToDate(""+d))
+      yday.setDate(yday.getDate()-1)
+      $("#start_"+agent+"_"+d).val($("#start_"+agent+"_"+dateIf(yday,"","r")).val())
+      $("#end_"+agent+"_"+d).val($("#end_"+agent+"_"+dateIf(yday,"","r")).val())
+      $("#end_"+agent+"_"+d).trigger("change")
+    }
+  }
+  function validateShift(st,en,el){
+    var start=Number(st.split(":")[0])+(Number(st.split(":")[1])/60)
+    var end=Number(en.split(":")[0])+(Number(en.split(":")[1])/60)
+    var ret=true
+    if (start>end || isNaN(start) || isNaN(end) || st.split(":")[1].length>2 || ($(el).attr('data-firstFri') && end>17)) {
+      ret=false
+    }
+    return ret
+  }
+  function stringToDate(str){
+    return str.substring(0,4)+"-"+str.substring(4,6)+"-"+str.substring(6,8)
+  }
+  function nextweek(){
+    location.href='/staff-booking/'+$("#team").val()+'/<%=parseInt(currWeek)+1%>/ejs/'+$('#incFixed:checked').length
+  }
+  function thisweek(){
+    location.href='/staff-booking/'+$("#team").val()+'/<%=parseInt(currWeek)-1%>/ejs/'+$('#incFixed:checked').length
+  }
+  function clearAll(){
+    if (confirm("Are you sure you want to clear all hours for this week?")) {
+      $(".start").val("")
+      $(".end").val("")
+      $(".end").trigger("change")
+    }
+  }
+  function importFromLastWeek(){
+    var data =[]
+    var jsonData={};
+    data.push(jsonData)
+    if (confirm("If there are hours already input for this week, importing may overwrite them. Are you sure?")) {
+      $.ajax({
+          url: '/staff-booking/'+$("#team").val()+'/<%=currWeek%>/ajax/'+$('#incFixed:checked').length,
+          type: 'GET',
+          contentType: 'application/json',
+          data: JSON.stringify(data),
+          success: function (response) {
+            response.forEach((booking, i) => {
+              var bDate=new Date(booking.bookingDate)
+              bDate.setDate(bDate.getDate()+7)
+              $("#start_"+booking.agentID+"_"+dateIf(bDate,"","r")).val(booking.startTime.split("T")[1].substring(0,5))
+              $("#end_"+booking.agentID+"_"+dateIf(bDate,"","r")).val(booking.endTime.split("T")[1].substring(0,5))
+              $("#start_"+booking.agentID+"_"+dateIf(bDate,"","r")).trigger("change")
+            });
+          },
+          error: function (jqXHR, exception) {
+            alert(getErrorMessage(jqXHR, exception))
+          },
+      });
+    }
+  }
+  function addDays(d,n){
+    let dte=new Date(d)
+    dte.setDate(d.getDate()+n)
+    return dte
+  }
+  function createHolPopover(a,source,arr){
+    cont=""
+    cont=cont+"<table class='table table-sm'>"
+    let holPeriods=[]
+    let holPeriod={}
+    if (arr[0]) {
+      holPeriods=arr.map(el=>el.bookingDate).reduce((acc, date) => {
+        const group = acc[acc.length - 1];
+        if (moment(date).diff(moment(group[group.length - 1] || date), 'days') > 1) {
+          acc.push([date])
+        } else {
+          group.push(date);
+        }
+        return acc;
+      }, [[]])
+      holPeriods.forEach((hol, i) => {
+        cont=cont+"<tr><td>"+dateIf(hol[0],"/","f")+" - "+dateIf(hol[hol.length-1],"/","f")+"</td>"
+        cont=cont+"<td><span class='btn btn-flat btn-outline-danger btn-sm hol_table_rem_btn cleanButton' id='hol_table_rem_btn_"+a+"_"+dateIf(hol[0],"","r")+"_"+dateIf(hol[hol.length-1],"","r")+"'><i class='material-icons'>remove_circle_outline</i></span></td></tr>"
+      })
+    }
+    cont=cont+"<tr><td><input type='date' name='addHolDateSt' style='' id='addHolDateSt_"+a+"' class='addHolDate_"+a+" addHolDateSt'></input></td><td> - <input type='date' name='addHolDateEn' style='' id='addHolDateEn_"+a+"' class='addHolDate_"+a+" addHolDateEn'></input></td>"
+    cont=cont+"<td><span class='btn btn-flat btn-outline-primary btn-sm btn-block m-auto cleanButton addHol_btn' id='addHol_btn_"+a+"'><i class='material-icons'>add_circle_outline</i></span></td>"
+    cont=cont+"</tr></table>"
+    $('#'+source).popover({
+      html: true,
+      sanitize: false,
+      title: "Holidays<span class='close pop-close'>&times;</span>",
+      content: function() { return cont; }
+    });
+    $('#'+source).popover("show")
+  }
+  function createSickPopover(a,source,arr){
+    cont=""
+    cont=cont+"<table class='table table-sm'>"
+    let sickPeriods=[]
+    let sickPeriod={}
+    if (arr[0]) {
+      // sickPeriod.stDate=arr[0].absenceDate
+      // sickPeriod.type=arr[0].absenceType
+      // let lastDay=new Date(sickPeriod.stDate)
+      // let lastType=sickPeriod.type
+      // lastDay=addDays(lastDay,-1)
+      // arr.forEach((sick, i) => {
+      //   let absenceDate=new Date(sick.absenceDate)
+      //   if (dateIf(absenceDate,"-","r")!=dateIf(addDays(lastDay,1),"-","r") || sick.absenceType!=lastType) {
+      //     sickPeriods.push({stDate:sickPeriod.stDate, enDate:sickPeriod.enDate, type:sickPeriod.type})
+      //     sickPeriod.stDate=sick.absenceDate
+      //     sickPeriod.type=sick.absenceType
+      //   }
+      //   sickPeriod.enDate=sick.absenceDate
+      //   sickPeriod.type=sick.absenceType
+      //   lastDay=new Date(sick.absenceDate)
+      //   lastType=sick.absenceType
+      // })
+      // sickPeriods.push({stDate:sickPeriod.stDate, enDate:sickPeriod.enDate, type:sickPeriod.type})
+      sickPeriods=arr.reduce((acc, sick) => {
+        const group = acc[acc.length - 1];
+        let lastType=group[group.length - 1]?group[group.length - 1].absenceType:null
+        let lastDate=group[group.length - 1]?group[group.length - 1].absenceDate:null
+        if (moment(sick.absenceDate).diff(moment(lastDate || sick.absenceDate), 'days') > 1 || (sick.absenceType!=lastType && lastType)) {
+          acc.push([{dte:sick.absenceDate,type:sick.absenceType}])
+        } else {
+          group.push({dte:sick.absenceDate,type:sick.absenceType});
+        }
+        return acc;
+      }, [[]])
+      sickPeriods.forEach((sick, i) => {
+        cont=cont+"<tr><td>"+dateIf(sick[0].dte,"/","f")+" - "+dateIf(sick[sick.length-1].dte,"/","f")+"</td><td>"+sick[0].type+"</td>"
+        cont=cont+"<td><span class='btn btn-flat btn-outline-danger btn-sm sick_table_rem_btn cleanButton' id='sick_table_rem_btn_"+a+"_"+dateIf(sick[0].dte,"","r")+"_"+dateIf(sick[sick.length-1].dte,"","r")+"_"+sick[0].type.replace(" ","-")+"'><i class='material-icons'>remove_circle_outline</i></span></td></tr>"
+      })
+    }
+    cont=cont+"<tr><td><input type='date' name='addSickDateSt' style='' id='addSickDateSt_"+a+"' class='addSickDate_"+a+" addSickDateSt'></input></td><td> - <input type='date' name='addSickDateEn' style='' id='addSickDateEn_"+a+"' class='addSickDate_"+a+" addSickDateEn'></input></td>"
+      cont=cont+"<td><select name='addSickPaid' style='' id='addSickPaid_"+a+"' class='addSickPaid_"+a+" addSickPaid'><option value='paid'>Paid</option><option value='unpaid' selected>Unpaid</option></select></td>"
+    cont=cont+"<td><span class='btn btn-flat btn-outline-primary btn-sm btn-block m-auto cleanButton addSick_btn' id='addSick_btn_"+a+"'><i class='material-icons'>add_circle_outline</i></span></td>"
+    cont=cont+"</tr></table>"
+    $('#'+source).popover({
+      html: true,
+      sanitize: false,
+      title: "Sickness<span class='close pop-close'>&times;</span>",
+      content: function() { return cont; }
+    });
+    $('#'+source).popover("show")
+  }
+  function createCancelledPopover(a,source,arr){
+    cont=""
+    cont=cont+"<table class='table table-sm'>"
+    let cancelledPeriods=[]
+    let cancelledPeriod={}
+    if (arr[0]) {
+      cancelledPeriod.stDate=arr[0].absenceDate
+      let lastDay=new Date(cancelledPeriod.stDate)
+      lastDay=addDays(lastDay,-1)
+      arr.forEach((cancelled, i) => {
+        let absenceDate=new Date(cancelled.absenceDate)
+        if (dateIf(absenceDate,"-","r")!=dateIf(addDays(lastDay,1),"-","r")) {
+          cancelledPeriods.push({stDate:cancelledPeriod.stDate, enDate:cancelledPeriod.enDate})
+          cancelledPeriod.stDate=cancelled.absenceDate
+        }
+        cancelledPeriod.enDate=cancelled.absenceDate
+        lastDay=new Date(cancelled.absenceDate)
+      })
+      cancelledPeriods.push({stDate:cancelledPeriod.stDate, enDate:cancelledPeriod.enDate})
+      cancelledPeriods.forEach((cancelled, i) => {
+        cont=cont+"<tr><td>"+dateIf(cancelled.stDate,"/","f")+" - "+dateIf(cancelled.enDate,"/","f")+"</td>"
+        cont=cont+"<td><span class='btn btn-flat btn-outline-danger btn-sm cancelled_table_rem_btn cleanButton' id='cancelled_table_rem_btn_"+a+"_"+dateIf(cancelled.stDate,"","r")+"_"+dateIf(cancelled.enDate,"","r")+"'><i class='material-icons'>remove_circle_outline</i></span></td></tr>"
+      })
+    }
+    cont=cont+"<tr><td><input type='date' name='addCancelledDateSt' style='' id='addCancelledDateSt_"+a+"' class='addCancelledDate_"+a+" addCancelledDateSt'></input></td><td> - <input type='date' name='addCancelledDateEn' style='' id='addCancelledDateEn_"+a+"' class='addCancelledDate_"+a+" addCancelledDateEn'></input></td>"
+    cont=cont+"<td><span class='btn btn-flat btn-outline-primary btn-sm btn-block m-auto cleanButton addCancelled_btn' id='addCancelled_btn_"+a+"'><i class='material-icons'>add_circle_outline</i></span></td>"
+    cont=cont+"</tr></table>"
+    $('#'+source).popover({
+      html: true,
+      sanitize: false,
+      title: "Cancellation<span class='close pop-close'>&times;</span>",
+      content: function() { return cont; }
+    });
+    $('#'+source).popover("show")
+  }
+  function updateRC(agentID,dte){
+    if (dte==moment().format("YYYY-MM-DD")) {
+      $.ajax({
+        url: '/update-rc-hours/',
+        type: 'POST',
+        global:false,
+        contentType: 'application/json',
+        data: JSON.stringify({agentID:agentID}),
+        success: function (response) {
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+      });
+    }
+  }
+  function dateIf(inDate, seperator, order){
+    let day =''
+    if (new Date(inDate).getDate() < 10) {
+      day = '0' + new Date(inDate).getDate()
+    } else {
+      day = new Date(inDate).getDate()
+    }
+    let month =''
+    if (new Date(inDate).getMonth()+1 < 10) {
+      month = '0' + (new Date(inDate).getMonth()+1)
+    } else {
+      month = (new Date(inDate).getMonth()+1)
+    }
+    let year = new Date(inDate).getFullYear()
+    if(order=="f"){
+      return(day+seperator+month+seperator+year)
+    }
+    if(order=="r"){
+      return(year+seperator+month+seperator+day)
+    }
+  }
+  function getErrorMessage(jqXHR, exception) {
+     var msg = '';
+     if (jqXHR.status === 0) {
+         msg = 'Not connect.\n Verify Network.';
+     } else if (jqXHR.status == 404) {
+         msg = 'Requested page not found. [404]';
+     } else if (jqXHR.status == 500) {
+         msg = 'Internal Server Error [500]. '+JSON.parse(jqXHR.responseText).error;
+     } else if (exception === 'parsererror') {
+         msg = 'Requested JSON parse failed.';
+     } else if (exception === 'timeout') {
+         msg = 'Time out error.';
+     } else if (exception === 'abort') {
+         msg = 'Ajax request aborted.';
+     } else {
+         msg = 'Uncaught Error.\n' + jqXHR.responseText;
+     }
+     return msg;
+   }
+</script>
+<style>
+  .addSickDateSt, .addSickDateEn {
+    width: 140px;
+  }
+  .addSickPaid {
+    height: 1.9em;
+  }
+  .card-body {
+    padding:0px;
+  }
+  .hol_btn{
+    border: none;
+    padding: 4px;
+  }
+  .reg_hours_btn{
+    border: none;
+    padding: 4px;
+  }
+  .presets {
+    padding: 0px;
+    padding-left: 4px;
+    padding-right: 4px;
+  }
+  .is-invalid{
+    background-color: #ffeded;
+    border: 1px solid red;
+    border-radius: 2px;
+    color: red;
+  }
+  .time, .reg{
+    width:5em;
+  }
+  table.dataTable thead th, table.dataTable tbody td{
+    white-space: nowrap;
+    border:none;
+  }
+  .inputdate{
+    vertical-align: bottom;
+  }
+  .pop-close{
+    line-height:16px;
+  }
+  .cleanButton{
+    padding: 0px 5px 0px 5px;
+    border: none;
+  }
+  .hol_table_rem_btn{
+    padding: 0px;
+    border: none;
+  }
+  .agentName{
+    text-align:right;
+  }
+  .popover{
+    box-shadow: 5px 5px 5px rgba(0,0,0,0.3);
+    max-width: 500px;
+  }
+  .sick {
+    background-color: #e1e4cd;
+    position: relative;
+  }
+  div.dt-button-collection{
+    width:100%;
+  }
+  .dt-buttons{
+    width:10%;
+  }
+  .cancelled {
+    background-color: #f1d7d7;
+    position: relative;
+  }
+  .cancelled_btn {
+    color: #b36464;
+  }
+  .sick_btn {
+    color: #a2ad67;
+  }
+  .teamButton {
+    height: 30px;
+    width: 30px;
+    border: 2px solid;
+    border-radius: 30px;
+    font-weight: 700;
+  }
+  <%teams.forEach((team , index) => {%>
+    .teamButton_<%= team.agentTeamID %>{
+      color: <%= team.teamColour %>
+    }
+  <%})%>
+  .attention{
+    color: var(--warning);
+    text-shadow: 0 0 4px var(--warning);
+  }
+  .contracted:not(.holiday){
+    background-color: #ffc1077a;
+    opacity:0.7;
+    box-shadow: inset 1px 1px 3px 2px var(--warning);
+  }
+  .dt-button-collection{
+    width: 250px!important;
+  }
+  .btn.disabled{
+    pointer-events:none;
+  }
+  .timeTD.cancelled::after {
+    content: '';
+    border-top: 5px solid #ff00004d;
+    width: 88%;
+    height: 100%;
+    position: absolute;
+    left: 0px;
+    top: 50%;
+    transform: translateY(-3px) rotate(15deg);
+    transform-origin: center;
+  }
+  .timeTD.sick::after {
+    content: '';
+    border-top: 5px solid #89ce0080;
+    width: 88%;
+    height: 100%;
+    position: absolute;
+    left: 0px;
+    top: 50%;
+    transform: translateY(-3px) rotate(15deg);
+    transform-origin: center;
+  }
+</style>
+<!-- <div class="container" style="padding-top:70px;"> -->
+<div id="loading" width="100%" style="text-align:center"><img src="/spinner.gif"></div>
+  <div class="card viewerHeight text-dark bg-light mb-2 text-center" id="frame" style="visibility:hidden; margin-top:70px;">
+  <% if (message) { %>
+    <p class="text-center text-danger"  style="width:100vw"><%= message %></p>
+    <% } %>
+    <div class="card-body ">
+      <div class="card-header text-center"><h5>Booking staff for:</h5>
+        <button class="thisWeek btn btn-secondary" onclick="thisweek()"><i class="fas fa-arrow-left"></i> Prev week</button>
+        <select class="selectpicker team" data-live-search="true" name="team" id="team" required>
+        <optgroup label="Shifts">
+        <option value="e" <%if ("e" == teamSel) {%> selected<%}%>>Evening</option>
+        <option value="d" <%if ("d" == teamSel) {%> selected<%}%>>Day</option>
+        </optgroup>
+        <optgroup label="Teams">
+        <%teams.forEach((team , index) => {%>
+          <option value="<%= team.agentTeamID %>" <%if (team.agentTeamID == teamSel) {%> selected<%}%>><%= team.teamName %></option>
+        <%})%>
+        </optgroup>
+      </select>
+      <input type="date" style="display:inline; width:auto;" class="form-control inputdate selectFilters" id="dte" name="dte" style="width:200px; margin:auto;">
+      <button class="nextWeek btn btn-secondary" onclick="nextweek()">Next week <i class="fas fa-arrow-right"></i></button>
+      </div>
+      <input type="checkbox" class="selectFilters" name="incFixed" id="incFixed" <%if(incFixed==1){%>checked<%}%>>
+      <label for="incFixed">Include fixed-hour interviewers</label>
+      <div class="card-body">
+      <table id="booking_table_thisweek" class="table hover display compact" style="width:100%">
+        <thead>
+          <tr>
+            <th>
+            </th>
+            <%for (i=0; i<week.length; i++) {
+              let day=new Date(thisMonday)%>
+              <th colspan="3" style="border-left:1px solid grey; "><%=dateIf(day.setDate(day.getDate()+i),"/","f")%>
+              </th>
+            <%}%>
+          </tr>
+          <tr>
+            <th>
+
+            </th>
+            <%for (i=0; i<week.length; i++) {%>
+              <th colspan="3" style="border-left:1px solid grey;"><%=week[i]%></th>
+            <%}%>
+          </tr>
+          <tr>
+          <th class="agentName">Agent</th>
+          <%for (i=0; i<week.length; i++) {
+            let day=new Date(thisMonday)%>
+            <th style="border-left:1px solid grey;"></th>
+            <th data-id="headSt_<%=dateIf(day.setDate(day.getDate()+i),"","r")%>">Start</th>
+            <th data-id="headEn_<%=dateIf(day.setDate(day.getDate()+i),"","r")%>">End</th>
+          <%}%>
+          </tr>
+        </thead>
+        <tbody>
+          <%agents.forEach((agent, index) => {%>
+            <tr>
+            <td class="agentName"><%=agent.agentName%>
+              <span class="btn btn-flat btn-outline-secondary cleanButton cancelled_btn" id="cancelled_btn_<%=agent.agentID%>"><i class='fas fa-ban'></i></span>
+              <span class="btn btn-flat btn-outline-secondary cleanButton sick_btn" id="sick_btn_<%=agent.agentID%>"><i class='fas fa-briefcase-medical'></i></span>
+              <span class="btn btn-flat btn-outline-secondary cleanButton hol_btn" id="hol_btn_<%=agent.agentID%>"><i class="fas fa-plane-departure"></i></span>
+              <span class="btn btn-flat btn-outline-secondary cleanButton reg_hours_btn <%if((agent.fixedHours==1 && moment(agent.contractStart).isSameOrBefore(thisMonday,'day'))){%>disabled<%}%>" id="reg_hours_btn_<%=agent.agentID%>"><i class="material-icons">repeat</i></span>
+            </td>
+            <%for (i=0; i<week.length; i++) {
+              let day=new Date(thisMonday)
+              let dy=dateIf(day.setDate(day.getDate()+i),"","r")
+              let firstFri = moment(day).set('date', 1).day(12)
+              if(firstFri.date() > 7) { //
+                firstFri = firstFri.day(-2)
+              }
+              let isHol=false
+              let isSick=absences.some(function (absence) {
+                return absence.agentID==agent.agentID && dateIf(absence.absenceDate,"-","r")==stringToDate(dy) && absence.absenceType=="Sick";
+              })
+              let isCancelled=absences.some(function (absence) {
+                return absence.agentID==agent.agentID && dateIf(absence.absenceDate,"-","r")==stringToDate(dy) && absence.absenceType=="Cancelled by manager";
+              })
+              let teamID=(findBookingTeam(agent.agentID, stringToDate(dy), "bookingTeamID")) ? findBookingTeam(agent.agentID, stringToDate(dy), "bookingTeamID") : agent.agentTeamID
+              isHol=findBooking(agent.agentID, stringToDate(dy), "startTime")=="00:00" && findBooking(agent.agentID, stringToDate(dy), "endTime")=="00:00"%>
+              <td style="border-left:1px solid grey;" class="<%if (isHol) {%>holiday <%}%><%if (isSick) {%>sick <%}%><%if (isCancelled) {%>cancelled <%}%>dropright timeTD_<%=agent.agentID%>_<%=dy%>">
+                <input type="number" style="display:none;" data-oldValue="<%= teamID %>" id="bookingTeam_<%=agent.agentID%>_<%=dy%>" value="<%= teamID %>">
+                <button <%if (isHol||isSick||isCancelled) {%>disabled<%}%> id="teamButton_<%=agent.agentID%>_<%=dy%>"class="btn btn-outline-secondary cleanButton teamButton teamButton_<%= teamID %>" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><%=(findBookingTeam(agent.agentID, stringToDate(dy), "teamName")) ? findBookingTeam(agent.agentID, stringToDate(dy), "teamName").substring(0,1) : agent.teamName.substring(0,1)%></button>
+                <div class="dropdown-menu">
+                  <%teams.forEach((team , index) => {
+                    if (team.agentTeamID!=agent.teamName && team.agentTeamID!=teamID) {%>
+                      <a class="dropdown-item" href="#" onclick="updateShift(<%= team.agentTeamID %>,<%=agent.agentID%>,<%=dy%>)">Loan to <%= team.teamName %></a>
+                  <%}})%>
+                  <a class="dropdown-item" href="#" onclick="updateShift(<%= agent.agentTeamID %>,<%=agent.agentID%>,<%=dy%>)">Reset to <%= agent.teamName %></a>
+                </div>
+              </td>
+              <td class="timeTD timeTD_<%=agent.agentID%>_<%=dy%> <%if (isHol) {%>holiday <%}%><%if (isSick) {%>sick <%}%><%if (isCancelled) {%>cancelled <%}%><%if (findBooking(agent.agentID, stringToDate(dy), "endTime",true)) {%>contracted <%}%>"><input <%if (isHol||isSick||isCancelled||(findBooking(agent.agentID, stringToDate(dy), "endTime",true))) {%>disabled<%}%> type="text" class="time start time_<%=agent.agentID%>" maxlength="5" name="start_<%=agent.agentID%>_<%=dy%>" id="start_<%=agent.agentID%>_<%=dy%>" data-oldValue="<%=findBooking(agent.agentID, stringToDate(dy), "startTime")%>" value="<%=findBooking(agent.agentID, stringToDate(dy), "startTime")%>" <% if(stringToDate(dy)==firstFri.format("YYYY-MM-DD")){%>data-firstFri=true<%}%>></td>
+              <td class="timeTD timeTD_<%=agent.agentID%>_<%=dy%> <%if (isHol) {%>holiday <%}%><%if (isSick) {%>sick <%}%><%if (isCancelled) {%>cancelled <%}%><%if (findBooking(agent.agentID, stringToDate(dy), "endTime",true)) {%>contracted <%}%>"><input <%if (isHol||isSick||isCancelled||(findBooking(agent.agentID, stringToDate(dy), "endTime",true))) {%>disabled<%}%> type="text" maxlength="5" class="time end time_<%=agent.agentID%>" name="end_<%=agent.agentID%>_<%=dy%>" id="end_<%=agent.agentID%>_<%=dy%>" data-oldValue="<%=findBooking(agent.agentID, stringToDate(dy), "endTime")%>" value="<%=findBooking(agent.agentID, stringToDate(dy), "endTime")%>" <% if(stringToDate(dy)==firstFri.format("YYYY-MM-DD")){%>data-firstFri=true<%}%>></td>
+            <%}%>
+            </tr>
+          <%});%>
+        </tbody>
+      </table>
+      </div>
+    </div>
+  </div>
+  <script>
+    $(document).on('click', '.applyReg_btn', function(evt) {
+      var a=this.id.split("_")[2]
+      var i=Number(this.id.split("_")[3])
+      var d=new Date("<%=thisMonday%>")
+      d.setDate(d.getDate()+i)
+      if (!$("#start_"+a+"_"+dateIf(d,"","r")).prop('disabled') || $(".timeTD_"+a+"_"+dateIf(d,"","r")).hasClass('contracted') ) {
+        var st=$("#regstart_"+a+"_"+i).val()
+        var en=$("#regend_"+a+"_"+i).val()
+        $("#start_"+a+"_"+dateIf(d,"","r")).val(st)
+        $("#end_"+a+"_"+dateIf(d,"","r")).val(en)
+        $("#end_"+a+"_"+dateIf(d,"","r")).trigger("change")
+      }
+    })
+    $(document).on('click', '.applyAllReg_btn', function(evt) {
+      var a=this.id.split("_")[2]
+      var d=new Date("<%=thisMonday%>")
+      var d2=new Date("<%=thisMonday%>")
+      for (var i = 0; i < 7; i++) {
+        d2=new Date(moment.utc(d).add(i,'d').format("YYYY-MM-DD"))
+        if (!$("#start_"+a+"_"+dateIf(d2,"","r")).prop('disabled') || $(".timeTD_"+a+"_"+dateIf(d2,"","r")).hasClass('contracted')) {
+          var st=$("#regstart_"+a+"_"+i).val()
+          var en=$("#regend_"+a+"_"+i).val()
+          $("#start_"+a+"_"+dateIf(d2,"","r")).val(st)
+          $("#end_"+a+"_"+dateIf(d2,"","r")).val(en)
+          $("#end_"+a+"_"+dateIf(d2,"","r")).trigger("change")
+        }
+      }
+    })
+    function updateTeamBtn(t,a,d){
+      let teams=[]
+      let team={}
+      <%teams.forEach((team , index) => {%>
+        team.teamName='<%=team.teamName%>'
+        team.teamID=<%=team.agentTeamID%>
+        teams.push(team)
+        team={}
+      <%})%>
+      $("#teamButton_"+a+"_"+d).removeClass(function (index, className) {
+        return (className.match (/(^|\s)teamButton_\S+/g) || []).join(' ');
+      })
+      $("#teamButton_"+a+"_"+d).addClass("teamButton_"+t)
+      let teamLetter=teams.find(function(team){return team.teamID==t}).teamName.substring(0,1)
+      $("#teamButton_"+a+"_"+d).text(teamLetter)
+    }
+    function updateShift(t,a,d){
+      $("#bookingTeam_"+a+"_"+d).attr("value",t)
+      $("#start_"+a+"_"+d).trigger("change")
+      updateTeamBtn(t,a,d)
+    }
+    function applyAllReg(){
+      $.ajax({
+          url: '/get-regular-hours',
+          type: 'GET',
+          success: function (response) {
+            $(".start").each(function() {
+              if (!$(this).prop('disabled')) {
+                var a=this.id.split("_")[1]
+                var d=new Date(stringToDate(this.id.split("_")[2]))
+                d.setDate(d.getDate()-1)
+                var i=d.getDay()
+                $(this).val(findRegular(response, a, i, "startTime"))
+                $("#end_"+a+"_"+this.id.split("_")[2]).val(findRegular(response, a, i, "endTime"))
+                $(this).trigger("change")
+              }
+            });
+          }
+      })
+    }
+    function exportToXls(){
+      $('#booking_table_thisweek').DataTable().buttons('excelHtml5').trigger()
+    }
+  </script>
+</div>
+</div>
+</body>
+</html>

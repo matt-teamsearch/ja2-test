@@ -1,0 +1,1661 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .tabulator .tabulator-header{
+    font-weight: 500!important;
+    font-size: small!important;
+  }
+  .tabulator .tabulator-header .tabulator-col .tabulator-col-content{
+    padding: 3px!important;
+    text-align: center;
+  }
+  .tabulator .tabulator-cell{
+    padding: 3px!important;
+    font-size: small!important;
+    text-align: center;
+  }
+  .tabulator .tabulator-header .tabulator-col.tabulator-col-group .tabulator-col-group-cols {
+    border: none!important;
+  }
+  .tabulator-edit-select-list {
+    width: fit-content!important;
+    box-shadow: 2px 2px 4px 1px #00000075;
+    border-radius: 3px;
+    padding: 3px;
+    padding-right: 8px;
+  }
+  .tabulator-edit-select-list-item {
+    white-space: nowrap;
+  }
+  .wrapped{
+    white-space: normal!important;
+  }
+  .bookedCell{
+    background: #e2f0ff!important;
+    border: 2px solid var(--primary)!important;
+  }
+  .bookBtn,.unBookBtn{
+    height: 100%;
+    width: 100%;
+    border: none;
+    font-size: 36px;
+    padding: 2px;
+  }
+  .unBookBtn:hover{
+    background-color:var(--danger)
+  }
+  .bookBtn:hover{
+    background-color:var(--success)
+  }
+  .unBookBtn .fa-calendar-minus {
+    display:none;
+  }
+  .unBookBtn .fa-calendar-check {
+    display:inline;
+  }
+  .unBookBtn:hover .fa-calendar-minus {
+    display:inline;
+  }
+  .unBookBtn:hover .fa-calendar-check {
+    display:none;
+  }
+  .bookBtn .fa-calendar-plus {
+    display:none;
+  }
+  .bookBtn .fa-calendar {
+    display:inline;
+  }
+  .bookBtn:hover .fa-calendar-plus {
+    display:inline;
+  }
+  .bookBtn:hover .fa-calendar {
+    display:none;
+  }
+  .target,.trackerHead{
+    font-size: x-large;
+    font-weight: 400;
+    text-align: center;
+    width: 40%;
+    margin: auto;
+  }
+  .trackerRow{
+    text-align:center;
+    font-size:large;
+  }
+  .trackerHead{
+    display:none;
+  }
+  .fa-check{
+    color:var(--success);
+  }
+  #shiftsNeeded{
+    font-weight:bold;
+    color:var(--danger);
+  }
+  .card-title{
+    padding: 12px;
+  }
+  .removeAlloc{
+    padding: 2px;
+    font-size: 12px;
+    margin: 3px;
+  }
+  .noRightBorder{
+    border-right:none!important;
+  }
+  .tabletBtn{
+    padding: 5px;
+    font-size: small;
+    margin: 6px;
+    line-height: 12px;
+  }
+  .calcCell{
+    color:'#868686';
+    font-style:italic;
+  }
+  .fromReport{
+    color: var(--primary);
+    font-weight: bold;
+    background: #e2f0ff!important;
+    border: 2px solid var(--primary)!important;
+  }
+  .inReport{
+    color: #92d4df;
+    font-style: italic;
+    font-weight: bold;
+  }
+  #viewVista {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+  }
+  .hitBonus {
+  }
+  .hitBonus::before {
+    content: '£';
+    position: absolute;
+    background: #efc90861;
+    top: 0;
+    left: 0;
+    color: white;
+    padding: 0px 3px;
+    line-height: 14px;
+    font-size: 10px;
+    border-bottom-right-radius: 9px;
+    font-style: italic;
+  }
+  .badge-gold {
+    background: #c9a800;
+    color: white;
+  }
+  .tabulator .tabulator-header .tabulator-col .tabulator-col-content .tabulator-header-menu-button {
+    font-weight: bold;
+    color: var(--primary);
+  }
+</style>
+<script type="text/javascript">
+  var jobID=<%=job.jobID%>
+  var jobCPI=<%=job.CPI%>
+  function bonusCols(d){
+    return Object.keys(d).filter(a=>a.indexOf("bonus_")>-1 || a=='bonus')
+  }
+  function sumBonus(d){
+    return bonusCols(d).reduce((a,b)=>a+Number(d[b].reduce((a,b)=>a+Number(b.bonus),0)),0)
+  }
+  function sumCompletes(d){
+    var sum=0
+    for (const [key, value] of Object.entries(d)) {
+      if (key.indexOf("ints_")>-1) {
+        sum=sum+Number(value?value:0)
+      }
+    }
+    return sum
+  }
+  function countBookings(d){
+    var sum=0
+    for (const [key, value] of Object.entries(d)) {
+      if (key.indexOf("ints_")>-1 && value===null) {
+        sum=sum+1
+      }
+    }
+    return sum
+  }
+  function countDays(d){
+    var sum=0
+    for (const [key, value] of Object.entries(d)) {
+      if (key.indexOf("ints_")>-1 && value!==null && value!==undefined) {
+        sum=sum+1
+      }
+    }
+    return sum
+  }
+  function updateBonusAllocations(allocID,calcs,hideLoad){
+    var table = Tabulator.prototype.findTable('#f2fTable')[0]
+    return $.ajax({
+      url: '/update-f2f-bonus-allocs',
+      data:{allocationID:allocID,calcs:(calcs?calcs:table.getData().find(el=>el.allocationID==allocID).bonusCalc.filter(el=>el!='new'))},
+      type: 'POST',
+      global:hideLoad?false:true,
+      success: function (response) {
+        // console.log('updated allocation',response,allocID)
+        // table.replaceData()
+      },
+      error: function (jqXHR, exception) {
+        alert(exception)
+        console.log(exception)
+      },
+    })
+  }
+  let getBonus=(allocData,p)=>{
+    let params={}
+    if (p) {
+      params=JSON.parse(p)
+    }else {
+      return 0
+    }
+    let bonusData={}
+    let cType=params.type
+    let cCondition=params.condition
+    let cDividends=params.dividend
+    let cOperator=params.operator
+    let cDivisor=params.divisor
+    let shiftKeys=Object.keys(allocData).filter(k=>k.indexOf('ints_')>-1 && allocData[k]!==null && allocData[k]!==undefined)
+    let totalPay=allocData.payRate*(allocData.isPaidByDay===false?sumCompletes(allocData):countDays(allocData))
+    let operators={
+      '+':(a,b)=>Number(b),
+      'x':(a,b)=>(a*b)-a
+    }
+    let conditions={
+      '=':(a,b)=>a==b,
+      '>':(a,b)=>a>b,
+      '<':(a,b)=>a<b,
+      'in':(a,b)=>b.includes(a)
+    }
+    if (cType.val=='weekday') {
+      conditions={
+        '=':(a,b)=>moment(a).day()==moment(b).day(),
+        '>':(a,b)=>moment(b).day()>moment(a).day(),
+        '<':(a,b)=>moment(b).day()<moment(a).day(),
+        'in':(a,b)=>(Array.isArray(b)?b:[b]).find(el=>moment(el).day()==moment(a).day())
+      }
+    }
+    if (cType.val=='date') {
+      conditions={
+        '=':(a,b)=>moment(a).isSame(b,'day'),
+        '>':(a,b)=>moment(b).isAfter(a,'day'),
+        '<':(a,b)=>moment(b).isBefore(a,'day'),
+        'in':(a,b)=>(Array.isArray(b)?b:[b]).find(el=>moment(el).isSame(a,'day'))
+      }
+    }
+    let testVals=(k)=>({
+      'date':k.split("_")[1],
+      'weekday':k.split("_")[1],
+      'dayInt':allocData[k],
+      'totalInt':sumCompletes(allocData),
+      'shifts':countDays(allocData)
+    })
+    bonusData.total=0
+    if (cType.total) {
+      if (conditions[cCondition.val](testVals,cDividends.val)) {
+        bonusData.total=Number(operators[cOperator.val](totalPay,cDivisor.val))
+      }
+    }else{
+      shiftKeys.forEach((k, i) => {
+        let testVal=testVals(k)[cType.val]
+        // console.log(cType.val,testVals(k),testVals(k)[cType.val])
+        let dte=k.split("_")[1]
+        let pay=allocData.payRate*(allocData.isPaidByDay===false?allocData[k]:1)
+        // console.log(dte,pay,conditions[cCondition.val],testVal,cDividends.val)
+        if (conditions[cCondition.val](testVal,cDividends.val)) {
+          if (cOperator.total) {
+            bonusData.total=Number(operators[cOperator.val](totalPay,cDivisor.val))
+          }else {
+            bonusData[dte]=Number(operators[cOperator.val](pay,cDivisor.val))
+            bonusData.total=Number(bonusData.total)+bonusData[dte]
+          }
+        }
+      });
+    }
+    return bonusData
+  }
+</script>
+<div class="container" style="padding-top:70px;max-width: 100%;">
+  <div class="card viewerHeight">
+    <h5 class="card-title text-center"><a href="/edit-group-page/<%= job.jobID %>" rel="noopener"><%=job.fullJobName%></a> - F2F Tracker</h5>
+    <div class="statsTable">
+      <div class="trackerHead needed">Book in <span id="shiftsNeeded"></span> more shifts to hit target</div>
+      <div class="trackerHead notNeeded"><i class="fas fa-check"></i> All on track</div>
+    </div>
+    <div id="f2fTable"></div>
+    <button type="button" class='btn btn-primary' id="addAllocation">Add allocation</button>
+    <button type="button" class="btn btn-sm btn-info" id="viewVista" onclick="showAgentGrid()">All Vista completes</button>
+    <div class="payclaimList-cont" style="position:absolute;top:2px;left:2px">
+      <select class="selectpicker" id="payclaims" title="Payclaim links" onchange="getPayclaimLink()">
+        <option value=""></option>
+        <option value="newlink">New link</option>
+      </select>
+    </div>
+    <a href="/overview/<%= job.jobQuoteID %>" class="btn btn-sm" style="background-color:#4b7491; color:#fff;width:100%;">Back to project overview</a>
+  </div>
+</div>
+<div class='modal fade' role='dialog' id='allocAdder'>
+  <div class='modal-dialog modal-dialog-centered' role='document'>
+    <div class='modal-content'>
+      <div class='modal-body'>
+        <div class="form-group row">
+          <div class="col-sm-12">
+            <select class="selectpicker" data-live-search="true" data-width="100%" id="newAgentName" title="Select an agent...">
+              <%allAgents.forEach((agent, i) => {%>
+                <option value="<%=agent.agentID%>"><%=agent.agentName%><%=agent.supervisorName?' ('+agent.supervisorName+')':''%></option>
+              <%})%>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class='modal-footer'>
+        <button type='button' class='btn btn-secondary modalClose' data-dismiss='modal'>Close</button>
+        <button type='button' class='btn btn-primary' id='addAllocBtn' onclick='addAllocation()'>Add</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class='modal fade' role='dialog' id='bonusCalcModal'>
+  <div class='modal-dialog modal-dialog-centered' role='document' style="max-width: 600px;">
+    <div class='modal-content'>
+      <div class='modal-body'>
+        <div class="form-group">
+          <style media="screen">
+            #newCalcForm input,#newCalcForm select,#newCalcForm button{
+              transition:all 0.5s;
+            }
+            .inactive{
+              opacity:0;
+              pointer-events:none;
+            }
+            #newCalcForm select,#newCalcForm button{
+              width:fit-content;
+            }
+            #newCalcForm input{
+              width:100px;
+            }
+            #newCalcForm .form-group{
+              margin:0;
+            }
+            #newCalcForm{
+              text-align: center;
+              padding: 0;
+            }
+            .ifSection,.thenSection {
+              padding: 12px 5px;
+              text-align: center;
+            }
+            .inputs{
+              display: flex;
+              align-items: center;
+              justify-content: center;
+            }
+            .ifSection {
+              background: var(--primary);
+              color:white;
+            }
+            .thenSection {
+              background: var(--warning);
+              color:white;
+            }
+            #calcDivisorCont{
+              position:relative;
+            }
+            #calcDivisorCont.money::before {
+              content: '£';
+              position: absolute;
+              color: black;
+              left: 3px;
+              top: 50%;
+              transform: translateY(-50%);
+            }
+          </style>
+          <h5>New bonus calc</h5><br>
+          <form action="javascript:0" id="newCalcForm" onsubmit="" class="col-sm-12">
+            <input type="text" class="form-control" maxlength="255" id="calcName" style="width:100%" required value="" placeholder="Name...">
+            <div class="form-group">
+              <div class="ifSection">
+                <div style="width:100%">
+                  If
+                </div>
+                <div class="inputs">
+                  <select class="form-control inactive" id="calcType" required>
+                    <option value="" disabled selected></option>
+                    <option value="weekday" data-excl="">Weekday</option>
+                    <option value="date" data-excl="">Date</option>
+                    <option value="totalInt" data-excl="in" data-total=true>Total interviews</option>
+                    <option value="dayInt" data-excl="in">Day's interviews</option>
+                    <option value="shifts" data-excl="in" data-total=true>Number of shifts</option>
+                  </select>
+                  <select class="form-control inactive" id="calcCondition" required>
+                    <option value="" disabled selected></option>
+                    <option value="=">=</option>
+                    <option value=">">></option>
+                    <option value=">"><</option>
+                    <option value="in" data-multiple="true">Includes</option>
+                  </select>
+                  <select class="form-control calcDividends inactive" id="weekdays" data-type="weekday">
+                    <option value="" disabled></option>
+                    <% for(i=0;i<7;i++){ %>
+                      <option value="<%=moment().isoWeekday(i+1).format("YYYY-MM-DD")%>"><%=moment().isoWeekday(i+1).format("dddd")%></option>
+                      <%}%>
+                    </select>
+                    <select class="form-control calcDividends inactive" id="dates" data-type="date">
+                      <option value="" disabled selected></option>
+                      <% var dates=moment.range(moment.utc(job.startDate),moment.utc(job.endDate))
+                      for (let day of dates.by('day')) { %>
+                        <option value="<%=day.format("YYYY-MM-DD")%>"><%=day.format("DD/MM/YYYY")%></option>
+                        <%}%>
+                      </select>
+                      <input type="number" class="form-control calcDividends inactive" id="totalInts" data-type="totalInt"/>
+                      <input type="number" class="form-control calcDividends inactive" id="dayInts" data-type="dayInt"/>
+                      <input type="number" class="form-control calcDividends inactive" id="shifts" data-type="shifts"/>
+                    </div>
+                </div>
+              <div class="thenSection">
+                <div style="width:100%">
+                  Then
+                </div>
+                <div class="inputs">
+                  <select class="form-control inactive" id="calcOperator" required>
+                    <option value="" disabled selected></option>
+                    <option value="+" data-total=true>Add to total pay</option>
+                    <option value="x" data-total=true>Multiply total pay by</option>
+                    <option value="+">Add to day's pay</option>
+                    <option value="x">Multiply day's pay by</option>
+                  </select>
+                  <span id="calcDivisorCont">
+                    <input type="number" step="0.01" class="form-control calcOptions inactive" id="calcDivisor" required/>
+                  </span>
+                </div>
+              </div>
+            </div><br>
+            <button type='submit' class='btn btn-primary inactive' id='createBonusBtn' onclick='createBonus($("#bonusCalcModal").prop("data-allocID"))'>Add</button>
+          </form>
+          <script type="text/javascript">
+            function createBonus(allocID){
+              if ($('#newCalcForm')[0].checkValidity()) {
+                let newBonusParams={
+                  type:{
+                    val:$('#calcType').val(),
+                    total:$('#calcType').find('selected').attr('data-total')
+                  },
+                  condition:{
+                    val:$('#calcCondition').val()
+                  },
+                  dividend:{
+                    val:$('.calcDividends[data-type="'+$('#calcType').val()+'"]').val()
+                  },
+                  operator:{
+                    val:$('#calcOperator').val(),
+                    total:$('#calcOperator option:selected').attr('data-total')
+                  },
+                  divisor:{
+                    val:$('#calcDivisor').val(),
+                  }
+                }
+                return $.ajax({
+                  url: '/add-f2f-bonus-calc',
+                  data:{jobID:jobID,allocationID:allocID,name:$('#calcName').val(),params:newBonusParams},
+                  type: 'POST',
+                  success: function (response) {
+                    bonusParams[response.id]=JSON.stringify(newBonusParams)
+                    bonusCalcs[response.id]=$('#calcName').val()
+                    Tabulator.prototype.findTable('#f2fTable')[0].replaceData().then(e=>{
+                      $('#bonusCalcModal').modal('hide')
+                      // updateBonusAllocations(allocID).then(e=>{
+                      //   Tabulator.prototype.findTable('#f2fTable')[0].replaceData()
+                      // })
+                    })
+                  },
+                  error: function (jqXHR, exception) {
+                    alert(exception)
+                    console.log(exception)
+                  },
+                })
+              }
+            }
+            let origForm=$('#newCalcForm').html()
+            $('#bonusCalcModal').on('hidden.bs.modal',function(){
+              $('#newCalcForm').empty()
+              $('#newCalcForm').html(origForm)
+              initialiseForm()
+            })
+            function initialiseForm(){
+              $('.calcDividends').hide()
+              $('.calcDividends').eq(0).show()
+              $('#calcName').keyup(function(e){
+                if ($('#calcName').val()) {
+                  $('#calcType').removeClass('inactive')
+                }else {
+                  $('#calcType').addClass('inactive')
+                }
+              })
+              $('.calcDividends').hide()
+              $('.calcDividends').eq(0).show()
+              $('#calcType').change(function(e){
+                let type=$('#calcType').val()
+                $('.calcDividends').hide()
+                $('.calcDividends').addClass('inactive')
+                $('.calcDividends[data-type="'+type+'"]').show()
+                if (!$('#calcCondition').hasClass('inactive')) {
+                  $('.calcDividends').prop('required',false)
+                  $('.calcDividends[data-type="'+type+'"]').prop('required',true)
+                  $('.calcDividends[data-type="'+type+'"]').removeClass('inactive')
+                }
+                let excl=$('#calcType option:selected').attr('data-excl')
+                excl=excl?excl.split(","):[]
+                let tot=$('#calcType option:selected').attr('data-total')
+                if (excl.includes('in')) {
+                  $('#calcCondition option[value="in"]').prop('disabled',true)
+                }else {
+                  $('#calcCondition option[value="in"]').prop('disabled',false)
+                }
+                $('#calcOperator option').prop('disabled',true)
+                if (tot) {
+                  $('#calcOperator option[data-total="true"]').prop('disabled',false)
+                }else {
+                  $('#calcOperator option').prop('disabled',false)
+                }
+                $('#calcCondition').removeClass('inactive')
+              })
+              $('#calcCondition').change(function(e){
+                let excl=$('#calcType option:selected').attr('data-excl')
+                excl=excl?excl.split(","):[]
+                let type=$('#calcType').val()
+                if (excl.includes('in')) {
+                  $('#calcCondition option[value="in"]').prop('disabled',true)
+                }else {
+                  $('#calcCondition option[value="in"]').prop('disabled',false)
+                }
+                if ($('#calcCondition').val()=='in') {
+                  $('select.calcDividends').attr('multiple',true)
+                }else {
+                  $('select.calcDividends').attr('multiple',false)
+                }
+                $('.calcDividends').prop('required',false)
+                $('.calcDividends[data-type="'+type+'"]').removeClass('inactive')
+                $('.calcDividends[data-type="'+type+'"]').prop('required',true)
+              })
+              $('.calcDividends').change(function(e){
+                $('#calcOperator').removeClass('inactive')
+              })
+              $('#calcOperator').change(function(e){
+                $('#calcDivisor').removeClass('inactive')
+                if ($('#calcOperator').val().indexOf("+")>-1) {
+                  $('#calcDivisorCont').addClass("money")
+                }else {
+                  $('#calcDivisorCont').removeClass("money")
+                }
+              })
+              $('#calcDivisor').blur(()=>{
+                $('#calcDivisor').val(Number($('#calcDivisor').val()).toFixed(2))
+              })
+              $('#calcDivisor').change(function(e){
+                $('#createBonusBtn').removeClass('inactive')
+              })
+            }
+            initialiseForm()
+          </script>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class='modal fade' role='dialog' id='vistaModal'>
+  <div class='modal-dialog modal-dialog-centered' role='document'>
+    <div class='modal-content'>
+      <div class='modal-body'>
+        <div class="col-sm-12" style="display: inline-flex;">
+          <select class="selectpicker" data-live-search="true" onchange="changeVistaName()" data-width="100%" id="vistaName" title="Select a Vista survey...">
+          </select>
+          <button type="button" id="vistaDownload" onclick="changeVistaName()" class="btn btn-primary">Download</button>
+        </div>
+        <div id="vistaTable" style="display:none;">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class='modal fade' role='dialog' id='pclinkModal'>
+  <div class='modal-dialog modal-dialog-centered' role='document' style="max-width:700px">
+    <div class='modal-content'>
+      <div class='modal-body'>
+
+      </div>
+      <style media="screen">
+        #pcLinkForm .form-row {
+            padding: 15px 0px;
+            border-bottom: 1px solid gainsboro;
+        }
+        #pcLinkForm label,#pcLinkForm button {
+          margin-right: 8px;
+        }
+        #pcLinkForm input, select {
+            line-height: 0px;
+            padding: 0px 3px;
+            height: 1.6em;
+            margin: 0px 5px;
+        }
+        #addPcInc,#addPcInt{
+          line-height: 0px;
+          height: 1.7em;
+        }
+        #pcLinkForm input[type="number"] {
+            width: 4em;
+        }
+        #pcLinkForm .inner-row{
+          width:100%;
+        }
+        .inner-row label {
+          margin: 0px;
+          vertical-align: super;
+        }
+        .tooltip {
+          z-index: 9991;
+        }
+      </style>
+    </div>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" integrity="sha512-CNgIRecGo7nphbeZ04Sc13ka07paqdeTu0WR1IM4kNcpmBAUSHSQX0FslNhTDadL4O5SAGapGt4FodqL8My0mA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+  function getPayclaimLink(){
+    let frm=`
+    <form class="" id="pcLinkForm" action="" method="">
+      <div class="form-row">
+        <label for="linkName">Name <span class="infoHover">This will be shown to interviewers when they start the link. It will also be used by Accounts to associate the pay claim with this project, so please ensure you include the project number</span>:</label>
+        <input type="text" required maxlength=500 style="width:500px" id="linkName" name="s1" value="<%=job.fullJobName%>">
+      </div>
+      <div class="form-row">
+        <label for="s2">Travel pay:</label>
+        £<input type="number" step="0.01" required id="s2" name="s2" value=""> per <select onchange="if($(this).val()=='1'){$('#s7-cont').hide()}else{$('#s7-cont').show()}" name="s8" id="s8">
+          <option value="2">Mile</option>
+          <option value="1">Day</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <div id="s7-cont">
+          Record milage <select name="s7" id="s7">
+            <option value="1">for each shift</option>
+            <option value="2">as one overall figure</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label for="s4">Interviewing pay <span class="infoHover">If we are paying different amounts for different types of interview or different days (e.g. weekday/weekend), add all amounts here. Interviewer will be asked how many of each they did</span>:</label>
+        £<input type="number" id="s4" step="0.01" name="s4" required value=""><button type="button" id="addPcInt" class="btn btn-sm btn-secondary" title="Add another pay option">+</button> per <select class="" name="s3" id="s3">
+          <option value="1">Interview</option>
+          <option value="2">Day</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="s5">Incentives re-imbursement <span class="infoHover">If we are reimbursing various incentive amounts, add them all here. Interviewer will be asked how many of each they need reimbursing for</span>:</label>
+        £<input type="number" id="s5" name="s5" step="0.01" value=""><button type="button" id="addPcInc" class="btn btn-sm btn-secondary" title="Add another incentive option">+</button>
+      </div>
+      <div class="form-row">
+        <div class="inner-row">
+          <h5>Extras</h5>
+        </div>
+        <div class="inner-row">
+          <input type="checkbox" id="s6-1" name="s6" value="1">
+          <label for="s6-1">Reimburse for postage</label>
+        </div>
+        <div class="inner-row">
+          <input type="checkbox" id="s6-2" name="s6" value="2">
+          <label for="s6-2">Pay £10 if used own tablet</label>
+        </div>
+        <div class="inner-row">
+          <input type="checkbox" id="s6-3" name="s6" value="3">
+          <label for="s6-3">Pay £10 if attended briefing</label>
+        </div>
+          <div class="inner-row">
+          <input type="checkbox" id="s6-4" name="s6" value="4">
+          <label for="s6-4">Allow other/misc. costs to be detailed</label>
+        </div>
+      </div>
+      <div class="form-row">
+        <label for="s9">Custom T&C (interviewer will be asked to agree/understand):</label><br>
+        <textarea name="s9" id="s9" rows="3" cols="80"></textarea>
+      </div>
+      <div class="form-row">
+        <button type="button" id="pcl-submit" class="btn btn-primary">Get link</button>
+      </div>
+      <div class="form-row" id="pcLinkURL-cont" style="display:none">
+        <input id="pcLinkURL" value="" style="width:100%">
+        <img id="pcLinkQR">
+
+        </img>
+      </div>
+    </form>`
+    let pclID=$("#payclaims").val()
+    if (pclID) {
+      $.ajax("/payclaim-links?jobID="+'<%=job.jobID%>').done(e=>{
+        let pc=JSON.parse(e.find(p=>p.pclID==pclID).formVals)
+        Object.keys(pc).forEach((k, i) => {
+          if (k.indexOf("s4")>=0&&k.indexOf("-")>=0) {
+            $("#addPcInt").click()
+          }
+          if (k.indexOf("s5")>=0&&k.indexOf("-")>=0) {
+            $("#addPcInc").click()
+          }
+        })
+        Object.keys(pc).forEach((k, i) => {
+          if ($("#pclinkModal #"+k).attr("type")=="checkbox") {
+            $("#pclinkModal #"+k).prop("checked",pc[k]==="true")
+          }else if ($("#pclinkModal #"+k).is("textarea")) {
+            $("#pclinkModal #"+k).html(pc[k])
+          }else {
+            $("#pclinkModal #"+k).val(pc[k])
+          }
+        });
+      })
+    }
+    $("#pclinkModal .modal-body").html(frm)
+    $("#pclinkModal .infoHover").infoHover()
+    $("#addPcInt").click(function(e){
+      let len=$("input[name='s4']").length
+      let news4=$("#s4").clone()
+      news4[0].id="s4-"+len
+      news4[0].value=""
+      news4.prop("required",false)
+      $("#addPcInt").before(news4)
+      news4.before(" / £")
+      if (len==4) {
+        $("#addPcInt").hide()
+      }
+    })
+    $("#addPcInc").click(function(e){
+      let len=$("input[name='s5']").length
+      let news4=$("#s5").clone()
+      news4[0].id="s5-"+len
+      news4[0].value=""
+      $("#addPcInc").before(news4)
+      news4.before(" / £")
+      if (len==5) {
+        $("#addPcInc").hide()
+      }
+    })
+    $("#pcl-submit").click(function(e){
+      if ($("#pcLinkForm")[0].reportValidity()) {
+        $("#pcl-submit").loader()
+        let obj=_.groupBy($("#pcLinkForm").serializeArray(),"name")
+        let ser=Object.keys(obj).filter(k=>k!="name" && obj[k].map(v=>v.value).filter(v=>v!=="").length).filter(k=>obj[k]).map(k=>k+"="+obj[k].map(v=>v.value).filter(v=>v!=="").join(",")).join("&")
+        let base="https://survey.euro.confirmit.com/wix/p832612986586.aspx"
+        $.ajax({method:"post",url:"/shorten-url",data:{urls:encodeURI(base+"?"+ser),expireDays:90,tags:"f2f-payclaim"}}).done(e=>{
+          console.log(e)
+          let sh=e[0]
+          $("#pcLinkURL-cont").show()
+          $("#pcLinkURL").val(sh.short_url_with_protocol)
+          $("#pcLinkQR").attr("src",sh.links.qr_small)
+          let sql={}
+          $("#pcLinkForm input, #pcLinkForm select, #pcLinkForm textarea").each(function(e){
+            sql[this.id]=$(this).val()
+            if ($(this).attr("type")=="checkbox") {
+              sql[this.id]=$(this).prop("checked")
+            }else {
+              sql[this.id]=$(this).val()
+            }
+          })
+          sql.jobID='<%=job.jobID%>'
+          if (pclID) {
+            sql.pclID=pclID
+          }
+          $.ajax({method:"post",url:"/payclaim-links",data:sql}).done(e=>{
+            refreshPayclaims().then(e=>{
+              $("#pcLinkURL")[0].select()
+              navigator.clipboard.writeText($("#pcLinkURL")[0].value)
+              window.FlashMessage.success('Copied to clipboard');
+              $("#pcl-submit").loader("done")
+            })
+          })
+        })
+      }
+    })
+    $("#pclinkModal").modal("show")
+  }
+  function refreshPayclaims(){
+    $("#payclaims").empty()
+    return $.ajax("/payclaim-links?jobID="+'<%=job.jobID%>').done(e=>{
+      $("#payclaims").append(new Option("",""))
+      $("#payclaims").append(new Option("New link",""))
+      e.forEach((pc, i) => {
+        $("#payclaims").append(new Option(pc.linkName,pc.pclID))
+      });
+      $("#payclaims").selectpicker("refresh")
+    })
+  }
+  refreshPayclaims()
+  function updateTracker(tableData){
+    $('.trackerHead').hide()
+    $('.trackerHead').tooltip("dispose")
+    let bonuses=tableData.map(el=>({allocationID:el.allocationID,bonus:el.bonus,shifts:Object.keys(el).filter(k=>k.indexOf('bonus_')>-1).map(b=>({date:b.split("_")[1],bonus:el[b]}))}))
+    // console.log("bonuses",bonuses)
+    if (bonuses.length) {
+      $.ajax({
+        url: '/update-f2f-bonus',
+        type: 'POST',
+        global:false,
+        data: {allocs:bonuses},
+        success:function(response){
+          console.log("updated dailys")
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+      });
+    }
+    let ints=0
+    tableData.forEach((row, i) => {
+      for (const [key, value] of Object.entries(row)) {
+        if (key.indexOf("ints_")>-1) {
+          ints=ints+Number(value?value:0)
+        }
+      }
+    });
+    let shifts=0
+    tableData.forEach((row, i) => {
+      for (const [key, value] of Object.entries(row)) {
+        if (key.indexOf("ints_")>-1 && value!==undefined && value!==null) {
+          shifts=shifts+1
+        }
+      }
+    });
+    let bookedShifts=0
+    tableData.forEach((row, i) => {
+      for (const [key, value] of Object.entries(row)) {
+        if (key.indexOf("ints_")>-1 && value===null) {
+          bookedShifts=bookedShifts+1
+        }
+      }
+    });
+    let avg=ints/shifts
+    let intsBooked=Math.round(bookedShifts*avg)
+    let toDo=<%=job.interviewsTarget%>-ints
+    $('#shiftsNeeded').text(Math.ceil((toDo-intsBooked)/avg))
+    let title=`
+    <div class="trackerRow" style="font-size:x-large; font-weight:400">Target: <%=job.interviewsTarget%></div><br>
+    <div class="trackerRow"><span id="completedInts">`+ints+`</span> completed</div>
+    <div class="trackerRow"><i class="fas fa-plus"></i></div>
+    <div class="trackerRow"><span id="shiftsBooked">`+bookedShifts+`</span> shifts booked <i class="fas fa-at"></i> <span id="intsPerShift">`+(avg).toFixed(1)+`</span> avg. per shift</div>
+    <div class="trackerRow"><i class="fas fa-equals"></i></div>
+    <div class="trackerRow"><span id="projectedInts">`+(intsBooked+ints)+`</span> total completes</div>
+    <div class="trackerRow"><i class="fas fa-arrow-down"></i></div>
+    <div class="trackerRow"><span id="intsNeeded">`+(toDo-intsBooked)+`</span> completes short</div>`
+    if ((toDo-intsBooked)>0) {
+      $('.needed').show()
+      $('.notNeeded').hide()
+    }else if(ints>0) {
+      $('.needed').hide()
+      $('.notNeeded').show()
+    }
+    $('.trackerHead').tooltip({
+      title:title,
+      position:'top',
+      html:true,
+      sanitize:false
+    })
+  }
+
+  var dateEditor = function(cell, onRendered, success, cancel, editorParams){
+    var editor = document.createElement("input");
+    editor.setAttribute("type", "date");
+    editor.style.padding = "0px";
+    editor.style.width = "100%";
+    editor.style.height = "100%";
+    editor.style.boxSizing = "border-box";
+    editor.value = cell.getValue()
+    onRendered(function(){
+      editor.focus();
+      editor.style.css = "100%";
+    });
+    function successFunc(){
+      success(editor.value==''?'':editor.value);
+    }
+    editor.addEventListener("blur", successFunc);
+    return editor;
+  };
+  function updateJob(query,table,fields,values,idfield,id,silent){
+    var data =[]
+    var jsonData={};
+    var vals=[]
+    var strVals={}
+    jsonData.table=table
+    jsonData.query=query
+    for (var i = 0; i < fields.length; i++) {
+      if (values[i]!==undefined && values[i]!=='' && values[i]!==null) {
+        if (typeof values[i] === "string") {
+          vals.push(fields[i]+"=@"+fields[i])
+          strVals[fields[i]]=values[i]
+        }else {
+          vals.push(fields[i]+"='"+values[i]+"'")
+        }
+      }else {
+        vals.push(fields[i]+"=NULL")
+      }
+    }
+    jsonData.values=vals.join(", ")
+    jsonData.stringValues=strVals
+    jsonData.idfield=idfield
+    jsonData.id=id
+    jsonData.fieldsArr=fields
+    jsonData.valuesArr=values
+    var data2={}
+    data2.jobID=id
+    data.push(jsonData)
+    var targetUpdateDone=true
+    return $.ajax({
+      url: '/update-group-ajax',
+      type: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify(data),
+      success:function(response){
+        Tabulator.prototype.findTable('#f2fTable')[0].replaceData()
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  var inputInts=function(cell, onRendered, success, cancel, editorParams){
+    var editor = document.createElement("input");
+    let vistaAgent=vistaCompletes.find(el=>el.Agent==cell.getData().askiaID)
+    var isFromReport=false
+    if (vistaAgent) {
+      isFromReport=((cell.getValue()===null || cell.getValue()==="") && vistaAgent[cell.getField().split("_")[1]])
+    }
+    editor.setAttribute("type", "number");
+    editor.style.padding = "0px";
+    editor.style.width = "100%";
+    editor.style.height = "100%";
+    editor.style.boxSizing = "border-box";
+    if (isFromReport) {
+      $(editor).addClass("fromReport")
+    }
+    editor.value = isFromReport?vistaCompletes.find(el=>el.Agent==cell.getData().askiaID)[cell.getField().split("_")[1]]:cell.getValue()
+    onRendered(function(){
+      editor.focus();
+      editor.style.css = "100%";
+    });
+    function successFunc(){
+      $(editor).tooltip('dispose')
+      success(editor.value==''?'':editor.value);
+    }
+    editor.addEventListener("blur", successFunc);
+    editor.addEventListener("focus", function(e){
+      $(editor).tooltip('show')
+    });
+    editor.addEventListener("keydown", function(e){
+      if (e.keyCode==13) {
+        editor.blur()
+      }
+      if (e.keyCode==27) {
+        if (isFromReport) {
+          editor.value = cell.getValue()
+          $(editor).tooltip('dispose')
+          isFromReport=false
+          editor.select()
+        }else {
+          cancel()
+        }
+      }
+      $(editor).removeClass("fromReport")
+    });
+    if (isFromReport) {
+      $(editor).tooltip({
+        title:"<span class='reportTooltip'>Auto-generated from Vista. Press ENTER to accept, ESC to amend</span>",
+        trigger:"manual",
+        html:true,
+        placement:'bottom'
+      })
+    }
+    return editor;
+  };
+  let vistaCompletes=[]
+  let bonusCalcs={}
+  let bonusParams={}
+  $.ajax({
+    url: '/get-f2f-bonus-calcs',
+    type: 'GET',
+    data:{jobID:jobID},
+    async:false,
+    success: function (response) {
+      response.forEach((calc, i) => {
+        bonusCalcs[calc.calcID]=calc.calcName
+        bonusParams[calc.calcID]=calc.calcParams
+      });
+      bonusCalcs['new']='Add new bonus...'
+    },
+    error: function (jqXHR, exception) {
+      alert(exception)
+      console.log(exception)
+    },
+  })
+  function showBonusCalcModal(allocID){
+    $('#bonusCalcModal').prop('data-allocID',allocID)
+    $('#bonusCalcModal').modal('show')
+  }
+  function displayBonus(p){
+    let labels={
+      weekday:'The shift',
+      date:'The shift',
+      totalInt:'Total interviews',
+      dayInt:"That day's interviews",
+      shifts:"Number of shifts",
+      '+':(p,x)=>'Add <span style="color:gold;font-weight:bold;">£'+Number(x).toFixed(2)+'</span> to '+p,
+      'x':(p,x)=>'Multiply '+p+' by <span style="color:gold;font-weight:bold;">'+x+'</span>',
+    }
+    let conditions={
+      default:{
+        '=':'is',
+        '>':'is more than',
+        '<':'is less than',
+        'in':'is',
+      },
+      date:{
+        '=':'is on',
+        '>':'is after',
+        '<':'is before',
+        'in':'is on',
+      },
+    }
+    let testVals={
+      weekday:(v)=>"a "+moment(v).format("dddd"),
+      date:(v)=>moment(v).format("DD/MMM"),
+      totalInt:(v)=>v,
+      dayInt:(v)=>v,
+      shifts:(v)=>v,
+    }
+    let condition=['weekday','date'].includes(p.type.val)?'date':'default'
+    let str="<b>If</b>: "+(labels[p.type.val])+" "+conditions[condition][p.condition.val]+" "+(Array.isArray(p.dividend.val)?p.dividend.val.map(v=>testVals[p.type.val](v)).join(" or "):testVals[p.type.val](p.dividend.val))+"<br><b>Then</b>: "+labels[p.operator.val]((p.operator.total?'total pay':"that day's pay"),p.divisor.val)
+    return str
+  }
+  console.log("rendering table")
+  let bonusHeaderMenu=(col,e)=>{
+    let p=[]
+    $.ajax({
+      url: '/get-f2f-bonus-calcs',
+      data:{jobID:jobID},
+      type: 'GET',
+      async:false,
+      success: function (response) {
+        bonusCalcs={}
+        bonusParams={}
+        let calcList=[]
+        response.forEach((calc, i) => {
+          bonusCalcs[calc.calcID]=calc.calcName
+          bonusParams[calc.calcID]=calc.calcParams
+          calcList.push({
+            label:calc.calcName,
+            value:calc.calcID
+          })
+        });
+        p=[
+        {
+          label:'Add bonus to all',
+          menu:calcList.map(c=>({label:c.label,action:(e,col)=>{
+            let cells=col.getTable().getData()
+            let x=0
+            $('body').addClass('loading')
+            function loop(){
+              if (cells[x]) {
+                let orig=Array.isArray(cells[x].bonusCalc)?cells[x].bonusCalc:[cells[x].bonusCalc]
+                if (!orig.includes(c.value)) {
+                  let calcs=orig
+                  calcs.push(c.value)
+                  updateBonusAllocations(cells[x].allocationID,calcs,true).then(e=>{
+                    x++
+                    loop()
+                  })
+                }else {
+                  x++
+                  loop()
+                }
+              }else {
+                col.getTable().replaceData().then(e=>{
+                  $('body').removeClass('loading')
+                })
+              }
+            }
+            loop()
+          }}))
+        },
+        {
+          label:'Remove bonus from all',
+          menu:calcList.map(c=>({label:c.label,action:(e,col)=>{
+            let cells=col.getTable().getData()
+            let x=0
+            $('body').addClass('loading')
+            function loop(){
+              if (cells[x]) {
+                let orig=Array.isArray(cells[x].bonusCalc)?cells[x].bonusCalc:[cells[x].bonusCalc]
+                if (orig.includes(c.value)) {
+                  let calcs=_.without(orig,c.value)
+                  updateBonusAllocations(cells[x].allocationID,calcs,true).then(e=>{
+                    x++
+                    loop()
+                  })
+                }else {
+                  x++
+                  loop()
+                }
+              }else {
+                col.getTable().replaceData().then(e=>{
+                  $('body').removeClass('loading')
+                })
+              }
+            }
+            loop()
+          }}))
+        },
+        {
+          label:'Clear all bonuses',action:(e,col)=>{
+            let cells=col.getTable().getData()
+            let x=0
+            $('body').addClass('loading')
+            function loop(){
+              if (cells[x]) {
+                updateBonusAllocations(cells[x].allocationID,[],true).then(e=>{
+                  x++
+                  loop()
+                })
+              }else {
+                col.getTable().replaceData().then(e=>{
+                  $('body').removeClass('loading')
+                })
+              }
+            }
+            loop()
+          }
+        }
+        ]
+      },
+      error: function (jqXHR, exception) {
+        alert(exception)
+        console.log(exception)
+      },
+    })
+    console.log(p)
+    return p
+  }
+  var oTable = new Tabulator("#f2fTable", {
+    height: "67vh",
+    resizableRows:true,
+    ajaxURL:"/get-f2f-allocations/"+jobID,
+    ajaxConfig:"GET",
+    columnCalcs:"table",
+    columnHeaderVertAlign:"middle",
+    headerSort:false,
+    keybindings:{
+      "navLeft" : "37",
+      "navRight" : "39",
+    },
+    headerFilterPlaceholder:"search agents...",
+    index:'allocationID',
+    // layoutColumnsOnNewData:true,
+    columns:[
+      {title:"", frozen:true, columns:[
+        {field:"allocationID",visible:false},
+        {field:"agentID",visible:false},
+        {title:"Sort by agent name", titleDownload:"Agent", headerSort:true, cssClass:"agentCell", field:"agentName", accessorDownload:function(value){return value?value.split("_")[0]:""}, headerFilter:true, width:120, formatter:function(cell){
+          return cell.getValue()+'<br><button type="button" data-id="'+cell.getData().allocationID+'" class="btn btn-sm btn-outline-danger removeAlloc">Remove</button>'
+        }},
+        {title:"Mobile",field:'mobilePhone',cssClass:"calcCell"},
+        {title:"Other tel",field:'landlinePhone',cssClass:"calcCell"},
+        {title:"Address",cssClass:"wrapped calcCell",width:130,formatter:function(cell){return cell.getData().add1+", "+cell.getData().add2+", "+cell.getData().add3+", "+cell.getData().add4+", "+cell.getData().postcode}},
+        {field:"add1",visible:false},{field:"add2",visible:false},{field:"add3",visible:false},{field:"add4",visible:false},{field:"postcode",visible:false},
+      ]},
+      {title:"Pay rate",columns:[
+      {title:"", field:"payRate",editor:"number",formatter:"money",formatterParams:{symbol:"£"},cssClass:"noRightBorder"},
+      {title:"",formatter:function(cell){return "per"},cssClass:"noRightBorder calcCell"},
+      {title:"",field:"isPaidByDay",editor:"select",editorParams:{values:{false:'Interview',true:'Day'}},formatter:function(cell){
+        return cell.getValue()==null?'':(cell.getValue()===false?'Interview':'Day')
+      },mutator:function(value){return value==='true'||value===true}},
+      ]},
+      {title:"Target",field:"targetCompletes",editor:"number"},
+      {title:"% allocated",cssClass:"calcCell",formatter:function(cell){return Math.round((cell.getData().targetCompletes/<%=job.interviewsTarget%>)*100)+"%"}},
+      {title:"Total shifts",field:'totalShifts',cssClass:"calcCell",mutator:(v,d)=>countDays(d)+countBookings(d)},
+      {title:"Shifts done",field:'shiftsDone',cssClass:"calcCell",mutator:(v,d)=>countDays(d)},
+      {title:"Shifts to do",field:'shiftsToDo',cssClass:"calcCell",mutator:(v,d)=>countBookings(d)},
+      {title:"Interviews",field:'interviews',cssClass:"calcCell",mutator:(v,d)=>sumCompletes(d)},
+      {title:"Notes",field:"notes",width:200,editor:"textarea"},
+      {title:'Bonus',field:'bonusCalc',editor:'select',editorParams:cell=>{
+        let p={}
+        $.ajax({
+          url: '/get-f2f-bonus-calcs',
+          data:{jobID:jobID},
+          type: 'GET',
+          async:false,
+          success: function (response) {
+            bonusCalcs={}
+            bonusParams={}
+            let calcList=[]
+            response.forEach((calc, i) => {
+              bonusCalcs[calc.calcID]=calc.calcName
+              bonusParams[calc.calcID]=calc.calcParams
+              calcList.push({
+                label:calc.calcName,
+                value:calc.calcID
+              })
+            });
+            calcList.push({
+              label:'Add new bonus...',
+              value:'new'
+            })
+            p={values:calcList,multiselect:true,listItemFormatter:(v,t)=>v=='new'?`<span onclick="showBonusCalcModal(`+cell.getData().allocationID+`)">`+t+`</span>`:t}
+          },
+          error: function (jqXHR, exception) {
+            alert(exception)
+            console.log(exception)
+          },
+        })
+        return p
+      },cssClass:'bonusCell wrapped',maxWidth:150,formatter:(c,p,onRendered)=>{
+        let els=c.getValue().filter(el=>el!='new').map(el=>'<span class="badge badge-gold" data-calcID="'+el+'">'+bonusCalcs[el]+'</span>')
+        onRendered(()=>{
+          $(c.getElement()).find('span').each(function(e){
+            $(this).tooltip({
+              html:true,
+              sanitize:false,
+              title:displayBonus(JSON.parse(bonusParams[$(this).attr('data-calcID')]))
+            })
+          })
+        })
+        return els.join("")
+      },cellClick:(e,c)=>{
+        $(c.getElement()).find('span').each(function(e){
+          $(this).tooltip('dispose')
+        })
+      },headerMenu:bonusHeaderMenu,headerContextMenu:bonusHeaderMenu},
+      {field:'bonus',visible:false,mutator:(v,d)=>{
+        // console.log(d)
+        return d.bonusCalc.filter(b=>bonusParams[b]).filter(b=>JSON.parse(bonusParams[b]).operator.total).map(b=>({id:b,bonus:getBonus(d,bonusParams[b]).total}))
+      }},
+      {title:"Pay",field:'pay',cssClass:"calcCell",mutator:(v,d)=>{
+        let pay=d.payRate*(d.isPaidByDay===false?sumCompletes(d):countDays(d))
+        let bonus=sumBonus(d);
+        if (bonus) {
+          pay=pay+bonus
+        }
+        return pay
+      },formatter:(c,p,onR)=>{
+        let pay=c.getData().payRate*(c.getData().isPaidByDay===false?sumCompletes(c.getData()):countDays(c.getData()))
+        onR(()=>{
+          let acheived=bonusCols(c.getData()).map(k=>c.getData()[k].filter(el=>el.bonus>0).map(b=>({name:bonusCalcs[b.id],id:b.id,amount:b.bonus}))).flat(1)
+          let bonus=sumBonus(c.getData())
+          if (bonus) {
+            $(c.getElement()).addClass('hitBonus')
+            $(c.getElement()).tooltip({
+              html:true,
+              sanitize:false,
+              title:"Basic pay: £"+pay.toFixed(2)+"<br>"+acheived.map(ac=>ac.name+": <span style='color:gold'>£"+ac.amount.toFixed(2)+"</span>").join("<br>")+"<br><i>Total bonus: <span style='color:gold'>£"+(bonus).toFixed(2)+"</span></i>"
+            })
+          }else {
+            $(c.getElement()).removeClass('hitBonus')
+          }
+        })
+        return c.getValue()?'£'+Number(c.getValue()).toFixed(2):'-'
+      }},
+      {title:"Cont",field:'contribution',cssClass:"calcCell",mutator:(v,d)=>{
+        let pay=d.payRate*(d.isPaidByDay===false?sumCompletes(d):countDays(d))
+        let sales=sumCompletes(d)*jobCPI
+        return Math.round((pay/sales)*100)+"%"
+      }},
+      {title:"Payclaim",visible:false,columns:[
+        // {title:"Claimed ints"},
+        // {title:"Claimed days"},
+        // {title:"Payclaim"},
+        // {title:"Mileage"},
+        // {title:"Extras"},
+        // {title:"Briefing"},
+        // {title:"Total payclaim"},
+        // {title:"Date paid"},
+      ]},
+      {field:"tabletAllocationID",visible:false},
+      {title:"Tablet",field:"tabletName",formatter:function(cell){
+        let val='<button type="button" class="btn btn-sm btn-primary tabletBtn " onclick="requestTablet('+cell.getData().agentID+')">Request</button>'
+        if (cell.getValue()) {
+          val=cell.getValue()+'<br><button type="button" class="btn btn-sm btn-warning tabletBtn " onclick="requestTablet('+cell.getData().agentID+')">Replace</button>'
+        }else if (cell.getData().tabletAllocationID) {
+          val=(cell.getData().tabletCount>1?'Replacement pending':'Pending')+'...<br><button type="button" class="btn btn-sm btn-danger tabletBtn " onclick="undoTabletRequest('+cell.getData().tabletAllocationID+')">Undo</button>'
+        }
+        return val
+      }},
+      {title:"CAPI ID",field:"askiaID",editable:true,editor:'input'},
+      {title:"Parcel tracking #",field:"parcelTracking",editor:"input",formatter:function(cell){return cell.getValue()?cell.getValue()+"<br><a target='_blank' class='btn btn-sm btn-success tabletBtn ' href='https://www.royalmail.com/track-your-item#/tracking-results/"+cell.getValue()+"'>Track</a>":''}},
+      {title:"Briefing date",field:"briefingDate",editor:dateEditor,formatter:"datetime",formatterParams:{outputFormat:"DD/MM/YY"}},
+      {title:"",columns:[
+        <%
+        var dates=moment.range(moment.utc(job.startDate),moment.utc(job.endDate))
+        for (let day of dates.by('day')) { %>
+          {title:'',visible:false,field:'bonus_<%=day.format("YYYY-MM-DD")%>',mutator:(v,d)=>{
+            return d.bonusCalc.filter(b=>bonusParams[b]).filter(b=>!JSON.parse(bonusParams[b]).operator.total).map(b=>({id:b,bonus:getBonus(d,bonusParams[b])['<%=day.format("YYYY-MM-DD")%>']})).filter(el=>el.bonus)
+          }},
+          {title:"<%=day.format("ddd")%>",columns:[
+          {title:"<%=day.format("DD/MMM")%>",field:"ints_<%=day.format("YYYY-MM-DD")%>",editor:inputInts,editable:<%=day.valueOf()<=moment.utc().valueOf()%>, formatter:function(cell,n,onRendered){
+            let val=cell.getValue()>=0?cell.getValue():''
+            if (cell.getField().split("_")[1]>moment.utc().format("YYYY-MM-DD")) {
+              if (cell.getValue()===null) {
+                val='<button type="button" data-id="'+cell.getData().allocationID+'" data-d="'+cell.getField().split('_')[1]+'" class="btn btn-outline-primary unBookBtn"><i class="far fa-calendar-check"></i><i class="far fa-calendar-minus"></i></button>'
+              }else {
+                val='<button type="button" data-id="'+cell.getData().allocationID+'" data-d="'+cell.getField().split('_')[1]+'" class="btn btn-outline-secondary bookBtn"><i class="far fa-calendar"></i><i class="far fa-calendar-plus"></i></button>'
+              }
+            }else if(cell.getValue()===null || cell.getValue()==="") {
+              if (vistaCompletes.find(el=>el.Agent==cell.getData().askiaID)) {
+                if (vistaCompletes.find(el=>el.Agent==cell.getData().askiaID)[cell.getField().split("_")[1]]) {
+                  val=vistaCompletes.find(el=>el.Agent==cell.getData().askiaID)[cell.getField().split("_")[1]]
+                }
+              }
+            }
+            onRendered(function(){
+              $(cell.getElement()).removeClass("inReport")
+              if (vistaCompletes.find(el=>el.Agent==cell.getData().askiaID) && (cell.getValue()===null || cell.getValue()==="")) {
+                if (vistaCompletes.find(el=>el.Agent==cell.getData().askiaID)[cell.getField().split("_")[1]]) {
+                  $(cell.getElement()).addClass("inReport")
+                }
+              }
+              let acheived=cell.getData()['bonus_'+cell.getField().split("_")[1]].filter(el=>el.bonus>0).map(b=>({name:bonusCalcs[b.id],id:b.id,amount:b.bonus}))
+              let bonus=acheived.reduce((a,b)=>a+Number(b.amount),0)
+              if (acheived.length) {
+                $(cell.getElement()).addClass('hitBonus')
+                $(cell.getElement()).tooltip({
+                  html:true,
+                  sanitize:false,
+                  title:"<b>Bonus(es) Acheived</b><br>"+acheived.map(ac=>ac.name+": <span style='color:gold'>£"+ac.amount.toFixed(2)+"</span>").join("<br>")+"<br><i>Total: <span style='color:gold'>£"+bonus.toFixed(2)+"</span></i>"
+                })
+              }else {
+                $(cell.getElement()).removeClass('hitBonus')
+                $(cell.getElement()).tooltip('dispose')
+              }
+            })
+            return val
+          }},
+        ]},
+        <%}%>
+      ]}
+    ],
+    ajaxResponse:function(url, params, response){
+      console.log("AJAX fetched")
+      $('.tooltip').remove()
+      $('body').addClass("loading")
+      var tableData=response.allocations.map(al=>{
+        response.dailys.filter(d=>d.allocationID==al.allocationID).forEach((daily, i) => {
+          al['ints_'+moment.utc(daily.inputDate).format("YYYY-MM-DD")]=daily.inputInterviews
+        });
+        let record=response.notes.find(el=>el.otherID==al.allocationID)
+        let tablets=response.tabletAllocations.filter(tab=>tab.faceAgentID==al.agentID && tab.jobID==jobID)
+        al.tabletAllocationID=tablets.length?tablets[0].allocationID:null
+        al.tabletCount=tablets.length
+        al.tabletName=tablets.length?(tablets[0].tabletName?tablets[0].tabletName+" ("+tablets[0].tabletModel+")":undefined):null
+        al.askiaID=tablets.length?tablets[0].askiaID:al.askiaIDmanual
+        al.notes=record?record.note:''
+        return al
+      })
+      console.log("AJAX mapped")
+      $('body').addClass("loading")
+      return tableData
+    },
+    dataChanged:function(data){
+      console.log("data changed")
+      updateTracker(data)
+    },
+    dataLoaded:function(data){
+      console.log("rendered table")
+      updateTracker(data)
+      $('body').removeClass("loading")
+    },
+    rowUpdated:function(row){
+    },
+    cellEdited:function(cell){
+      if (cell.getField().indexOf("ints_")>-1) {
+        updateInput(cell.getData().allocationID,cell.getValue(),cell.getField().split("_")[1])
+      }else if(cell.getField()=="notes") {
+        updateNote('f2f-tracker',cell.getData().allocationID,cell.getValue(),'f2fTable',jobID)
+      }else if(cell.getField()=="askiaID") {
+        if (cell.getData().tabletAllocationID) {
+          updateJob('update','FaceTabletAllocations',['askiaID'],[cell.getValue()],'allocationID',cell.getData().tabletAllocationID,false)
+        }else {
+          updateJob('update','FaceAllocations',['askiaIDmanual'],[cell.getValue()],'allocationID',cell.getRow().getIndex(),false)
+        }
+      }else if (cell.getField()=="bonusCalc") {
+        if (!cell.getValue().includes("new")) {
+          updateBonusAllocations(cell.getData().allocationID).then(e=>{
+            cell.getTable().replaceData()
+          })
+        }
+      }else {
+        updateJob('update','FaceAllocations',[cell.getField()],[cell.getValue()],'allocationID',cell.getRow().getIndex(),false)
+      }
+      cell.getRow().reformat()
+    },
+  });
+
+  $(document).on('click', '#addAllocation', function(evt) {
+    var table = Tabulator.prototype.findTable('#f2fTable')[0];
+    let agentIDs=table.getData().map(el=>el.agentID)
+    $("#newAgentName option").each(function(e){
+      if (agentIDs.includes(Number($(this).prop('value')))) {
+        $(this).prop('disabled',true)
+      }
+    })
+    $("#newAgentName").selectpicker('refresh')
+    $('#allocAdder').modal('show')
+  })
+  $(document).on('click', '.removeAlloc', function(evt) {
+    var table = Tabulator.prototype.findTable('#f2fTable')[0];
+    let id=$(this).attr('data-id')
+    let d=$(this).attr('data-d')
+    let cell=table.getRow(id).getCell('agentName')
+    let completes=sumCompletes(cell.getData())
+    let bookings=countBookings(cell.getData())
+    if (completes>0 || bookings>0) {
+      alert("Cannot delete an allocation with interviews and/or shifts booked")
+    }else {
+      if (confirm("Are you sure you want to remove this allocation?")) {
+        $.ajax({
+          url: '/delete-f2f-allocation',
+          data:{allocationID:id},
+          type: 'POST',
+          success: function (response) {
+            table.replaceData().then(function(e){
+            })
+          },
+          error: function (jqXHR, exception) {
+            alert(exception)
+            console.log(exception)
+          },
+        })
+      }
+    }
+  })
+  $(document).on('click', '.bookBtn', function(evt) {
+    var table = Tabulator.prototype.findTable('#f2fTable')[0];
+    let id=$(this).attr('data-id')
+    let d=$(this).attr('data-d')
+    let cell=table.getRow(id).getCell('ints_'+d)
+    let j=jobID
+    let obj={}
+    obj['ints_'+d]=null
+    updateInput(cell.getData().allocationID,undefined,d)
+    cell.getRow().update(obj).then(function(e){
+      table.replaceData()
+    })
+  })
+  $(document).on('click', '.unBookBtn', function(evt) {
+    var table = Tabulator.prototype.findTable('#f2fTable')[0];
+    let id=$(this).attr('data-id')
+    let d=$(this).attr('data-d')
+    let cell=table.getRow(id).getCell('ints_'+d)
+    let j=jobID
+    let obj={}
+    obj['ints_'+d]=undefined
+    updateInput(cell.getData().allocationID,'',d)
+    cell.getRow().update(obj).then(function(e){
+      table.replaceData()
+    })
+  })
+  function addAllocation(){
+    var table = Tabulator.prototype.findTable('#f2fTable')[0];
+    $.ajax({
+      url: '/add-f2f-allocation',
+      data:{agentID:$('#newAgentName').val(),jobID:jobID},
+      type: 'POST',
+      success: function (response) {
+        table.replaceData().then(function(e){
+          $('#allocAdder').modal('hide')
+        })
+      },
+      error: function (jqXHR, exception) {
+        alert(exception)
+        console.log(exception)
+      },
+    })
+  }
+  function updateInput(a,v,d){
+    return $.ajax({
+      url: '/add-f2f-daily',
+      data:{allocationID:a,ints:v,dte:d},
+      type: 'POST',
+      success: function (response) {
+        Tabulator.prototype.findTable('#f2fTable')[0].replaceData()
+      },
+      error: function (jqXHR, exception) {
+        alert(exception)
+        console.log(exception)
+      },
+    })
+  }
+  function updateNote(page,dateID,note,table,jobID){
+    var data =[]
+    var jsonData={};
+    var vals=[]
+    jsonData.tableName=table
+    jsonData.jobID=jobID
+    jsonData.otherID=dateID
+    jsonData.page=page
+    jsonData.note=note
+    data.push(jsonData)
+    $.ajax({
+        url: '/update-note',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  }
+  function requestTablet(agentID){
+    $.ajax({
+      url: '/add-f2f-tablet-allocation/',
+      type: 'POST',
+      contentType: 'application/json',
+      data:JSON.stringify({jobID:jobID,agentID:agentID}),
+      success: function (response) {
+        Tabulator.prototype.findTable('#f2fTable')[0].replaceData()
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  function undoTabletRequest(allocationID){
+    $.ajax({
+      url: '/delete-f2f-tablet-allocation/',
+      type: 'POST',
+      contentType: 'application/json',
+      data:JSON.stringify({allocationID:allocationID}),
+      success: function (response) {
+        Tabulator.prototype.findTable('#f2fTable')[0].replaceData()
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  function showAgentGrid(){
+    $('#vistaModal').on('shown.bs.modal',function(e){
+      if ("<%=job.vistaName%>") {
+        $("#vistaName").val("<%=job.vistaName%>").selectpicker('refresh')
+        getVistaData('<%=job.vistaName%>').then(gridData=>{
+          var oTable = new Tabulator("#vistaTable", {
+            data:gridData.map(el=>{
+              let obj={}
+              let f2fallocs=Tabulator.prototype.findTable('#f2fTable')[0].getData()
+              let manualName=checkFind(f2fallocs.find(a=>a.askiaID==el.Agent)).agentName
+              let agentName=manualName?manualName:el.Agent
+              if (manualName || checkFind(f2fallocs.find(a=>a.askiaID==el.Agent)).tabletName) {
+                obj.CAPIID=el.Agent
+              }
+              el.Agent=agentName
+              Object.keys(el).forEach((k, i) => {
+                if(moment(k).valueOf()>0){
+                  obj[moment(k).format("DD/MM/YYYY")]=el[k]
+                }else{
+                  obj[k]=el[k]
+                }
+              });
+              return obj
+            }),
+            autoColumns:true,
+            height:'100px',
+            dataLoaded:function(data){
+              this.download("xlsx", "<%=job.fullJobName%> - Agent completes export "+moment().format()+".xlsx")
+              $('#vistaModal').modal('hide')
+            }
+          })
+        })
+      }
+    })
+    $('#vistaModal').modal('show')
+  }
+  function changeVistaName(){
+    if ($("#vistaName").val()) {
+      updateJob('update','Jobs',['vistaName'],[$("#vistaName").val()],'jobID',jobID,false)
+      getVistaData($("#vistaName").val()).then(gridData=>{
+        var oTable = new Tabulator("#vistaTable", {
+          data:gridData.map(el=>{
+            let obj={}
+            Object.keys(el).forEach((k, i) => {
+              if(moment(k).valueOf()>0){
+                obj[moment(k).format("DD/MM/YYYY")]=el[k]
+              }else{
+                obj[k]=el[k]
+              }
+            });
+            return obj
+          }),
+          autoColumns:true,
+          height:'100px',
+          dataLoaded:function(data){
+            Tabulator.prototype.findTable('#f2fTable')[0].getRows().forEach((row, i) => {
+              if (row.getData().askiaID) {
+                row.reformat()
+              }
+            });
+            this.download("xlsx", "<%=job.fullJobName%> - Agent completes export "+moment().format()+".xlsx")
+            $('#vistaModal').modal('hide')
+          }
+        })
+      })
+    }
+  }
+  function getVistaData(vistaName){
+    let p=0
+    let total=0
+    let vdata=[]
+    return new Promise((resolve,reject) => {
+      //Forsta Release
+      $.ajax({url:"/get-forsta-completes",data:{variables:"LastAgentID,interview_end",pid:vistaName}}).done(fdata=>{
+        if (fdata) {
+          vdata=fdata.map(r=>{
+            r.Agent=r.LastAgentID
+            r.IntEnd=r.interview_end
+            return r
+          })
+        }
+        let gridData=[]
+        if (vdata) {
+          gridData=vdata.map(el=>el.Agent).filter((el,i,self)=>self.indexOf(el)==i).map(el=>{return {Agent:el}})
+          let alldates=vdata.map(el=>moment.utc(el.IntEnd)).filter(el=>el>moment('2000-01-01')).filter((el,i,self)=>self.map(s=>s.format("YYYY-MM-DD")).indexOf(el.format("YYYY-MM-DD"))==i)
+          let dates=moment.range(moment.min(alldates),moment.max(alldates).add(1,'d'))
+          gridData=gridData.map(el=>{
+            el.Total=vdata.filter(row=>row.Agent==el.Agent).length
+            for (let day of dates.by('day',{excludeEnd:false})) {
+              el[day.format("YYYY-MM-DD")]=vdata.filter(row=>row.IntEnd).filter(row=>row.Agent==el.Agent && moment.utc(row.IntEnd).format("YYYY-MM-DD")==day.format("YYYY-MM-DD")).length
+            }
+            return el
+          })
+        }
+        vistaCompletes=gridData
+        resolve(gridData)
+        // getPages()
+      })
+    })
+  }
+
+  $(document).ready(function(e){
+    //Forsta Release
+    $.ajax("/get-forsta-surveys").then(data=>{
+      var opt=new Option('', '')
+      $("#vistaName").html("")
+      $("#vistaName").append(opt);
+      let optGrp=document.createElement("optgroup")
+      optGrp.label="Forsta"
+      data.forEach((item, i) => {
+        $(optGrp).append(new Option(item.name, item.id));
+      });
+      $("#vistaName").append(optGrp);
+      $("#vistaName").selectpicker('refresh')
+      getVistaData('<%=job.vistaName%>')
+    })
+  })
+</script>
+</div>
+</body>
+</html>

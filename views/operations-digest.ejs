@@ -1,0 +1,605 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5 class="card-title">Ops Digest <%=moment().format("DD/MM/YYYY")%></h5>
+      <div class="statCont">
+        <h6>CATI Projects</h6>
+        <div class="stat">
+          <div class="statTitle">Least likely to finish</div>
+          <div id="stat1" class="statBlock" data-source="s1data">
+          </div>
+        </div>
+        <div class="stat">
+          <div class="statTitle">Biggest potential loss makers</div>
+          <div id="stat2" class="statBlock" data-source="s2data">
+          </div>
+        </div>
+        <div class="stat">
+          <div class="statTitle">Highest return on improvement</div>
+          <div id="stat3" class="statBlock" data-source="s3data">
+          </div>
+        </div>
+      </div>
+
+      <div class="statCont">
+        <h6>CM/PM</h6>
+        <div class="stat">
+          <div class="statTitle">Most CATI projects behind schedule</div>
+          <div id="stat4" class="statBlock" data-source="s4data">
+          </div>
+        </div>
+        <div class="stat">
+          <div class="statTitle">Most live projects</div>
+          <div id="stat5" class="statBlock" data-source="s5data">
+          </div>
+        </div>
+        <div class="stat">
+          <div class="statTitle">Suggested workload shift</div>
+          <div id="stat6" class="statBlock" data-source="s6data">
+          </div>
+        </div>
+      </div>
+
+      <div class="statCont">
+        <h6>Interviewers</h6>
+        <div class="stat">
+          <div class="statTitle">Most in need of coaching</div>
+          <div id="stat7" class="statBlock" data-source="s7data">
+          </div>
+        </div>
+        <div class="stat">
+          <div class="statTitle">Most productive to book more hours</div>
+          <div id="stat8" class="statBlock" data-source="s8data">
+          </div>
+        </div>
+      </div>
+
+      <div class="statCont">
+        <h6>CATI Resource</h6>
+        <div class="stat" style="width: 100%;">
+          <div class="statTitle">Capacity available over next 4 weeks</div>
+          <div id="stat9" class="statBlock" data-source="s9data">
+          </div>
+        </div>
+        <div class="stat">
+          <div class="statTitle">Most feasible projects for big teams</div>
+          <div id="stat10" class="statBlock" data-source="s10data">
+          </div>
+        </div>
+        <div class="stat">
+          <div class="statTitle">Least feasible projects for big teams</div>
+          <div id="stat11" class="statBlock" data-source="s11data">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<style media="screen">
+  .statBlock {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+  }
+  .jobBlock,.staffBlock,.agentBlock {
+    display: flex;
+    flex-direction: column;
+  }
+  .agentBlock>.jobRow{
+    text-align: center;
+    justify-content: center;
+  }
+  .jobBlock:hover,.staffBlock:hover,.agentBlock:hover,.seeMore:hover{
+    background-color:#007bff2e;
+    cursor:pointer;
+  }
+  .jobBlock:hover>.infoBlock{
+    height:73px;
+  }
+  .staffBlock:hover>.infoBlock{
+    height:155px;
+  }
+  .agentBlock:hover>.infoBlock{
+    height:75px;
+  }
+  .jobTitle {
+    font-weight: 700;
+    border-bottom: 1px solid gainsboro;
+    height: 44px;
+    overflow: hidden;
+  }
+  .jobBlock:hover>.jobRow,.staffBlock:hover>.staffRow,.agentBlock:hover>.staffRow{
+    color: var(--primary);
+    font-weight: 600;
+  }
+  .infoBlock {
+    display: flex;
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    height: 0px;
+    overflow-x: scroll;
+    overflow-y: hidden;
+    transition: all 1s;
+  }
+  .infoCell {
+    padding: 4px;
+    border: 1px solid #78b9ff;
+    font-size: small;
+    margin: 1px;
+    border-radius: 4px;
+    background: #ffffff80;
+    color: #000000;
+    height: fit-content;
+  }
+  .seeMore {
+    color: var(--primary);
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 47%;
+    margin: 10px;
+    margin: 10px;
+    box-shadow: #21252957 0 0 4px 0px;
+  }
+  .statTitle {
+    font-size: larger;
+    padding: 15px;
+  }
+  .jobRow,.staffRow {
+    padding: 5px;
+    border: 1px solid gainsboro;
+    border-left: none;
+    border-right: none;
+    display: flex;
+    justify-content: space-between;
+    text-align: left;
+  }
+  .statCont{
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+  .jobName {
+    width: 57%;
+    overflow: hidden;
+    height: 1.4em;
+  }
+  .staffInfo>.infoStat{
+    white-space: nowrap;
+  }
+  .profit{
+    color:var(--success);
+    text-shadow: 0 0 4px #70ff91;
+    font-weight: 600;
+  }
+  .loss{
+    color:var(--danger);
+    text-shadow: 0 0 4px #ffcfd3;
+    font-weight: 700;
+  }
+  .breakeven{
+    color:#dca935;
+    text-shadow: 0 0 4px #ffe7a0;
+  }
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  h6{
+    font-size: xx-large;
+    font-weight: 200;
+    border-top: 1px solid gainsboro;
+    margin-top: 18px;
+    width: 100%;
+  }
+</style>
+<script type="text/javascript">
+  const businessDiff = (sDate, eDate) => {
+    var sDate=moment.utc(sDate).startOf('day')
+    var eDate=moment.utc(eDate).startOf('day')
+    var count = 0;
+    var curDate = sDate
+    while (curDate < eDate) {
+      var dayOfWeek = curDate.format('e');
+      if(!((dayOfWeek == 6) || (dayOfWeek == 0))){
+        count++;
+      }
+      curDate.add(1,'days')
+    }
+    return count+1;
+  };
+  function separators(num){
+    var num_parts = num.toString().split(".");
+    num_parts[0] = num_parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    return num_parts.join(".");
+  }
+  var num=function(val){
+    return val===0?0:val?Math.round(val):"-"
+  }
+  var profit=function(val){
+    let prefix=""
+    if (val<0) {
+      prefix="-"
+    }
+    return prefix+"£"+separators(Math.abs(val).toFixed(2))
+  }
+  var addProfit=function(val){
+    return "+£"+separators(Math.abs(val).toFixed(2))
+  }
+  var ahr=function(val){
+    return val?Number(val).toFixed(2):"-"
+  }
+  var dte=function(val){
+    return val?moment(val).format("DD/MM/YYYY"):"-"
+  }
+  var word=function(val){
+    return val?val:"-"
+  }
+  var perc=function(val){
+    return val?(val*100).toFixed(0)+"%":"-"
+  }
+  let projectsData=<%-JSON.stringify(projects)%>
+  let staffData=<%-JSON.stringify(staff)%>
+  let teamupData=<%-JSON.stringify(teamUpEvents)%>
+  let agentsData=<%-JSON.stringify(agents)%>
+  let resourceNeeded=<%-JSON.stringify(resourceNeeded)%>
+  let resourcePlanned=<%-JSON.stringify(resourcePlanned)%>
+  let bookedHours=<%-JSON.stringify(bookedHours)%>
+  let bankHols=<%-JSON.stringify(bankHols['england-and-wales'].events)%>
+  projectsData=projectsData.filter(el=>!el.isHourly && businessDiff(moment(),moment(el.endDate))>1 && el.intsDone<el.interviewsTarget)
+  let datasets={}
+  projectsData.map(el=>{
+    console.log(el.fullJobName,Math.floor(moment().diff(moment(el.startDate),'days')),Math.ceil(moment(el.endDate).diff(moment(el.startDate),'days')*0.2))
+  })
+  let performanceData=projectsData.filter(el=>el.jobType=="CATI" && el.isJobInHouse==1 && el.payTD>0 && el.shifts>5 && Math.floor(moment().diff(moment(el.startDate),'days'))>Math.ceil(moment(el.endDate).diff(moment(el.startDate),'days')*0.2))
+  datasets.s1data=performanceData.map(job=>{
+    let obj={}
+    let fieldDays=businessDiff(moment(job.startDate),moment(job.endDate))
+    let neededPerDay=job.interviewsTarget/fieldDays
+    let fieldDaysRem=businessDiff(moment(),moment(job.endDate))
+    let toDo=job.interviewsTarget-job.intsDone
+    let remNeededPerDay=toDo/fieldDaysRem
+    let remHoursNeeded=((remNeededPerDay-neededPerDay)/job.ahr)
+    obj["Job"]=job.fullJobName
+    obj.jobID=job.jobID
+    obj["Days left"]={val:fieldDaysRem,formatter:num}
+    obj["Needed per day"]={val:remNeededPerDay,formatter:num}
+    obj["Last 10 shifts AHR"]={val:job.ahr,formatter:ahr}
+    obj["Extra hours needed"]={val:remHoursNeeded*fieldDaysRem,formatter:num}
+    obj.keyStat="Extra hours needed"
+    obj.statClass="loss"
+    return obj
+  }).sort(function (a, b) {
+    return a[a.keyStat].val - b[a.keyStat].val
+  }).reverse()
+  datasets.s2data=performanceData.map(job=>{
+    let obj={}
+    let toDo=job.interviewsTarget-job.intsDone
+    let profitTD=(job.salesTD-(job.payTD+job.overheadsTD))
+    let remSales=toDo*job.CPI
+    let payRem=(toDo/job.ahr)*(job.payPH+job.hourlyOverheads)
+    obj["Job"]=job.fullJobName
+    obj.jobID=job.jobID
+    obj["Profit to-date"]={val:profitTD,formatter:profit}
+    obj["Interviews remaining"]={val:toDo,formatter:num}
+    obj["Hours remaining"]={val:(toDo/job.ahr),formatter:num}
+    obj["Current AHR"]={val:job.ahr,formatter:ahr}
+    obj["CPI"]={val:job.CPI,formatter:profit}
+    obj["Projected profit"]={val:(profitTD+(remSales-payRem)),formatter:profit}
+    obj.statClass=obj["Projected profit"].val>0?"breakeven":"loss"
+    obj.keyStat="Projected profit"
+    return obj
+  }).sort(function (a, b) {
+    return a[a.keyStat].val - b[a.keyStat].val
+  })
+  datasets.s3data=performanceData.map(job=>{
+    let obj={}
+    let toDo=job.interviewsTarget-job.intsDone
+    let remHoursNeeded=(toDo/job.ahr)
+    let profitTD=(job.salesTD-(job.payTD+job.overheadsTD))
+    obj["Job"]=job.fullJobName
+    obj.jobID=job.jobID
+    let payRem=(toDo/job.ahr)*(job.payPH+job.hourlyOverheads)
+    let plus1payRem=(toDo/(job.ahr+0.1))*(job.payPH+job.hourlyOverheads)
+    let plus2payRem=(toDo/(job.ahr+0.2))*(job.payPH+job.hourlyOverheads)
+    let plus5payRem=(toDo/(job.ahr+0.5))*(job.payPH+job.hourlyOverheads)
+    let remSales=toDo*job.CPI
+    let projectedProfit=(profitTD+(remSales-payRem))
+    obj["Projected profit"]={val:projectedProfit,formatter:profit}
+    obj["Current ahr"]={val:job.ahr,formatter:ahr}
+    obj["+0.1ph makes"]={val:(profitTD+(remSales-plus1payRem))-projectedProfit,formatter:addProfit}
+    obj["+0.2ph makes"]={val:(profitTD+(remSales-plus2payRem))-projectedProfit,formatter:addProfit}
+    obj["+0.5ph makes"]={val:(profitTD+(remSales-plus5payRem))-projectedProfit,formatter:addProfit}
+    obj.statClass="profit"
+    obj.keyStat="+0.1ph makes"
+    return obj
+  }).sort(function (a, b) {
+    return a[a.keyStat].val - b[a.keyStat].val
+  }).reverse()
+  datasets.s4data=projectsData.map(job=>job.CM).concat(projectsData.map(job=>job.PM)).filter((el,i,self)=>self.indexOf(el)==i && el!=="Unknown Staff").map(staff=>{
+    let obj={}
+    obj.Name=staff
+    let behindSchedule=projectsData.filter(job=>{
+      let fieldDays=businessDiff(moment(job.startDate),moment(job.endDate))
+      let daysDone=businessDiff(moment(job.startDate),moment())
+      let shouldBeOn=(job.interviewsTarget/fieldDays)*daysDone
+      return job.intsDone<shouldBeOn && job.CM==staff && job.jobType=="CATI" && job.isJobInHouse==1 && job.payTD>0
+    })
+    obj["Behind schedule"]={val:behindSchedule.length,formatter:num}
+    obj["Jobs"]=behindSchedule.map(job => {
+      let fieldDays=businessDiff(moment(job.startDate),moment(job.endDate))
+      let daysDone=businessDiff(moment(job.startDate),moment())
+      let shouldBeOn=(job.interviewsTarget/fieldDays)*daysDone
+      let jobObj={}
+      jobObj["Job"]=job.fullJobName
+      jobObj["Should be on"]={val:shouldBeOn,formatter:num}
+      jobObj["Currently on"]={val:job.intsDone,formatter:num}
+      jobObj["Days left"]={val:fieldDays-daysDone,formatter:num}
+      jobObj["Needed per day"]={val:(job.interviewsTarget-job.intsDone)/jobObj["Days left"],formatter:num}
+      jobObj["Current per day"]={val:job.intsDone/daysDone,formatter:num}
+      return jobObj
+    });
+    obj.statClass="loss"
+    obj.keyStat="Behind schedule"
+    return obj
+  }).sort(function (a, b) {
+    return a[a.keyStat].val - b[a.keyStat].val
+  }).reverse()
+  datasets.s5data=projectsData.map(job=>job.CM).concat(projectsData.map(job=>job.PM)).filter((el,i,self)=>self.indexOf(el)==i && el!=="Unknown Staff" && el).map(staff=>{
+    let obj={}
+    obj.Name=staff
+    let liveJobs=projectsData.filter(job=>job.CM==staff || job.PM==staff)
+    obj["Live jobs"]={val:liveJobs.length,formatter:num}
+    obj["Jobs"]=liveJobs.map(job => {
+      let fieldDays=businessDiff(moment(job.startDate),moment(job.endDate))
+      let daysDone=businessDiff(moment(job.startDate),moment())
+      let shouldBeOn=(job.interviewsTarget/fieldDays)*daysDone
+      let jobObj={}
+      jobObj["Job"]=job.fullJobName
+      jobObj["Start date"]={val:job.startDate,formatter:dte}
+      jobObj["End date"]={val:job.endDate,formatter:dte}
+      jobObj["Days left"]={val:fieldDays-daysDone,formatter:num}
+      jobObj["To do"]={val:job.interviewsTarget-job.intsDone,formatter:num}
+      return jobObj
+    });
+    obj.statClass="breakeven"
+    obj.keyStat="Live jobs"
+    return obj
+  }).sort(function (a, b) {
+    return a[a.keyStat].val - b[a.keyStat].val
+  }).reverse()
+  datasets.s6data=staffData.filter(el=>el.teamupID).map(staff=>{
+    let obj={}
+    obj.Name=staff.staffName
+    let tasks=teamupData.filter(t=>t.subcalendar_ids.includes(Number(staff.teamupID)) && t.all_day==false)
+    let taskMinutes=tasks.map(el=>{
+      var start=moment.utc(el.start_dt)
+      var end=moment.utc(el.end_dt)
+      return end.diff(start,'minutes')
+    }).reduce((a,b)=>a+b,0)
+    let shiftTo=staffData.filter(el=>el.teamupID && el.staffJobTitleID==staff.staffJobTitleID).map(staffTo=>{
+      let tasksTo=teamupData.filter(t=>t.subcalendar_ids.includes(Number(staffTo.teamupID)) && t.all_day==false)
+      let taskMinutesTo=tasksTo.map(el=>{
+        var start=moment.utc(el.start_dt)
+        var end=moment.utc(el.end_dt)
+        return end.diff(start,'minutes')
+      }).reduce((a,b)=>a+b,0)
+      return {staffName:staffTo.staffName,taskMinutes:taskMinutesTo}
+    }).sort(function (a, b) {
+      return a.taskMinutes - b.taskMinutes
+    })
+    obj["Shift tasks to"]={val:shiftTo[0].staffName,formatter:word}
+    obj["Task minutes"]={val:taskMinutes,formatter:num}
+    let staffs=[]
+    let jobObj={}
+    jobObj["Job"]=staff.staffName
+    jobObj["Task minutes"]={val:taskMinutes,formatter:num}
+    staffs.push(jobObj)
+    let jobObjTo={}
+    jobObjTo["Job"]=shiftTo[0].staffName
+    jobObjTo["Task minutes"]={val:shiftTo[0].taskMinutes,formatter:num}
+    staffs.push(jobObjTo)
+    obj["Jobs"]=staffs
+    obj.statClass="breakeven"
+    obj.keyStat="Shift tasks to"
+    return obj
+  }).sort(function (a, b) {
+    return a["Task minutes"].val - b["Task minutes"].val
+  }).reverse().filter((el,i,self)=>self.map(n=>n["Shift tasks to"].val).indexOf(el["Shift tasks to"].val)==i)
+  datasets.s7data=agentsData.map(agent=>{
+    let obj={}
+    obj.Name=agent.agentName
+    obj.agentID=agent.agentID
+    obj["Shifts on target in last 7 days"]={val:agent.onTarget/100,formatter:perc}
+    obj["Coachings in last 7 days"]={val:agent.coachCount,formatter:num}
+    obj.statClass="loss"
+    return obj
+  }).sort(function (a, b) {
+    return a["Shifts on target in last 7 days"].val - b["Shifts on target in last 7 days"].val || a["Coachings in last 7 days"].val - b["Coachings in last 7 days"].val
+  })
+  datasets.s8data=agentsData.map(agent=>{
+    let obj={}
+    obj.Name=agent.agentName
+    obj.agentID=agent.agentID
+    obj["Shifts on target in last 7 days"]={val:agent.onTarget/100,formatter:perc}
+    obj["Hours booked in next 7 days"]={val:agent.bookingHours,formatter:num}
+    obj.statClass="loss"
+    return obj
+  }).sort(function (a, b) {
+    if (a["Shifts on target in last 7 days"].val > b["Shifts on target in last 7 days"].val) return -1;
+    if (a["Shifts on target in last 7 days"].val < b["Shifts on target in last 7 days"].val) return 1;
+    if (a["Hours booked in next 7 days"].val > b["Hours booked in next 7 days"].val) return 1;
+    if (a["Hours booked in next 7 days"].val < b["Hours booked in next 7 days"].val) return -1;
+  })
+  var dates=moment.range(moment().startOf('d').add(1,"d"),moment().startOf('d').add(1,"d").add(4,"weeks"))
+  let hoursNeeded=0
+  let spareHours=0
+  let spareHoursByDay={}
+  for (let day of dates.by('day')) {
+    if (!bankHols.map(b=>b.date).includes(day.format("YYYY-MM-DD")) && ![0,6].includes(day.day())) {
+      let dayPlanned=resourcePlanned.filter(el=>moment(el.plannerDate).valueOf()==day.valueOf())
+      let dayHoursNeeded=0
+      if (dayPlanned.length>0) {
+        dayHoursNeeded=dayHoursNeeded+dayPlanned.reduce((a,b)=>a+b.plannerHours,0)
+      }
+      let dayNeeded=resourceNeeded.filter(el=>day.valueOf()>=moment(el.startDate).valueOf() && day.valueOf()<=moment(el.endDate).valueOf() && !dayPlanned.map(p=>p.jobID).includes(el.jobID))
+      if (dayNeeded.length>0) {
+        dayHoursNeeded=dayHoursNeeded+dayNeeded.reduce((a,b)=>{
+          let jobBankHols=bankHols.filter(el=>moment(el.date).valueOf()>=moment(b.startDate).valueOf() && moment(el.date).valueOf()<=moment(b.endDate).valueOf())
+          let days=b.calcDays-jobBankHols.length
+          return a+(b.calcHours/days)
+        },0)
+      }
+      hoursNeeded=hoursNeeded+dayHoursNeeded
+      let dayBookings=bookedHours.find(el=>moment(el.bookingDate).valueOf()==day.valueOf())
+      let daySpareHours=0
+      if (dayBookings) {
+        daySpareHours=Math.max(0,((dayBookings.DayHours+dayBookings.EveHours)*0.9)-dayHoursNeeded)
+        spareHours=spareHours+daySpareHours
+      }
+      spareHoursByDay[day.format("YYYY-MM-DD")]=Math.round(daySpareHours)
+    }
+  }
+  datasets.s9data={
+    resourced:hoursNeeded,
+    spare:spareHours,
+    spareByDay:spareHoursByDay,
+  }
+  datasets.s10data=projectsData.filter(el=>el.jobType=="CATI" && el.isJobInHouse==1 && el.maxAHR && el.shifts>5).map(job=>{
+    let obj={}
+    obj["Job"]=job.fullJobName
+    obj.jobID=job.jobID
+    obj["Worst performer"]={val:job.minAHR,formatter:ahr}
+    obj["Best performer"]={val:job.maxAHR,formatter:ahr}
+    obj["AHR spread"]={val:(job.maxAHR-job.minAHR)/job.maxAHR,formatter:perc}
+    obj.keyStat="AHR spread"
+    obj.statClass=obj[obj.keyStat].val>0.7?"loss":(obj[obj.keyStat].val>0.5?"breakeven":'profit')
+    return obj
+  }).sort(function (a, b) {
+    return a[a.keyStat].val - b[a.keyStat].val
+  })
+  datasets.s11data=datasets.s10data.map(a => Object.assign({}, a)).reverse()
+  function buildJobBlock(data,rowsShown){
+    let html=""
+    data.slice(0,rowsShown).forEach((job, i) => {
+      html=html+`<div class="jobBlock"><div class="jobRow" onclick="goToJob(`+job.jobID+`)"><div class="jobName">`+job.Job+`</div><div class="keyStat">`+job.keyStat+`: <span class="`+job.statClass+`">`+job[job.keyStat].formatter(job[job.keyStat].val)+`</span></div></div>
+        <div class="infoBlock">`
+        Object.keys(job).filter(el=>job[el].val!==undefined).forEach((key, i) => {
+          html=html+"<div class='infoCell'><div class='infoTitle'>"+key+"</div><div class='infoStat'>"+job[key].formatter(job[key].val)+"</div></div>"
+        });
+      html=html+`</div>
+      </div>`
+    });
+    html=html+"<div class='seeMore' onclick='seeMore(buildJobBlock,$(this))' data-block='JobBlock'>See more <i class='fas fa-chevron-down'></i></div>"
+    return html
+  }
+  function buildAgentBlock(data,rowsShown){
+    let html=""
+    data.slice(0,rowsShown).forEach((agent, i) => {
+      html=html+`<div class="agentBlock"><div class="jobRow" onclick="goToAgent(`+agent.agentID+`)"><div class="jobName">`+agent.Name+`</div></div>
+        <div class="infoBlock">`
+        Object.keys(agent).filter(el=>agent[el].val!==undefined).forEach((key, i) => {
+          html=html+"<div class='infoCell'><div class='infoTitle'>"+key+"</div><div class='infoStat'>"+agent[key].formatter(agent[key].val)+"</div></div>"
+        });
+      html=html+`</div>
+      </div>`
+    });
+    html=html+"<div class='seeMore' onclick='seeMore(buildAgentBlock,$(this))' data-block='AgentBlock'>See more <i class='fas fa-chevron-down'></i></div>"
+    return html
+  }
+  function buildStaffBlock(data,rowsShown){
+    let html=""
+    data.slice(0,rowsShown).forEach((staff, i) => {
+      html=html+`<div class="staffBlock"><div class="staffRow" onclick="goToStaff('`+staff.Name+`')"><div class="staffName">`+staff.Name+`</div><div class="keyStat">`+staff.keyStat+`: <span class="`+staff.statClass+`">`+staff[staff.keyStat].formatter(staff[staff.keyStat].val)+`</span></div></div>
+        <div class="infoBlock">`
+        staff.Jobs.forEach((job, i) => {
+          html=html+"<div class='infoCell staffInfo'><div class='jobTitle'>"+job.Job+"</div>"
+          Object.keys(job).filter(el=>job[el].val!==undefined).forEach((key, i) => {
+            html=html+"<div class='infoStat'>"+key+": "+job[key].formatter(job[key].val)+"</div>"
+          });
+          html=html+"</div>"
+        });
+      html=html+`</div>
+      </div>`
+    });
+    html=html+"<div class='seeMore' onclick='seeMore(buildStaffBlock,$(this))' data-block='StaffBlock'>See more <i class='fas fa-chevron-down'></i></div>"
+    return html
+  }
+  function buildResourceBlock(data,ahr){
+    let html=`<div class="explain">
+      <span class="profit">`+Math.round(data.spare)+`</span> spare hours, which allows `+Math.round(data.spare*ahr)+` interviews at <input type="number" style="width: 40px;" step="0.25" id="resourceAHR" value="`+ahr+`"> per hour.
+    </div><canvas id="resourceChart" height="180"></canvas>`
+    $('#stat9').html(html)
+    let datesArr=Array.from(dates.by('day'))
+    const chartData = {
+      labels: datesArr.map(el=>el.format("DD/MM/YYYY")),
+      datasets: [
+        {
+          label: 'Spare hours',
+          data: datesArr.map(el=>data.spareByDay[el.format("YYYY-MM-DD")]),
+        }
+      ]
+    };
+    const config = {
+      type: 'bar',
+      data: chartData,
+    }
+    const ctx = $('#resourceChart')[0]
+    const myChart = new Chart(ctx,config)
+    $('#resourceAHR').on("change",function(e){
+      let newAHR=$(this).val()
+      buildResourceBlock(data,newAHR)
+    })
+  }
+  function seeMore(func,el){
+    let currRows=el.parent().children().length
+    let data=datasets[$(el.parent()).attr("data-source")]
+    let parent=el.parent()
+    parent.html(func(data,currRows+3))
+    if (currRows+3>=data.length) {
+      let newEl=parent.find(".seeMore")
+      newEl.html("See less <i class='fas fa-chevron-up'></i>")
+      newEl.attr("onclick","seeLess(build"+newEl.attr("data-block")+",$(this))")
+    }
+  }
+  function seeLess(func,el){
+    let currRows=el.parent().children().length
+    let data=datasets[$(el.parent()).attr("data-source")]
+    let parent=el.parent()
+    parent.html(func(data,3))
+    if (currRows==4) {
+      let newEl=parent.find(".seeLess")
+      newEl.html("See more <i class='fas fa-chevron-down'></i>")
+      newEl.attr("onclick","seeMore(build"+newEl.attr("data-block")+",$(this))")
+    }
+  }
+  function goToJob(id){
+    window.location.href="/overview/-1/"+id
+  }
+  function goToAgent(id){
+    window.location.href="/int-performance/0/0/"+id+"/0"
+  }
+  function goToStaff(staffName){
+    let arr=staffName.split(" ")
+    window.location.href="/live-proj?staff="+arr[0][0]+arr[1][0]
+  }
+  $(document).ready(function(e){
+    $('#stat1').html(buildJobBlock(datasets.s1data,3))
+    $('#stat2').html(buildJobBlock(datasets.s2data,3))
+    $('#stat3').html(buildJobBlock(datasets.s3data,3))
+    $('#stat4').html(buildStaffBlock(datasets.s4data,3))
+    $('#stat5').html(buildStaffBlock(datasets.s5data,3))
+    $('#stat6').html(buildStaffBlock(datasets.s6data,3))
+    $('#stat7').html(buildAgentBlock(datasets.s7data,5))
+    $('#stat8').html(buildAgentBlock(datasets.s8data,5))
+    buildResourceBlock(datasets.s9data,0.5)
+    $('#stat10').html(buildJobBlock(datasets.s10data,3))
+    $('#stat11').html(buildJobBlock(datasets.s11data,3))
+  })
+</script>
+</body>
+</html>

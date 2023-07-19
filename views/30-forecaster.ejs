@@ -1,0 +1,242 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px; padding-left:0px; min-width:400px;">
+  <div class="card text-dark mb-2 text-center">
+    <div class="card-body">
+      <h3>30-Day Overview</h3>
+      <table class="table primary">
+        <tr>
+          <td colspan=2>
+            <table class="table table-bordered" style="width:90%; margin:auto; font-size:1em" >
+              <thead class="thead table-dark" style="background-color:#3a586d;">
+                <th colspan=2>Projects</th>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    Starting
+                  </td>
+                  <td>
+                    Finishing
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <%= projStarts[0].Starts %>
+                  </td>
+                  <td>
+                    <%= projEnds[0].Ends %>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td colspan=2 style="height:300px;">
+            <canvas id="monthlyChart" style="height:100px!important;"></canvas>
+          </td>
+        </tr>
+        <tr>
+          <td colspan=2>
+            <table class="table table-bordered" style="width:90%; margin:auto; font-size:1em" >
+              <thead class="thead table-dark" style="background-color:#3a586d;">
+                <th colspan=8>Quotes
+                </th>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>
+                    Total
+                  </td>
+                  <td>
+                    CATI
+                  </td>
+                  <td>
+                    Online
+                  </td>
+                  <td>
+                    F2F
+                  </td>
+                  <td>
+                    Recruitment
+                  </td>
+                  <td>
+                    International
+                  </td>
+                  <td>
+                    B2B
+                  </td>
+                  <td>
+                    Consumer
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <%= quoteStats[0].TotalQuotes %>
+                  </td>
+                  <td>
+                    <%= quoteStats[0].CATI %>
+                  </td>
+                  <td>
+                    <%= quoteStats[0].Online %>
+                  </td>
+                  <td>
+                    <%= quoteStats[0].F2F %>
+                  </td>
+                  <td>
+                    <%= quoteStats[0].Rec %>
+                  </td>
+                  <td>
+                    <%= quoteStats[0].Interna %>
+                  </td>
+                  <td>
+                    <%= quoteStats[0].B2B %>
+                  </td>
+                  <td>
+                    <%= quoteStats[0].Cons %>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <% if (catiStats.length > 0) {%>
+          <td style="width:30%;">
+            <canvas id="catiChart" style="height:300px; width:300px;"></canvas>
+          </td>
+          <td style="width:70%;">
+            <table class="table table-bordered" style="width:90%; margin:auto; font-size:1em" >
+              <thead class="thead table-dark" style="background-color:#3a586d;">
+                <th colspan=2>CATI Statistics
+                </th>
+              </thead>
+              <%
+              let interviewsTotal = 0;
+              let hoursTotal = 0;
+              let salesTotal = 0;
+              let payTotal = 0;
+              catiStats.forEach((catiStat, index) =>{
+                interviewsTotal = interviewsTotal + catiStat.Ints
+                hoursTotal = hoursTotal + catiStat.Hours
+                salesTotal = salesTotal + catiStat.Sales
+                payTotal = payTotal + catiStat.Pay
+              }); %>
+              <tbody>
+                <tr>
+                  <td>
+                    Total CATI interviews
+                  </td>
+                  <td><%= interviewsTotal %>
+                  </td>
+                </tr>
+                <tr>
+                  <td> Total CATI hours
+                  </td>
+                  <td><%= hoursTotal.toFixed(2) %>
+                  </td>
+                </tr>
+                <tr>
+                  <td> Total CATI sales
+                  </td>
+                  <td>£<%= salesTotal.toFixed(2) %>
+                  </td>
+                </tr>
+                <tr>
+                  <td> Total CATI pay
+                  </td>
+                  <td>£<%= (payTotal*1.1207).toFixed(2) %>
+                  </td>
+                </tr>
+                <tr>
+                  <td> Total CATI contribution
+                  </td>
+                  <td><%if(salesTotal > 0){%><%= Math.round((payTotal*1.1207 / salesTotal)*100) %>%<%}%>
+                  </td>
+                  <%}%>
+                </tbody>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </div>
+    </div>
+  </div>
+  <script>
+  <% if (catiStats.length > 0) {%>
+    <%
+    let interviewsTotal = 0;
+    let hoursTotal = 0;
+    let salesTotal = 0;
+    let payTotal = 0;
+    catiStats.forEach((catiStat, index) =>{
+      interviewsTotal = interviewsTotal + catiStat.Ints
+      hoursTotal = hoursTotal + catiStat.Hours
+      salesTotal = salesTotal + catiStat.Sales
+      payTotal = payTotal + catiStat.Pay
+    }); %>
+    var catiC = $('#catiChart');
+    var catiChart = new Chart(catiC, {
+      type: 'pie',
+      data: {
+        labels: ['Sales','Wages'],
+        datasets: [{
+          data: [<%= salesTotal.toFixed(2) %>,<%= payTotal.toFixed(2) %>,],
+          backgroundColor: [
+  				'rgba(64, 222, 117, 0.8)',
+  				'rgba(253, 99, 132, 0.8)',
+  				],
+  				borderColor: [
+  				'rgba(64, 222, 117, 1)',
+  				'rgba(253, 99, 132, 1)',
+  				],
+          borderWidth: 1
+        }]
+      },
+      options: {
+        title: {
+          display: true,
+          text: 'CATI'
+        }
+      }
+    });
+    <%}%>
+    var cQuoteData = {
+      datasets: [
+      {
+        label:'Quoted',
+        data: [<%  yearStats.forEach((yearStat , index) => { %><%= yearStat.TotalQuotes %>,<%})%>],
+        fill: false,
+        borderColor: [<%  yearStats.forEach((yearStat , index) => { %>'rgba(255, 99, 132, 0.8)',<%})%>],
+        borderWidth: 2
+      }]
+    };
+
+    var mQuotes = $('#monthlyChart');
+    new Chart(mQuotes, {
+      data: cQuoteData,
+      type: 'line',
+      options: {
+        maintainAspectRatio: false,
+        title: {
+          display: true,
+          text: 'Monthly quotes'
+        },
+        scales: {
+          yAxes: [{
+            ticks: {
+              precision: 0,
+              beginAtZero: true
+            }
+          }],
+          xAxes:[{
+            labels:[<% yearStats.forEach((yearStat , index) => {
+              const monthNames = ["","January", "February", "March", "April", "May", "June","July", "August", "September", "October", "November", "December"]; %>
+              '<%= monthNames[yearStat.QuoteMonth] %> <%= yearStat.QuoteYear %>',<%})%>],
+            }]
+          }
+        }
+      });
+    </script>
+  </body>
+  </html>

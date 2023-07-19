@@ -1,0 +1,57 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="table-wrapper">
+  <% if (interviewers.length > 0) {%>
+    <% if (projects.length > 0) {%>
+
+      <form class="add-daily-form" action="" method="post" enctype="multipart/form-data" style="overflow-x:auto;">
+        <input type="text" name="user" id="user" style="display:none;">
+        <table class="table-primary" >
+          <td class="table-dark" style="width:200px; text-align:center;">Select date</td><td class="table-dark"><input type="date" id="inputdate" name="inputdate" style="height:40px;" required></td>
+          <td>
+            <button type="submit" class="btn btn-success" onclick="updateKlip()">Submit Dailys</button>
+          </td>
+        </table>
+        <table style="position:fixed; top:92px; left:0px;">
+          <th scope="col" class="table-dark" style="width:200px; padding:10px; border:solid 1px black;">Interviewers</th>
+          <% interviewers.forEach((interviewer, index) => { %>
+            <tr>
+              <td class="table-dark" style="width:200px; padding:10px; border:solid 1px black; background-color:#3a586d;"><%= interviewer.intName %></td>
+              <% })%>
+            </tr>
+          </table>
+          <table id="daily-table" style="border:solid 1px black; width:<%= ((projects.length)*250) + 200 %>px;">
+            <thead>
+              <tr>
+                <th scope="col" style="padding:10px; width:200px;">Interviewers</th>
+                <% projects.forEach((project, index) => { %>
+                  <th scope="col" style="border:solid 1px grey; padding-left:10px;" id="<%= project.JobNum %> <%= project.JobName %>"><%= project.JobNum %> <%= project.JobName %></th>
+                  <% }) %>
+                </tr>
+              </thead>
+              <tbody>
+              <% interviewers.forEach((interviewer, index) => { %>
+                <tr>
+                  <td style="padding:10px; border:solid 1px black"><%= interviewer.intName %></td>
+                  <% projects.forEach((project, index) => { %>
+                    <td style="border:solid 1px black; width:250px;">
+                      <input style="display:inline-block; width:48%" type="number" placeholder="Hours" class="form-control" name="jobHours_<%= project.ProjectID %>_<%= interviewer.id %>" id="jobHours_<%= project.ProjectID %>_<%= interviewer.id %>"  step="0.05" min="0">
+                      <input style="display:inline-block; width:48%" type="number" placeholder="Interviews" class="form-control" name="jobInts_<%= project.ProjectID %>_<%= interviewer.id %>" id="jobInts_<%= project.ProjectID %>_<%= interviewer.id %>" min="0">
+                    </td>
+                    <% })%>
+                    <% })%>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </form>
+          <% } else { %>
+            <br><br>
+            <p class="text-center">No projects found.</p>
+            <% } %>
+            <% } else { %>
+              <br><br>
+              <p class="text-center">No interviewers found.</p>
+              <% } %>
+            </div>
+          </body>
+          </html>

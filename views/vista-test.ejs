@@ -1,0 +1,120 @@
+<%- include('partials/'+versionPages.header) %>
+<script type="text/javascript" src="https://survey.teamsearchsurvey.co.uk/AskiaVistaReader.Net4/Scripts/askiavista.js"></script>
+<script type="text/javascript">
+$(document).ready(function () {
+  askiaVista.config({
+      url: "https://survey.teamsearchsurvey.co.uk/AskiaVistaReader.Net4/AjaxEmbedHandler.aspx",
+      authenticityToken: "9a2bf464-c055-4743-810c-716672cead5c",
+  });
+  // askiaVista.getInterviews({
+  //     questions: ["Q1"],
+  //     format: "html",
+  //     containerId: "testdiv"
+  // });
+  $('.selectFilters').on('change',function(e){
+    askiaVista.getInterviews({
+      "format": "json",
+      "lazyLoading": false,
+      maxPerPage: 999999,
+      "settings": {
+        "id": 1
+      },
+      subPopulation : {
+        name : "Responded",
+        script : "s5 has {1 to 11}" // AskiaScript goes here
+      },
+      "questions": [
+      {
+        "key": "444|3@@0",
+        "shortcut": "BrokerPanelId"
+      },
+      {
+        "key": "444|233@@0",
+        "shortcut": "s5"
+      },
+      {
+        "key": "444|271@1877;@0",
+        "shortcut": "s5_1 (Scripting/programming of the questionnaire)"
+      },
+      {
+        "key": "444|271@1878;@0",
+        "shortcut": "s5_1 (Data/tables/other deliverables)"
+      },
+      {
+        "key": "444|271@1879;@0",
+        "shortcut": "s5_1 (Management of timelines, quotas &amp; resource)"
+      },
+      {
+        "key": "444|271@1880;@0",
+        "shortcut": "s5_1 (Overall communications)"
+      }
+      ],
+      "survey": {
+        "id": 444,
+        "name": "0000_Client_Satisfaction_Survey"
+      },
+      success:function(d,query){
+        var data=JSON.parse(d)
+        var csatScores=data.interviews.filter(el=>el[1].responses[0].entryCode>0)
+        var csatIDs=csatScores.map(el=>el[0].responses[0])
+        $.ajax({
+          url: '/all-projects-raw',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify({stDate:$('#stdate').val(),enDate:$('#endate').val()}),
+          success: function (response) {
+            console.log(csatIDs)
+            var resp=response.filter(el=>csatIDs.includes(el.csatID)).map(el=>{
+              el.s5=Number(csatScores.find(el2=>el2[0].responses[0]==el.csatID)[1].responses[0].entryCode)
+              el.s5_1=Number(csatScores.find(el2=>el2[0].responses[0]==el.csatID)[2].responses[0].entryCode)
+              el.s5_2=Number(csatScores.find(el2=>el2[0].responses[0]==el.csatID)[3].responses[0].entryCode)
+              el.s5_3=Number(csatScores.find(el2=>el2[0].responses[0]==el.csatID)[4].responses[0].entryCode)
+              el.s5_4=Number(csatScores.find(el2=>el2[0].responses[0]==el.csatID)[5].responses[0].entryCode)
+              return el
+            })
+            const labels = Utils.months({count: 7});
+            const data = {
+              labels: labels,
+              datasets: [{
+                label: 'My First Dataset',
+                data: [65, 59, 80, 81, 56, 55, 40],
+                backgroundColor: [
+                  'rgba(255, 99, 132, 0.2)',
+                  'rgba(255, 159, 64, 0.2)',
+                  'rgba(255, 205, 86, 0.2)',
+                  'rgba(75, 192, 192, 0.2)',
+                  'rgba(54, 162, 235, 0.2)',
+                  'rgba(153, 102, 255, 0.2)',
+                  'rgba(201, 203, 207, 0.2)'
+                ],
+                borderColor: [
+                  'rgb(255, 99, 132)',
+                  'rgb(255, 159, 64)',
+                  'rgb(255, 205, 86)',
+                  'rgb(75, 192, 192)',
+                  'rgb(54, 162, 235)',
+                  'rgb(153, 102, 255)',
+                  'rgb(201, 203, 207)'
+                ],
+                borderWidth: 1
+              }]
+            };
+            console.log(resp)
+          },
+          error: function (jqXHR, exception) {
+          },
+        });
+      }
+    })
+  })
+})
+</script>
+  <div class="container" style="padding-top:70px;">
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body">
+        <input type="date" style="display:inline; width:auto;" class="form-control inputdate selectFilters" id="stdate" name="stdate" value="<%=currPayPeriodSt%>" style="width:200px; margin:auto;"> to <input type="date" style="display:inline; width:auto;" class="selectFilters inputdate form-control" id="endate" name="endate" value="<%=currPayPeriodEn%>" style="width:200px; margin:auto;">
+      </div>
+    </div>
+  </div>
+</body>
+</html>

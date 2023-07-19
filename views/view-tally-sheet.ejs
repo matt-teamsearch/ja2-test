@@ -1,0 +1,226 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+
+  $(document).ready(function () {
+    var table = $('#daily-table').removeAttr('width').DataTable({
+      ordering: false,
+      scrollY: 500,
+      scrollX: true,
+      paging: false,
+      fixedColumns:   {
+          leftColumns: 1
+      },
+      "fixedHeader": true,
+        "initComplete": function( settings, json ) {
+          $('#daily-table').css("visibility","visible");
+          $('#loading').hide()
+        }
+    });
+    $('.dataTables_length').addClass('bs-select');
+    table.columns.adjust().draw();
+  });
+
+</script>
+<style>
+  table{
+    margin: 0 auto;
+    width: 100%;
+    clear: both;
+    border-collapse: collapse;
+    table-layout: fixed;
+    word-wrap:break-word;
+  }
+  #daily-table{visibility:hidden;}
+  label{
+    color:black
+  }
+
+  .highligted_row{
+    background-color:yellow;
+  }
+
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type=number] {
+    -moz-appearance:textfield;
+  }
+
+  #daily-table_filter{
+    float:left;
+    padding:5px;
+  }
+
+  .fa-plus, .fa-minus {
+    color:black;
+    font-size:10px;
+  }
+  .row-input {
+    border:solid 1px gray;
+  }
+  #daily-table{
+    margin: 0;
+  }
+
+</style>
+
+<%
+const dateIf = (inDate, seperator, order) => {
+  let day =''
+  if (new Date(inDate).getDate() < 10) {
+    day = '0' + new Date(inDate).getDate()
+  } else {
+    day = new Date(inDate).getDate()
+  }
+  let month =''
+  if (new Date(inDate).getMonth()+1 < 10) {
+    month = '0' + (new Date(inDate).getMonth()+1)
+  } else {
+    month = (new Date(inDate).getMonth()+1)
+  }
+  let year = new Date(inDate).getFullYear()
+  if(order=="f"){
+    return(day+seperator+month+seperator+year)
+  }
+  if(order=="r"){
+    return(year+seperator+month+seperator+day)
+  }
+}
+%>
+<div class="wrapper1" style="overflow-x:scroll; height:10px">
+  <div class="div1"></div>
+</div>
+<div class="table-wrapper" width="70%">
+  <div class="card-header text-center py-2" style="border-radius:0px!important;"><strong><h4>Tally sheet for <%= dateIf(date,"/","f") %></h4></strong></div>
+  <% if (interviewers.length > 0) {%>
+    <% if (projects.length > 0) {%>
+      <div class="add-daily-form" action="" method="post" enctype="multipart/form-data" style="overflow-x:auto;"></div>
+      <form class="add-daily-form" action="" method="post" enctype="multipart/form-data" style="overflow-x:auto;">
+        <input type="text" name="user" id="user" style="display:none;">
+        <div id="loading" width="100%" style="text-align:center"><img src="/spinner.gif"></div>
+        <table id="daily-table" style="width:100%" class="table-sm ">
+          <thead>
+            <tr>
+              <th scope="col" style="border:solid 1px black; padding:10px;">Interviewers</th>
+              <% projects.forEach((project, index) => { %>
+                <th scope="col" colspan="2" style="border:solid 1px grey; padding-left:10px;" id="<%= project.quoteNo %> <%= project.quoteName %> <%= project.jobName %>"><%= project.quoteNo %><br><%= project.quoteName %><br><%= project.jobName %></th>
+                <% }) %>
+              </tr>
+              <tr>
+                <th scope="col" style="border:solid 1px black; padding:10px;"> </th>
+                <% projects.forEach((project, index) => { %>
+                  <th scope="col" style="border:solid 1px grey; padding-left:10px;">Intvws</th>
+                  <th scope="col" style="border:solid 1px grey; padding-left:10px;">Hours</th>
+                  <% }) %>
+                </tr>
+              </thead>
+              <tbody>
+                <%
+                let intsDisplayed = []
+                let jobsDisplayed = []
+                let dailyAgents = []
+                projects.forEach((project, index) => {
+                  jobsDisplayed.push(project.jobID)
+                  dailys.forEach((daily, index) => {
+                    if(daily.jobID == project.jobID){
+                      dailyAgents.push(daily.agentID);
+                    }
+                  });
+                });
+                interviewers.forEach((interviewer, index) => {
+                  console.log("jobsDisplayed: "+jobsDisplayed)
+                  console.log("interviewer.jobID: "+interviewer.jobID)
+                  if((jobsDisplayed.includes(interviewer.jobID) || tType=="t") && !intsDisplayed.includes(interviewer.agentID)){
+                    intsDisplayed.push(interviewer.agentID);
+                    console.log(jobsDisplayed)
+                    %>
+                  <tr>
+                    <td style="padding:10px; border:solid 1px gray;"><%= interviewer.agentName %></td>
+                    <% projects.forEach((project, index) => {%>
+                      <script>
+                        function highlight<%= project.jobID %>_<%= interviewer.agentID %>A(){
+                          $('#<%= project.quoteID %>_<%= project.jobID %>_<%= interviewer.agentID %>hourR').addClass('highligted_row')
+                          $('#<%= project.quoteID %>_<%= project.jobID %>_<%= interviewer.agentID %>intR').addClass('highligted_row')
+                        }
+                        function highlight<%= project.jobID %>_<%= interviewer.agentID %>R(){
+                          $('#<%= project.quoteID %>_<%= project.jobID %>_<%= interviewer.agentID %>intR').removeClass('highligted_row')
+                          $('#<%= project.quoteID %>_<%= project.jobID %>_<%= interviewer.agentID %>hourR').removeClass('highligted_row')
+                        }
+                      </script>
+
+                      <!-- INTERVIEWER INTERVIEWS -->
+                      <td class="row-input" style="border-right:none;" id="<%= project.quoteID %>_<%= project.jobID %>_<%= interviewer.agentID %>intR"
+                        <%if(dailys.length > 0) {dailys.forEach((daily, index) => {
+                          if (daily.jobID == project.jobID && daily.agentID == interviewer.agentID) {%>
+                            class="highligted_row row-input"
+                           <%}})}else if(interviewer.jobID == project.jobID){%>
+                            class="highligted_row row-input"
+                            <%}else{%>
+                            class="row-input"
+                            <%}%>>
+                        <!-- INTERVIEWER INTERVIEWS INPUT -->
+                        <input
+                          style="display:inline-block;"
+                          type="number"
+                          placeholder="Ints"
+                          class="form-control "
+                          name="jobInts_<%= project.jobID %>_<%= interviewer.agentID %>"
+                          id="jobInts_<%= project.jobID %>_<%= interviewer.agentID %>"
+                          min="0"
+                          step="1"
+                          value="<% dailys.forEach((daily, index) => { %><%if ((daily.jobID == project.jobID) && (daily.agentID == interviewer.agentID)) {%><%= daily.inputInterviews %><%}%><% }) %>">
+                      </td>
+                      <!-- INTERVIEWER HOURS -->
+                      <td style="border-left:none;" id="<%= project.quoteID %>_<%= project.jobID %>_<%= interviewer.agentID %>hourR"
+                        <%if(dailys.length > 0) {dailys.forEach((daily, index) => { if (daily.jobID == project.jobID && daily.agentID == interviewer.agentID) {%>
+                          class="highligted_row row-input"
+                        <%}})} if(interviewer.jobID == project.jobID){%>
+                          class="highligted_row row-input"
+                        <%}else{%>
+                          class="row-input"
+                        <%}%>>
+                        <!-- INTERVIEWER HOURS INPUT -->
+                        <input
+                          style="display:inline-block;"
+                          type="number"
+                          placeholder="Hours"
+                          class="form-control"
+                          name="jobHours_<%= project.jobID %>_<%= interviewer.agentID %>"
+                          id="jobHours_<%= project.jobID %>_<%= interviewer.agentID %>"
+                          min="0.00"
+                          step="0.01"
+                        <%if(dailys.length > 0) {dailys.forEach((daily, index) => {
+                          if (daily.jobID == project.jobID && daily.agentID == interviewer.agentID) {%>
+                          value="<%= daily.agentAllocationHours %>"
+                          class="highligted_row row-input"
+                        <%}})}
+                          if(interviewer.jobID == project.jobID){%>
+                          value="<%= interviewer.agentAllocationHours %>"
+                          class="highligted_row row-input"
+                          <%}else{%>
+                          class="row-input"
+                          <%}%>>
+                      </td>
+                      <% })%>
+                      <% }
+                    })%>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              <button type="submit" class="btn btn-success tally" style="width:100%; border-radius:0px;">Submit Daily Achievements</button>
+            </form>
+            <% } else { %>
+              <br><br>
+              <h1 class="text-center">No projects found.</h1>
+              <% } %>
+              <% } else { %>
+                <br><br>
+                <h1 class="text-center">No interviewers found.</h1>
+                <% } %>
+              </div>
+            </body>
+            </html>

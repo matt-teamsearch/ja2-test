@@ -1,0 +1,108 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  $(document).ready(function () {
+    var buttonCommon = {
+      exportOptions: {
+        format: {
+          body: function (data, row, column, node) {
+            let val=data
+            if (column === 1) {
+              val=data.replace( /\n.*|<[^>]*>/g, '' )
+            }
+            return val;
+          }
+        }
+      }
+    };
+    $('#clients-table').DataTable({
+      paging: true,
+      order: [[ 2, "asc" ]],
+      pageLength:15,
+      dom: 'Bfrtip',
+    });
+  });
+  function editClick(id){
+    window.location.href="/edit-client/"+id
+  }
+  function addClick(){
+    window.location.href="/add-client/"
+  }
+</script>
+
+<%
+ const dateIf = (inDate, seperator, order) => {
+   if(new Date(inDate).getDate() > -1)
+   {
+     let day =''
+     if (new Date(inDate).getDate() < 10) {
+       day = '0' + new Date(inDate).getDate()
+     } else {
+       day = new Date(inDate).getDate()
+     }
+     let month =''
+     if (new Date(inDate).getMonth()+1 < 10) {
+       month = '0' + (new Date(inDate).getMonth()+1)
+     } else {
+       month = (new Date(inDate).getMonth()+1)
+     }
+     let year = new Date(inDate).getFullYear()
+     if(order=="f"){
+       return(day+seperator+month+seperator+year)
+     }
+     if(order=="r"){
+       return(year+seperator+month+seperator+day)
+     }
+   }
+   else{
+     return ""
+   }
+   }
+   %>
+   <style>
+     #client-table td{
+       padding:2px;
+       vertical-align: middle;
+     }
+    table.dataTable tbody tr {
+      cursor: pointer;
+    }
+    div.dt-button-collection {
+      width: max-content!important;
+    }
+  </style>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5 class="card-title">Clients</h5>
+        <% if (clients.length > 0) {%>
+          <table class="table table-striped table-compact table-hover table-sm" id="clients-table">
+            <thead class="thead">
+              <tr>
+                <th scope="col">Client company</th>
+                <th scope="col">Accounts contact</th>
+                <th scope="col">Accounts email</th>
+                <th scope="col">Project Managers</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% clients.forEach((client, i) => {
+                %>
+                <tr onclick="editClick(<%=client.clientID%>)">
+                  <td><%= client.clientName %></td>
+                  <td><%= client.accountsName %></td>
+                  <td><%= client.accountsEmail %></td>
+                  <td><%= client.contactCount %></td>
+                </tr>
+                <% }) %>
+              </tbody>
+            </table>
+            <button type="button" onclick="addClick()" class="btn btn-primary btn-block" id="addClient"><i class="fas fa-plus"></i> Add new client</button>
+            <% } else { %>
+              <Br><br>
+                <p class="text-center">No clients found. Go <a href="/add-client" >here</a> to add clients.</p>
+                <% } %>
+            </div>
+          </div>
+        </div>
+      </body>
+      </html>

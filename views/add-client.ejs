@@ -1,0 +1,115 @@
+<%- include('partials/'+versionPages.header) %>
+<style media="screen">
+  .contact {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    margin: 10px;
+  }
+  .contact>.form-group {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+  .contactInput {
+    width: 300px;
+    margin: 0px 6px;
+  }
+  .contactInput[type=checkbox] {
+    width: 13px;
+    transform: scale(1.5);
+    align-self: center;
+    margin-bottom: 0.5rem;
+  }
+  .mainInfo{
+    align-items: center;
+    justify-content: flex-start;
+  }
+  .mainInfo label {
+    margin: 0;
+    width: 15%;
+    text-align: left;
+  }
+  .mainInfo input {
+    width: 85%;
+    margin-bottom: 0!important;
+  }
+</style>
+<script type="text/javascript">
+  function excludeAll(){
+    if ($('#csatExcludeAll').is(':checked')) {
+
+    }
+  }
+</script>
+<div class="container" style="padding-top:70px;">
+  <% if (message != '') { %>
+    <p class="text-center text-danger"><%= message %></p>
+    <% }%>
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body">
+        <h5 class="card-title"><%= clientR.clientID?"Edit":"Add"%> client</h5>
+        <form class="add-client-form form-styles" action="/add-client" method="post" enctype="multipart/form-data">
+          <input type="text" name="user" id="user" style="display:none;">
+          <input type="text" name="clientID" id="clientID" style="display:none;" value="<%=clientR.clientID?clientR.clientID:""%>">
+          <div class="form-row">
+          </div>
+          <div class="form-group col-md-12 d-flex mainInfo">
+            <label for="accountsEmail">Client company name:</label>
+            <input type="text" class="form-control" name="clientName" id="clientName" placeholder="Client company name" value="<%=clientR.clientID?clientR.clientName:""%>" required>
+          </div>
+          <div class="form-group col-md-12 d-flex mainInfo">
+            <label for="accountsEmail">Accounts contact name:</label>
+            <input type="text" class="form-control" name="accountsName" id="accountsName" placeholder="Accounts contact name (optional)" value="<%=clientR.clientID?clientR.accountsName:""%>" >
+          </div>
+          <div class="form-group col-md-12 d-flex mainInfo">
+            <label for="accountsEmail">Accounts contact email:</label>
+            <input type="text" class="form-control" name="accountsEmail" id="accountsEmail" placeholder="Accounts contact email (optional)" value="<%=clientR.clientID?clientR.accountsEmail:""%>" >
+          </div>
+          <% if(contactsR.length){%>
+          <div class="form-group col-md-12 d-flex mainInfo" style="justify-content: center;">
+            <label for="csatExcludeAll">Exclude from CSAT:</label>
+            <input type="checkbox" class="contactInput form-control" id="csatExcludeAll" onchange="$('.csatExclude').prop('checked',$(this).is(':checked'))" name="csatExcludeAll" value="1" <%=contactsR.every(c=>c.excludeFromCsat==1)?'checked':''%>>
+          </div>
+          <%}%>
+          <% if(clientR.clientID){%>
+            <h5>Contacts</h5>
+          <div class="form-group col-md-12 d-flex" style="justify-content: space-evenly;">
+            <% contactsR.forEach(contact=>{%>
+              <div class="form-group contact">
+                <input type="hidden" name="contacts" value="<%=contact.contactID%>">
+                <div class="form-group">
+                  <label for="contactName_<%=contact.contactID%>">Name:</label>
+                  <input type="text" required class="contactInput form-control" id="contactName_<%=contact.contactID%>" name="contactName_<%=contact.contactID%>" value="<%=contact.contactName%>">
+                </div>
+                <div class="form-group">
+                  <label for="contactRole_<%=contact.contactID%>">Role:</label>
+                  <input type="text" class="contactInput form-control" id="contactRole_<%=contact.contactID%>" name="contactRole_<%=contact.contactID%>" value="<%=contact.contactRole%>">
+                </div>
+                <div class="form-group">
+                  <label for="contactEmail_<%=contact.contactID%>">Email:</label>
+                  <input type="text" required class="contactInput form-control" id="contactEmail_<%=contact.contactID%>" name="contactEmail_<%=contact.contactID%>" value="<%=contact.contactEmail%>">
+                </div>
+                <div class="form-group">
+                  <label for="contactPhoneNo_<%=contact.contactID%>">Phone:</label>
+                  <input type="text" class="contactInput form-control" id="contactPhoneNo_<%=contact.contactID%>" name="contactPhoneNo_<%=contact.contactID%>" value="<%=contact.contactPhoneNo%>">
+                </div>
+                <div class="form-group" style="justify-content: flex-start;">
+                  <label for="csatExclude_<%=contact.contactID%>">Exclude from CSAT:</label>
+                  <input type="checkbox" onchange="if($('#csatExcludeAll').is(':checked') && !$(this).is(':checked')){$('#csatExcludeAll').prop('checked',false)}" class="contactInput form-control csatExclude" id="csatExclude_<%=contact.contactID%>" name="csatExclude_<%=contact.contactID%>" value="1" <%=contact.excludeFromCsat==1?'checked':''%>>
+                </div>
+              </div>
+            <%})%>
+          </div>
+          <%}%>
+          <div class="form-group col-md-12">
+            <button type="submit" class="btn btn-primary "><%= clientR.clientID?"Update":"Add"%> Client</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+</div>
+</body>
+</html>

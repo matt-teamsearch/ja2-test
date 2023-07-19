@@ -1,0 +1,273 @@
+<%- include('partials/'+versionPages.header) %>
+<div id="contentContainer">
+</div>
+<div id="refreshCounter" onclick="refreshTable(true)">
+  <div class="info">Last refreshed: <%= new Date().toLocaleTimeString("en-GB") %></div>
+  <svg>
+    <circle r="18" cx="20" cy="20" class="start"></circle>
+  </svg>
+</div>
+<div id="current" style="width:90%;margin:auto">
+
+</div>
+<style media="screen">
+  div#refreshCounter {
+      position: fixed;
+      z-index:3;
+      top: 35px;
+      left: 66px;
+  }
+  #refreshCounter:hover::after {
+    content: '\f021';
+    font-weight: 900;
+    font-family: 'Font awesome 5 Free';
+    font-size: 25px;
+    background: var(--primary);
+    color: white;
+    width: 40px;
+    height: 40px;
+    position: absolute;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+  }
+  #refreshCounter .info {
+    color: #a9a9a9;
+    font-size: small;
+    top: 12px;
+    left: 48px;
+    position: absolute;
+    width: 170px;
+  }
+  #refreshCounter svg {
+      transform: rotateZ(-90deg);
+      position: absolute;
+      top: 2px;
+      height: 40px;
+      width: 40px;
+      left: 2px;
+  }
+  #refreshCounter svg circle {
+      stroke-dasharray: 113px;
+      stroke-dashoffset: 0px;
+      stroke-linecap: round;
+      stroke-width: 2px;
+      stroke: #d1d1d1;
+      fill: none;
+  }
+  #refreshCounter .start{
+    animation: countdown 30s linear infinite forwards;
+  }
+  @keyframes countdown {
+    from {
+      stroke-dashoffset: 113px;
+    }
+    to {
+      stroke-dashoffset: 0px;
+    }
+  }
+  .dayRow {
+    background-color: #ffc40075;
+  }
+  .tabulator-row.tabulator-row-even.dayRow{
+    background-color: #ffc4008a;
+  }
+  .eveRow{
+    background-color: #fff0bc9e;
+  }
+  .tabulator-row.tabulator-row-even.eveRow{
+    background-color: #faeab4d1;
+  }
+  .agentIcons {
+    position: absolute;
+    right: 5px;
+    display: flex;
+    align-items: center;
+    height: 100%;
+    top: 0px;
+  }
+  .logged-off {
+    opacity: 0.5;
+  }
+</style>
+<script type="text/javascript">
+  let currentTable
+  let msToDur=(ms)=>new Date(new Date(ms).getTime()+(new Date().getTimezoneOffset()*1000*60)).toLocaleTimeString()
+  function refreshTable(force){
+    if (refreshTimeout) {
+      clearTimeout(refreshTimeout)
+    }
+    $("#refreshCounter circle").removeClass("start")
+    isRefreshing=false
+    if (currentTable) {
+      $("#refreshCounter .info").html("Refreshing...")
+      $.ajax({url:"/forsta-activity",data:{forceRefresh:force},global:false}).done(data=>{
+        currentTable.replaceData(data.activity).then(e=>{
+          isRefreshing=true
+          $("#refreshCounter circle").addClass("start")
+          $("#refreshCounter .info").html("Last refreshed: "+new Date().toLocaleTimeString("en-GB"))
+          refreshTimeout=setTimeout(refreshInterval,30000)
+        })
+      }).fail(err=>{
+        isRefreshing=true
+        $("#refreshCounter .info").html("Refresh failed at "+new Date().toLocaleTimeString("en-GB"))
+        $("#refreshCounter circle").addClass("start")
+        refreshTimeout=setTimeout(refreshInterval,30000)
+      })
+    }
+  }
+  let isRefreshing=false
+  let refreshInterval=()=>{
+    if (isRefreshing) {
+      refreshTable()
+    }else {
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout)
+      }
+      $("#refreshCounter circle").addClass("start")
+      refreshTimeout=setTimeout(refreshInterval,30000)
+    }
+  }
+  let refreshTimeout=setTimeout(refreshInterval,30000)
+  // globalSocket.emit("cc-activity-request")
+  let actionBtn=(c,p,onR)=>{
+    let btn=document.createElement("button")
+    btn.classList.add("btn","btn-sm","btn-secondary")
+    btn.innerHTML=p.text
+    btn.onclick=function(e){
+      e.preventDefault()
+      e.stopPropagation()
+      if (p.onClick) {
+        p.onClick(c)
+      }
+    }
+    return btn
+  }
+  let counterCells=[]
+  let durationFormatter=(c,p,onR)=>{
+    // counterCells=counterCells.filter(cc=>!(cc.id==c.getRow().getIndex()&&c.getField()==cc.field))
+    // console.log(c.getData().currentStatus.lastEvent,c.getData().currentStatus.lastLogin)
+    // if (c.getData().currentStatus.lastEvent.type==p.type||(p.type=="Login"&&!c.getData().currentStatus.lastLogin.LogoutTime)) {
+      // console.log("adding counter",{id:c.getRow().getIndex(),field:c.getField()})
+      // counterCells.push({id:c.getRow().getIndex(),field:c.getField()})
+    // }
+    return msToDur(c.getValue()*1000)
+  }
+  // let secondCounter=setInterval(()=>{
+  //   if (currentTable) {
+  //     _.uniqBy(counterCells,c=>c.id+" "+c.field).forEach((cell, i) => {
+  //       let r=currentTable.getRow(cell.id)
+  //       if (r) {
+  //         let c=r.getCell(cell.field)
+  //         if (c) {
+  //           c.setValue(c.getValue()+1)
+  //         }
+  //       }
+  //     });
+  //   }
+  // },1000)
+  let checksDone=false
+  currentTable=new Tabulator("#current",{
+    ajaxURL:"/forsta-activity",
+    ajaxParams:{
+      st:moment().format("YYYY-MM-DD")+"T08:00:00Z",
+      en:moment().format()
+    },
+    height:"50vh",
+    index:"InterviewerId",
+    // initialFilter:[data=>!data.currentStatus.lastLogin.LogoutTime],
+    rowFormatter:row=>{
+      // console.log("formatting row")
+      $(row.getElement()).addClass(row.getData().agent.isEve?'eveRow':'dayRow')
+      if (row.getData().currentStatus.lastLogin.LogoutTime) {
+        $(row.getElement()).addClass("logged-off")
+      }
+    },
+    ajaxResponse:(url,p,data)=>{
+      // console.log(data)
+      let updated=0
+      let checkAgents=()=>new Promise(res=>{
+        if (data.missing.agents.length&&!checksDone) {
+          $().forstaAgentMatchup({
+            allList:data.agents,
+            missingList:data.missing.agents,
+            onClose:(tableData)=>{
+              updated=updated+tableData.filter(d=>d.agentID).length
+              res()
+            }
+          })
+        }else {
+          res()
+        }
+      })
+      let checkJobs=()=>new Promise(res=>{
+        if (data.missing.jobs.length&&!checksDone) {
+          $().forstaJobMatchup({
+            allList:data.jobs,
+            missingList:data.missing.jobs,
+            onClose:(tableData)=>{
+              updated=updated+tableData.filter(d=>d.jobID).length
+              res()
+            }
+          })
+        }else {
+          res()
+        }
+      })
+      checkAgents().then(e=>{
+        checkJobs().then(e=>{
+          checksDone=true
+          isRefreshing=true
+          if (updated>0) {
+            currentTable.setData()
+          }
+        })
+      })
+      return data.activity
+    },
+    columns:[
+    {field:"agent.agentName",title:"Agent",frozen:true,formatter:(c,p,onR)=>{
+      // console.log("formatting agent cell")
+      if (c.getData().currentStatus.lastLogin.LogoutTime) {
+        onR(()=>{
+          let loIcon=document.createElement("div")
+          loIcon.innerHTML='<i class="fa-solid fa-user-large-slash"></i>'
+          loIcon.classList.add("agentIcons")
+          c.getElement().append(loIcon)
+        })
+      }
+      return c.getValue()
+    }},
+    {field:"currentStatus.loggedInDuration",title:"Logged in duration",formatterParams:{type:"Login"},formatter:durationFormatter},
+    {field:"currentStatus.calls",title:"Calls made"},
+    {field:"currentStatus.activeDuration",title:"Calls duration",formatterParams:{type:"Call"},formatter:durationFormatter},
+    {field:"currentStatus.breaksDuration",title:"Breaks duration",formatterParams:{type:"Break"},formatter:durationFormatter},
+    {field:"breakMinPH",mutator:(v,d)=>(d.currentStatus.breaksDuration/60)/(d.currentStatus.loggedInDuration/60/60),formatter:c=>Math.round(c.getValue()*10)/10,title:"Break mins p/h"},
+    {field:"cont",mutator:(v,d)=>d.currentStatus.pay/d.currentStatus.sales,formatter:c=>c.getValue()==Infinity?"Infinity":(c.getValue()?Math.round(c.getValue()*10000)/100+"%":"-"),title:"Cont"},
+    {field:"currentStatus.jobName",maxWidth:100,title:"Current job"},
+    {title:"Actions",columns:[
+      {formatter:actionBtn,formatterParams:{text:"Re-allocate"}},
+      {formatter:actionBtn,formatterParams:{text:"End shift"}},
+      {formatter:actionBtn,formatterParams:{text:"Monitor",onClick:c=>window.open("https://cati.euro.confirmit.com/catisupervisor/activity/monitoring?interviewerId="+c.getData().InterviewerId)}},
+    ]},
+    ]
+  })
+  currentTable.on("rowClick",(e,row)=>{
+    let data=row.getData()
+    // console.log(data)
+    let jobsTable=`
+    <table class="table table-sm table-striped" style="max-height:400px;overflow-y:scroll">
+      <th>Job</th><th>Start</th><th>End</th><th>Active</th><th>Calls</th><th>Completes</th><th>AHR</th><th>Cont</th>
+      `+data.sessions.map(j=>"<tr><td>"+j.jobName+"</td><td>"+new Date(j.startTime).toLocaleTimeString("en-GB",{timeStyle: "short"})+"</td><td>"+(j.endTime?new Date(j.endTime).toLocaleTimeString("en-GB",{timeStyle: "short"}):"-")+"</td><td>"+(j.duration?msToDur(j.duration*1000):"-")+"</td><td>"+(j.calls||"-")+"</td><td>"+(j.completes||"-")+"</td><td>"+(j.type=="Call"?Math.round((j.completes/(j.duration/60/60))*100)/100:"-")+"</td><td>"+(j.pay?(j.sales?Math.round((j.pay/j.sales)*10000)/100:"Inf"):"-")+"%</td></tr>").join("")+`
+    </table>
+    `
+    $().getModal({
+      title:data.agent.agentName,
+      body:jobsTable,
+      maxWidth:"900px"
+    })
+  })
+</script>
+</body>
+</html>

@@ -1,0 +1,1639 @@
+<%- include('partials/'+versionPages.header) %>
+<style media="screen">
+  .tabulator-edit-list {
+    max-height: 40vh;
+  }
+  .tabulator-cell.tabulator-editable.loadingError {
+    background: #ffb4b4;
+  }
+  .input-row {
+    display: flex;
+    flex-wrap: nowrap;
+    width: 400px;
+    margin: 5px auto;
+    align-items: flex-end;
+    justify-content: space-between;
+    border-bottom: 1px solid gainsboro;
+  }
+  .headerBar{
+    display: flex;
+    flex-wrap: wrap;
+    margin-top: 36px;
+  }
+  .btnCell{
+    padding:0px!important;
+  }
+  .undoButton{
+    width:100%;
+    height:100%;
+  }
+  .verbEditor {
+    height: 100%;
+    border: none;
+    width: 100%;
+    resize: none;
+  }
+  .tabulator-cell.tabulator-editable.tabulator-editing {
+    border: none;
+  }
+  .tabulator-row .tabulator-cell.verbCell{
+    white-space: break-spaces;
+  }
+  .tabulator .tabulator-col-resize-handle {
+    margin-left: -1px!important;
+    margin-right: -1px!important;
+  }
+  .input-block{
+    transition: 1s all;
+    max-height:200px;
+    overflow:hidden;
+  }
+  .input-block.closed{
+    max-height:0px;
+  }
+  .opener i{
+    transition: 1s all!important;
+  }
+  .opener.closed i{
+    transform:rotate(180deg)!important;
+  }
+  .lastValue{
+    color:gray;
+  }
+  .input-wrapper{
+    position:relative;
+  }
+  .opener{
+    position:absolute;
+  }
+  .spellError {
+    text-decoration: underline 1px wavy red;
+  }
+  .spIcon {
+    position: absolute;
+    right: 0;
+    top: 3px;
+    opacity:0.8;
+  }
+  .tabulator-cell:hover .spIcon{
+    opacity:0.1;
+  }
+  .spIcon.checking {
+    opacity:0.2;
+    animation: checking 1s ease-in-out 0s infinite normal none;
+  }
+  .spIcon.good {
+    color: green;
+  }
+  .spIcon.bad {
+    color: red;
+  }
+  @keyframes checking{
+    0% {
+        color: black;
+    }
+    30% {
+        color: red;
+    }
+    60% {
+        color: green;
+    }
+    100% {
+        color: black;
+    }
+  }
+  span.loading-dots {
+    font-size: 5px;
+    bottom: 3px;
+  }
+  .doubleIcon {
+    position: relative;
+  }
+  .doubleIcon i:nth-child(2) {
+    position: absolute;
+    font-size: 0.6em;
+    top: 50%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-50%);
+    text-shadow: -1px 0 0px white;
+  }
+  .topBar-menu{
+    width: fit-content;
+  }
+  .topBar-menu button{
+    width: 100%;
+    text-align: left;
+  }
+  .tabulator-cell.prevValue{
+    color:gray;
+  }
+  .tabulator-cell.prevValue:hover ~ .verbCell, .tabulator-cell.prevValue:hover ~ .tabulator-col-resize-handle {
+    background: var(--subtle);
+    color: var(--subtle);
+  }
+  .tabulator-cell.prevValue:hover {
+    background: var(--primary);
+    color: white;
+  }
+  .sub-menu:hover .dropdown-menu {
+    display: block;
+  }
+  .tabulator .tabulator-tableholder .tabulator-placeholder[tabulator-render-mode=virtual] {
+    min-height: 63%;
+  }
+  .tabulator-row[isLoading="true"] *{
+    pointer-events:none!important;
+  }
+  .coderCont{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    z-index: 3;
+    transform: translate(-50%, -50%);
+    background: white;
+    padding: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    max-width: 80%;
+    min-width: 50%;
+    background: none;
+    justify-content: space-between;
+  }
+  .coderTagHolder{
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    margin: 9px 0px;
+  }
+  .coderVerb{
+    padding: 21px;
+    font-size: 24px;
+    width: 100%;
+    background: white;
+  }
+  .coderTag{
+    display: flex;
+    font-size: 0.8em;
+    margin: 2px;
+    padding: 2px 5px;
+    white-space: break-spaces;
+  }
+  .coderTag:not(.btn){
+    background: white;
+  }
+  .coderTagHolder .coderTag{
+    background: var(--primary);
+    color: white;
+    margin: 2px 4px;
+  }
+  .coderTag .code{
+    padding: 0px 6px;
+    margin: auto 0px;
+    border: 1px solid gainsboro;
+  }
+  .coderTag .label{
+    margin: auto 0px;
+    padding: 2px 9px;
+    text-align: left;
+  }
+  .coderTag .btn{
+    line-height: 1px;
+    padding: 0px 4px;
+  }
+  .coderCodeFrame{
+    background: #ccccce;
+    padding: 10px;
+    width: 100%;
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    flex-direction: column;
+    max-height: 66vh;
+    overflow-y: scroll;
+    overflow-x: hidden;
+  }
+  .coderCodeFrame .coderTag {
+    width: 100%;
+    font-size: 1em;
+  }
+  .coderTag.btn.btn-secondary::after {
+    content: "[ENTER] to select";
+    color: #cfcfcf;
+    margin: auto 0px;
+  }
+  .coderCodeFrame .coderTag:hover {
+    background: white;
+    color: var(--primary);
+    box-shadow: 0px 3px 9px -2px var(--primary);
+    cursor: pointer;
+  }
+  .coderInput{
+    width: 100%;
+    font-size: 1.5em;
+    height: 2em;
+    text-align: center;
+    vertical-align: middle;
+    padding: 0px 0px;
+    background: #cfcfcf00;
+    color: white;
+    border: none;
+  }
+  .not-<%=checkType%>{
+    display:none;
+  }
+</style>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <div class="syncAlert" style="display:none;">
+        <h5>Data not being saved</h5>
+        <div class="syncAlertDetails">
+          <p>The target variable has a different code frame to the one you're currently working with, so changes to coded data are currently not being saved to Forsta. Please update the variable in Forsta.</p>
+          <div class="syncAlertCodeframe">
+
+          </div>
+          <button class="btn btn-flat" name="button">Copy codeframe</button>
+        </div>
+        <button class="btn btn-primary" name="button" onclick="checkCodeframeSync()">Synchronise now</button>
+      </div>
+      <div class="input-wrapper">
+        <div class="input-block">
+          <div class="input-row">
+            <label for="forstaSurvey">Survey</label>
+            <select class="selectpicker" data-live-search=true onchange="getOpenQuestions($(this).val())" id="forstaSurvey" title="Select a survey..." data-container="body">
+              <%forstaSurveys.forEach(survey=>{%>
+                <option value="<%=survey.id%>"><%=survey.name%></option>
+                <%})%>
+              </select>
+            </div>
+            <div class="input-row">
+              <label for="currentQuestion">Question</label>
+              <select class="selectpicker" onchange="getVerbs(true)" id="currentQuestion" disabled title="Select a question..." data-container="body">
+              </select>
+            </div>
+            <div class="input-row targetRowCode">
+              <label for="targetQuestionCode">Target question (code) <span class="infoHover">Save any coding/backcoding to a different variable so as to not overwrite original values</span></label>
+              <select class="selectpicker targetQuestion" id="targetQuestionCode" onchange="checkTargetQuestion($(this),true)" disabled title="Select a target question..." data-container="body">
+              </select>
+            </div>
+            <div class="input-row targetRowVerb">
+              <label for="targetQuestionVerb">Target question (verb)<span class="infoHover">Save any corrected verbatims to a different variable so as to not overwrite original values</span></label>
+              <select class="selectpicker targetQuestion" id="targetQuestionVerb" onchange="checkTargetQuestion($(this))" disabled title="Select a target question..." data-container="body">
+              </select>
+            </div>
+        </div>
+        <button type="button" name="button" class="btn btn-flat opener" onclick='toggleCloser()'><i class="fas fa-chevron-up"></i></button>
+      </div>
+      <div class="headerBar" style="display:none;">
+        <h5 id="questionTitle" style="text-align: left;width: 100%;"></h5>
+        <div class="dropdown" id="viewDropdown">
+          <button class="btn btn-flat btn-outline-light dropdown-toggle" type="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+            View
+          </button>
+          <div class="dropdown-menu dropdown-menu-right topBar-menu" style="left: unset;right: 0;">
+            <!-- <button type="button" class="btn btn btn-flat" onclick="toggleHistoryCols()"><i class="fa-solid fa-clock-rotate-left"></i> Show/hide history</button> -->
+            <button type="button" class="btn btn btn-flat" onclick="toggleCheckFilter()"><i class="fa-solid fa-check"></i> Show/hide already checked</button>
+            <button type="button" class="btn btn btn-flat" onclick="toggleCodesLabels()"><i class="fa-solid fa-a"></i> Toggle codes/labels</button>
+            <button type="button" class="btn btn btn-flat" onclick="getVerbs()" title="Refresh"><i class="fas fa-sync-alt"></i> Refresh</button>
+          </div>
+        </div>
+        <div class="dropdown not-spellchecking" id="xlDropdown">
+          <button type="button" class="btn btn btn-flat btn-xlsx dropdown-toggle"  data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"">Download to Excel</button>
+          <ul class="dropdown-menu dropdown-menu-right topBar-menu">
+            <li><button type="button" class="btn btn btn-flat btn-xlsx" onclick="downloadToExcel(true)">Download all</button></li>
+            <li><button type="button" class="btn btn btn-flat btn-xlsx" onclick="downloadToExcel()">Download unchecked only</button></li>
+          </ul>
+        </div>
+        <div class="dropdown not-backcoding not-coding" id="wordDropdown">
+          <button class="btn btn btn-flat btn-word dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Download to Word">Download verbs to Word</button>
+          <ul class="dropdown-menu dropdown-menu-right topBar-menu" style="left: unset;right: 0;"">
+            <li><button type="button" class="btn btn btn-flat btn-word" onclick="downloadToWord(true)">Download all</button></li>
+            <li><button type="button" class="btn btn btn-flat btn-word" onclick="downloadToWord()">Download unchecked only</button></li>
+          </ul>
+        </div>
+        <button type="button" class="btn btn btn-flat btn-word-upload not-backcoding not-coding" onclick="uploadFromWord()" title="">Upload Word doc <span class="infoHover">Must be file downloaded from this page</span></button>
+        <button type="button" class="btn btn btn-flat btn-xlsx-upload not-spellchecking" onclick="uploadFromExcel()">Upload Excel doc <span class="infoHover">Must have 'respid' and question id as headers. If question is in a grid, the code for the grid item must be specified in the question id, seperated by a '#', e.g. Q1#1 refers to Q1 grid item '1'</span></button>
+        <button type="button" class="btn btn btn-flat not-backcoding not-spellchecking" onclick="startCoder()" title="">Start coding</button>
+        <!-- <button type="button" class="btn btn btn-flat doubleIcon" onclick="resetData()" title="Revert all changes"><i class="fa-solid fa-rotate-left"></i><i class="fa-solid fa-rotate-left"></i></button> -->
+      </div>
+      <div id="verbsTable">
+
+      </div>
+    </div>
+  </div>
+  <script type="text/javascript">
+    let currentQuestionOptions
+    let checkType='<%=checkType%>'
+    let verbTable
+    let codeQuestion
+    let verbQuestion
+    let currentQuestion
+    let currentField
+    let currentTopLevel
+    let currentLevelPath
+    let codingQuestion=""
+    let otherQuestion=""
+    let getQuestion
+    let codeOption
+    let tableHistory
+    let isMulti
+    let codesAsText=false
+    let pid
+    let codeFrameAdditions=[]
+    function toggleCodesLabels(){
+      codesAsText=!codesAsText
+      verbTable.redraw(true)
+    }
+    let multiAccessor=v=>{
+      let v2=typeof v === "string"?[v]:v
+      let obj={
+        true:v2,
+        false:_.difference(currentOption.prop("data-variable").options.map(o=>o.code),v2)
+      }
+      return isMulti?obj:v
+    }
+    let codeToText=code=>code?getTitle(currentOption.prop("data-variable").options.find(o=>o.code==code)):""
+    let filterDataChanges=(arr)=>arr.filter(c=>(c.question==targetQuestion || c.question==verbQuestion) && c.field==currentField && c.topLevel==currentTopLevel && c.levelPath==currentLevelPath)
+    let getTitle=v=>v.titles?v.titles[0].text:(v.texts?v.texts[0].text:(v.name?v.name:v.code))
+    // not yet able to deal with different target Qs
+    $(".targetRowVerb").hide()
+    $(".targetRowCode").hide()
+    let optionEditor=(cell,onR,success,cancel,params)=>{
+      let editor=document.createElement("select")
+      params.values.forEach((opt, i) => {
+        editor.append(new Option((params.itemFormatter?params.itemFormatter(opt.label,opt.value):opt.label),opt.value))
+      });
+      $(editor).attr("data-container","body").attr("data-live-search","true").attr("multiple",params.multiple)
+      $(editor).addClass("selectpicker")
+      $(editor).val(cell.getValue())
+      onR(()=>{
+        $(editor).on("loaded.bs.select",function(e){
+          $(editor).selectpicker("toggle")
+        })
+        $(editor).on("hidden.bs.select",function(e){
+          $(editor).selectpicker("destroy")
+          let o=typeof cell.getValue() ==="string"?[cell.getValue()]:cell.getValue()
+          let n=typeof $(editor).val() ==="string"?[$(editor).val()]:$(editor).val()
+          if (!_.isEqual(_.sortBy(n), _.sortBy(o))) {
+            success($(editor).val())
+          }else {
+            cancel()
+          }
+        })
+        setTimeout(()=>{
+          $(editor).selectpicker()
+        },100)
+      })
+      return editor
+    }
+    function getSpecifyData(datarow,variable,optCode,fieldCode){
+      if (fieldCode && datarow[variable.name]) {
+        if (variable.variableType=='singleChoice') {
+          return datarow[variable.name][fieldCode+"$other"]
+        }else if(variable.variableType=='multiChoice') {
+          if (datarow[variable.name][fieldCode]) {
+            return datarow[variable.name][fieldCode][optCode+"$other"]
+          }
+        }
+      }else {
+        if (variable.variableType=='singleChoice') {
+          return datarow[variable.name+"."+optCode+"$other"]
+        }else if(variable.variableType=='multiChoice' && datarow[variable.name]) {
+          return datarow[variable.name][optCode+"$other"]
+        }
+      }
+    }
+    function getSpecifyField(){
+      let variable=currentOption.prop("data-variable")
+      let opt=currentOption.prop("data-option")
+      if (currentField) {
+        return currentField+"$other"
+      }else {
+        return variable.name+"."+opt.code+"$other"
+      }
+    }
+    function getDatapoint(dataRow,isCode){
+      let q=currentOption.prop("data-variable")
+      let opt=currentOption.prop("data-option")
+      let qname=q.name
+      if ((checkType=="spellchecking" || (checkType=="coding" && !isCode)) && dataRow[qname]) {
+        if (currentField) {
+          return dataRow[qname][currentField]
+        }else {
+          return dataRow[qname]
+        }
+      }else if (checkType=="backcoding" && !isCode) {
+        if (currentField) {
+          return getSpecifyData(dataRow,q,opt.code,currentField)
+        }else {
+          return getSpecifyData(dataRow,q,opt.code)
+        }
+      }else if ((checkType=="backcoding" || checkType=="coding") && isCode && dataRow[qname]) {
+        if (currentField) {
+          if (q.variableType=='singleChoice') {
+            return dataRow[qname][currentField]
+          }else if (q.variableType=='multiChoice') {
+            return dataRow[qname][currentField]?dataRow[qname][currentField].true:undefined
+          }
+        }else {
+          if (q.variableType=='singleChoice') {
+            return dataRow[qname]
+          }else if (q.variableType=='multiChoice') {
+            return dataRow[qname].true
+          }
+        }
+      }
+    }
+    function getDataObjectFunc(){
+      if (checkType=="spellchecking") {
+        return (objToUpdate,newVal,oldVal)=>{
+          objToUpdate[currentQuestion]={new:newVal,old:oldVal,topLevel:"",levelPath:"",field:currentField}
+          return objToUpdate
+        }
+      }
+      if (checkType=="coding") {
+        return (objToUpdate,newVal,oldVal)=>{
+          let newData=multiAccessor(typeof newVal ==="string"?newVal.split(","):(typeof newVal ==="number"?newVal.toString():newVal))
+          let oldData=multiAccessor(typeof oldVal ==="string"?oldVal.split(","):(typeof oldVal ==="number"?oldVal.toString():oldVal))
+          objToUpdate[currentQuestion+"_CODE"]={new:newCodes,old:oldCodes,topLevel:"",levelPath:"",field:currentField}
+          return objToUpdate
+        }
+      }
+      if (checkType=="backcoding") {
+        return (objToUpdate,newVal,oldVal)=>{
+          if (isMulti) {
+            let newData=multiAccessor(typeof newVal ==="string"?newVal.split(","):newVal)
+            let oldData=multiAccessor(typeof oldVal ==="string"?oldVal.split(","):oldVal)
+            // newData[getSpecifyField()]=newVal
+            // oldData[getSpecifyField()]=oldVal
+            objToUpdate[currentQuestion]={new:newData,old:oldData,topLevel:"",levelPath:"",field:currentField}
+            return objToUpdate
+          }else {
+            // objToUpdate[getSpecifyField()]={new:newVal,old:newVal,topLevel:"",levelPath:"",field:currentField}
+            objToUpdate[currentQuestion]={new:newVal,old:oldVal,topLevel:"",levelPath:"",field:currentField}
+            return objToUpdate
+          }
+        }
+      }
+    }
+    function addQtoSelect(q,sel,resp){
+      if (q.fields) {
+        q.fields.forEach((field, i) => {
+          let opt=new Option(q.name+". "+_.truncate(getTitle(q))+" - "+_.truncate(getTitle(field))+(resp?" ("+_.truncate(getTitle(resp))+")":""),q.name+"¬"+field.code+(resp?"~"+resp.code:""))
+          $(opt).prop("data-field",field)
+          $(opt).prop("data-variable",q)
+          if (resp) {
+            $(opt).prop("data-option",resp)
+          }
+          sel.append(opt)
+        });
+      }else {
+        let opt=new Option(q.name+". "+_.truncate(getTitle(q)),q.name+(resp?"~"+resp.code:""))
+        $(opt).prop("data-field","")
+        $(opt).prop("data-variable",q)
+        if (resp) {
+          $(opt).prop("data-option",resp)
+        }
+        sel.append(opt)
+      }
+    }
+    function getOpenQuestions(pid){
+      $("#verbsTable").empty()
+      $.ajax("/get-forsta-survey-questions?raw=true&pid="+pid).done(questions=>{
+        if (questions) {
+          getQuestion=(qname)=>questions.find(q=>q.name==qname)
+          let openQs=questions.filter(q=>q.variableType=="text")
+          let otherQs=questions.filter(q=>['singleChoice','multiChoice'].includes(q.variableType)).filter(q=>q.options.find(o=>o.hasOtherField))
+          let codedQs=questions.filter(q=>['singleChoice','multiChoice'].includes(q.variableType))
+          $('#currentQuestion').empty()
+          $('select.targetQuestion').empty()
+          if (checkType=="spellchecking") {
+            openQs.forEach(q=>{
+              addQtoSelect(q,$('#currentQuestion'))
+              addQtoSelect(q,$('#targetQuestionVerb'))
+            })
+          }else if (checkType=="backcoding") {
+            otherQs.forEach(q=>{
+              q.options.filter(o=>o.hasOtherField).forEach(o=>{
+                addQtoSelect(q,$('#currentQuestion'),o)
+                // $('#currentQuestion').append(new Option(q.name.split("$")[0]+". "+_.truncate(q.titles[0].text)+" - "+_.truncate(o.texts[0].text),q.name+"$"+o.code))
+              })
+            })
+            codedQs.forEach(q=> {
+              addQtoSelect(q,$('#targetQuestionCode'))
+            });
+            openQs.forEach(q=>{
+              addQtoSelect(q,$('#targetQuestionVerb'))
+            })
+          }
+          $('#currentQuestion').prop("disabled",false)
+          $('#currentQuestion').selectpicker("refresh")
+          $('select.targetQuestion').selectpicker("refresh")
+        }else {
+          alert("Could not load survey. Ensure the API has permissions to access it.")
+          $('#forstaSurvey').val("").selectpicker("refresh")
+        }
+      }).fail(err=>{
+        alert("Could not load survey. Ensure the API has permissions to access it.")
+      })
+    }
+    function checkTargetQuestion(el,isCode){
+      pid=$("#forstaSurvey").val()
+      let currentQuestion=$('#currentQuestion').val().split("$")[0]
+      if ($(el).val()!=currentQuestion) {
+        $.ajax("/get-forsta-survey-questions?pid="+pid+"&variables="+$(el).val().split("$")[0]).done(resp=>{
+          let question=resp[0]
+          if (!isCode) {
+            if (question.variableType!="text") {
+              alert("Must be an open text question")
+              $(el).val("").selectpicker("refresh")
+              verbTarget=null
+            }else {
+              verbTarget=$(el).val()
+            }
+          }else if (checkType=="coding" && isCode) {
+            if (question.variableType!="multiChoice") {
+              alert("Must be multi-choice question")
+              $(el).val("").selectpicker("refresh")
+              codeTarget=null
+            }else {
+              codeTarget=$(el).val()
+            }
+          }else if (checkType=="backcoding" && isCode) {
+            let optEqual=currentOption.prop("data-variable").options.find(o=>{
+              let ret=false
+              let codematch=question.options.find(o2=>o2.code==o.code)
+              if (!codematch) {
+                return false
+              }else if(codematch.texts[0].text!=o.texts[0].text) {
+                return false
+              }else {
+                return true
+              }
+            })
+            if (question.variableType!=currentOption.prop("data-variable").variableType) {
+              if (!confirm("Target question is a "+question.variableType+" whereas the question you are backcoding is "+currentOption.prop("data-variable").variableType+". Continue?")) {
+                $(el).val(currentQuestion).selectpicker("refresh")
+                codeTarget=null
+              }else if (!optEqual) {
+                if (!confirm("Target question's responses are different to the question you are backcoding. Continue?")) {
+                  $(el).val(currentQuestion).selectpicker("refresh")
+                  codeTarget=null
+                }
+              }else {
+                codeTarget=$(el).val()
+              }
+            }else {
+              codeTarget=$(el).val()
+            }
+          }
+        })
+      }else {
+        if (isCode) {
+          codeTarget=$(el).val()
+        }else {
+          verbTarget=$(el).val()
+        }
+      }
+    }
+    function getVerbs(questionChange){
+      $(".headerBar").css("display","flex")
+      $('select.targetQuestion').prop("disabled",false).selectpicker("refresh")
+      pid=$("#forstaSurvey").val()
+      currentOption=$('#currentQuestion option:selected')
+      currentField=currentOption.prop("data-field")?currentOption.prop("data-field").code:""
+      currentTopLevel=""
+      currentLevelPath=""
+      currentQuestion=currentOption.prop("data-variable").name
+      $('#questionTitle').text(getTitle(currentOption.prop("data-variable")) + (currentOption.prop("data-field")?" - "+getTitle(currentOption.prop("data-field")):""))
+      verbQuestion=currentQuestion
+      targetQuestion=currentQuestion
+      if (checkType=="backcoding") {
+        verbQuestion=getSpecifyField()
+        codeQuestion=currentQuestion
+        $('#targetQuestionCode').val(targetQuestion)
+        codeOption=$('#targetQuestionCode option:selected')
+      }
+      if (checkType=="coding") {
+        verbQuestion=currentQuestion
+        codeQuestion=currentQuestion+"_CODE"
+        targetQuestion=currentQuestion+"_CODE"
+        $('#targetQuestionCode').val(targetQuestion)
+        codeOption=$('#targetQuestionCode option:selected')
+      }
+      $.ajax("/get-forsta-completes?dataChanges=true&pid="+pid).done(forstaData=>{
+        console.log(forstaData)
+        let tableData=JSON.parse(JSON.stringify(forstaData))
+        if (checkType=="backcoding") {
+          let otherCode=currentOption.prop("data-option").code
+          tableData=tableData.filter(v=>{
+            let d=getDatapoint(v,true)
+            return d==otherCode || (Array.isArray(d) && d.includes(otherCode)) || filterDataChanges(v.JA2dataChanges).length
+          })
+        }
+        tableData=tableData.filter(v=>{
+          // console.log(v,getDatapoint(v),cleanSmartChars(getDatapoint(v)))
+          let d=getDatapoint(v)
+          return d!==undefined
+        }).map(datarow=>{
+          datarow[verbQuestion]=getDatapoint(datarow)
+          datarow[codeQuestion]=getDatapoint(datarow,true)
+          datarow.field=currentField
+          datarow.topLevel=currentTopLevel
+          datarow.levelPath=currentLevelPath
+          return datarow
+        })
+
+        isMulti=currentOption.prop("data-variable").variableType=='multiChoice'
+        let singleFormatter=c=>c.getValue()?getTitle(currentOption.prop("data-variable").options.find(o=>o.code==c.getValue())):""
+
+        let isUndo=false
+        let getCellHistory=c=>{
+          let respid=c.getData().respid
+          if (checkType=="backcoding" && c.getField()==verbQuestion && !isMulti) {
+            return tableHistory.filter(h=>h.respid==respid && h.question==getSpecifyField())
+          }
+          if (checkType=="backcoding" && c.getField()==verbQuestion && isMulti) {
+            return tableHistory.filter(h=>h.respid==respid && h.question==currentQuestion && JSON.parse(h.oldValue)[getSpecifyField()])
+          }
+          if (checkType=="backcoding" && c.getField()==codeQuestion && isMulti) {
+            return tableHistory.filter(h=>h.respid==respid && h.question==currentQuestion && !JSON.parse(h.oldValue)[getSpecifyField()])
+          }
+          if ((checkType=="coding" && c.getField()==verbQuestion) || (checkType=="backcoding" && c.getField()==codeQuestion && !isMulti) || checkType=="spellchecking") {
+            return tableHistory.filter(h=>h.respid==respid && h.question==currentQuestion)
+          }
+          if (checkType=="coding" && c.getField()==codeQuestion) {
+            return tableHistory.filter(h=>h.respid==respid && h.question==currentQuestion+"_CODE")
+          }
+        }
+        let verbMenu=(e,cell)=>{
+          let menu=[]
+          let selected=verbTable.getSelectedRows()
+          if (selected.length>1) {
+            menu=[{label:"History",menu:[
+              {
+                label:"Undo last "+checkType+" change ("+selected.length+" rows)",
+                action:(e,c)=>{
+                  let mapFunc=getDataObjectFunc()
+                  let updateData=selected.map((row, i) => {
+                    let d=row.getData()
+                    let obj={respid:d.respid}
+                    let scell=row.getCell(targetQuestion)
+                    let history=getCellHistory(scell)
+                    if (history.length) {
+                      let label
+                      if (checkType=="backcoding" && isMulti) {
+                        label=JSON.parse(history[0].oldValue)[getSpecifyField()]
+                      }else {
+                        label=JSON.parse(history[0].oldValue)
+                      }
+                      obj=mapFunc(obj,label,null)
+                    }
+                    return obj
+                  });
+                  updateBatchData(updateData.filter(el=>el[targetQuestion]!==undefined),targetQuestion,true)
+                }
+              },
+              {
+                label:"Undo all "+checkType+" changes ("+selected.length+" rows)",
+                action:(e,c)=>{
+                  let mapFunc=getDataObjectFunc()
+                  let updateData=selected.map((row, i) => {
+                    let d=row.getData()
+                    let obj={respid:d.respid}
+                    let scell=row.getCell(targetQuestion)
+                    let history=getCellHistory(scell)
+                    if (history.length) {
+                      let label
+                      if (checkType=="backcoding" && isMulti) {
+                        label=JSON.parse(_.last(history).oldValue)[getSpecifyField()]
+                      }else {
+                        label=JSON.parse(_.last(history).oldValue)
+                      }
+                      obj=mapFunc(obj,label,null)
+                    }
+                    return obj
+                  });
+                  updateBatchData(updateData.filter(el=>el[targetQuestion]!==undefined),targetQuestion,"all")
+                }
+              },
+            ]}]
+          }else {
+            menu=[{label:"History",menu:[]}]
+            let target=e.target
+            let respid=cell.getData().respid
+            let history=getCellHistory(cell)
+            menu[0].menu=history.map(h=>{
+              let label=h.oldValue
+              if (checkType=="backcoding" && isMulti) {
+                label=JSON.parse(h.oldValue)[getSpecifyField()]
+              }else {
+                label=JSON.parse(h.oldValue)
+              }
+              return {
+                label:label,
+                action:(e,c)=>{
+                  isUndo=h.changeID
+                  cell.setValue(label)
+                }
+              }
+            })
+            menu[0].disabled=history.length==0
+          }
+          return $(cell.getElement()).is("[contenteditable='true']")?menu:[]
+        }
+        let codeMenu=(e,cell)=>{
+          let selected=verbTable.getSelectedRows()
+          let menu=[]
+          if (selected.length>1) {
+            menu=[{label:"History",menu:[
+              {
+                label:"Undo last "+checkType+" change ("+selected.length+" rows)",
+                action:(e,c)=>{
+                  let mapFunc=getDataObjectFunc()
+                  let updateData=selected.map((row, i) => {
+                    let d=row.getData()
+                    let obj={respid:d.respid}
+                    let scell=row.getCell(targetQuestion)
+                    let history=getCellHistory(scell)
+                    if (history.length) {
+                      obj=mapFunc(obj,(isMulti?JSON.parse(history[0].oldValue).true:JSON.parse(history[0].oldValue)),null)
+                    }
+                    return obj
+                  });
+                  updateBatchData(updateData.filter(el=>el[targetQuestion]!==undefined),targetQuestion,true)
+                }
+              },
+              {
+                label:"Undo all "+checkType+" changes ("+selected.length+" rows)",
+                action:(e,c)=>{
+                  let mapFunc=getDataObjectFunc()
+                  let updateData=selected.map((row, i) => {
+                    let d=row.getData()
+                    let obj={respid:d.respid}
+                    let scell=row.getCell(targetQuestion)
+                    let history=getCellHistory(scell)
+                    if (history.length) {
+                      obj=mapFunc(obj,isMulti?JSON.parse(_.last(history).oldValue).true:JSON.parse(_.last(history).oldValue),null)
+                    }
+                    return obj
+                  });
+                  updateBatchData(updateData.filter(el=>el[targetQuestion]!==undefined),targetQuestion,"all")
+                }
+              },
+            ]}]
+          }else {
+            menu=[{label:"History",menu:[]}]
+            let target=e.target
+            let respid=cell.getData().respid
+            let history=getCellHistory(cell)
+            menu[0].menu=history.map(h=>{
+              let label=isMulti?JSON.parse(h.oldValue).true.join(";"):JSON.parse(h.oldValue)
+              if (codesAsText) {
+                label=isMulti?JSON.parse(h.oldValue).true.map(c=>codeToText(c)).join(";"):codeToText(JSON.parse(h.oldValue))
+              }
+              return {
+                label:label,
+                action:(e,c)=>{
+                  isUndo=h.changeID
+                  cell.setValue(isMulti?JSON.parse(h.oldValue).true:JSON.parse(h.oldValue))
+                }
+              }
+            })
+            menu[0].disabled=history.length==0
+          }
+          return $(cell.getElement()).is("[isLoading='true']")?[]:menu
+        }
+        let tableCols=[
+        {width:40,download:false,formatter:"rowSelection", titleFormatter:"rowSelection", titleFormatterParams:{
+            rowRange:"active" //only toggle the values of the active filtered rows
+        }, hozAlign:"center", headerSort:false},
+        {field:"respid",resizable:false,title:"respid",headerFilter:"input",headerFilterPlaceholder:"Search..."},
+        // {field:"field",title:"field",visible:false},
+        // {field:"topLevel",title:"topLevel",visible:false},
+        // {field:"levelPath",title:"levelPath",visible:false},
+        {field:verbQuestion,titleDownload:verbQuestion+(currentField?("#"+currentField):""),resizable:false,contextMenu:verbMenu,widthGrow:5,accessor:v=>v?cleanSmartChars(v):v,headerFilter:"input",headerFilterPlaceholder:"Search...",cssClass:"verbCell",title:verbQuestion,
+          editable:false,cellEdited:c=>updateCell(false,c.getValue(),c.getOldValue(),c,isUndo),
+          formatter:(c,p,onR)=>{
+            onR(()=>{
+              $(c.getElement()).attr("contenteditable",true)
+              $(c.getElement()).blur(function(e){
+                isUndo=false
+                let newVal=$(c.getElement()).html()
+                if (c.getValue()!==newVal) {
+                  c.setValue(newVal)
+                }
+              })
+              $(c.getElement()).on("keydown",function(e){
+                if(e.which==13){
+                  $(c.getElement()).blur()
+                  verbTable.navigateDown()
+                }
+                if(e.which==27){
+                  $(c.getElement()).blur()
+                }
+              })
+            })
+            return c.getValue()!==null && c.getValue()!==undefined?c.getValue():""
+          }
+        },
+        ]
+        if (codeQuestion) {
+          tableCols=tableCols.concat([
+            {field:codeQuestion,contextMenu:codeMenu,visible:checkType!="spellchecking",formatter:c=>{
+              return c.getValue()?(codesAsText?(isMulti?multiAccessor(c.getValue()).true.map(el=>codeToText(el)).join(";"):codeToText(c.getValue())):(isMulti?c.getValue().join(","):c.getValue())):""
+            },accessor:isMulti?multiAccessor:v=>v,accessorDownload:v=>isMulti?v.join(","):v,title:codeQuestion,editor:optionEditor,editorParams:{
+              multiple:isMulti,
+              values:currentOption.prop("data-variable").options.map(o=>({label:o.texts[0].text,value:o.code})),
+              itemFormatter:(label,val)=>{
+                return val+": "+label
+              }},
+              cellEditing:c=>isUndo=false,
+              cellEdited:c=>updateCell(true,multiAccessor(c.getValue(),c.getData()),multiAccessor(c.getOldValue(),c.getData()),c,isUndo)},
+            {field:verbQuestion+"_coding",visible:checkType=="coding",download:false,width:35,formatter:'tickCross',formatterParams:{allowEmpty:true,tickElement:'<i class="fa-solid fa-list-ol good"></i>',crossElement:'<i class="fa-solid fa-list-ol bad"></i>'}},
+            {field:codeQuestion+"_backcoding",visible:checkType=="backcoding",download:false,width:35,formatter:'tickCross',formatterParams:{allowEmpty:true,tickElement:'<i class="fa-solid fa-list-check good"></i>',crossElement:'<i class="fa-solid fa-list-check bad"></i>'}},
+          ])
+        }
+        tableCols.push({field:verbQuestion+"_spellchecking",download:false,width:35,formatter:'tickCross',formatterParams:{allowEmpty:true,tickElement:'<i class="fa-solid fa-spell-check good"></i>',crossElement:'<i class="fa-solid fa-spell-check bad"></i>'}})
+        if (verbTable) {
+          verbTable.destroy()
+        }
+        verbTable=new Tabulator("#verbsTable", {
+          data:tableData,
+          index:'respid',
+          layout:"fitColumns",
+          resizableColumnFit:true,
+          nestedFieldSeparator:"¬",
+          layoutColumnsOnNewData:true,
+          // selectable:true,
+          selectableRangeMode:"click",
+          // selectablePersistence:false,
+          downloadRowRange:"active",
+          resizableRows:true,
+          height:'calc(67vh - 36px)',
+          columns:tableCols,
+          placeholder:"No "+checkType+" to do",
+        })
+        verbTable.on("tableBuilt",function(e){
+          updateHistory().then(e=>{
+            verbTable.redraw(true)
+            verbTable.setFilter(currentQuestion+"_"+checkType, "=", false)
+          })
+        })
+        verbTable.on("rowClick", function(e, row){
+          console.log(e)
+          // if ($(e.path[0]).attr('tabulator-field')!='rowSelection') {
+          //   row.toggleSelect()
+          // }
+        });
+      })
+    }
+    function updateHistory(){
+      return new Promise(res=>{
+        $.ajax({global:false,url:"/get-forsta-data-changes?pid="+pid}).done(dataChanges=>{
+          $.ajax({global:false,url:"/get-forsta-data-cleans?pid="+pid}).done(dataCleans=>{
+            let tableCleans=[]
+            tableHistory=[]
+            tableHistory=filterDataChanges(dataChanges)
+            verbTable.getData().forEach((trow, i) => {
+              let rowCleans=dataCleans.filter(c=>c.respid==trow.respid)
+              let coded=rowCleans.find(c=>c.cleanType=="coding" && c.question==verbQuestion)
+              let backcoded=rowCleans.find(c=>c.cleanType=="backcoding" && c.question==codeQuestion)
+              let spellchecked=rowCleans.find(c=>c.cleanType=="spellchecking" && c.question==verbQuestion)
+              let obj={respid:trow.respid}
+              obj[verbQuestion+"_spellchecking"]=spellchecked?true:false
+              obj[verbQuestion+"_coding"]=coded?true:false
+              obj[codeQuestion+"_backcoding"]=backcoded?true:false
+              tableCleans.push(obj)
+            });
+            verbTable.updateData(tableCleans).then(e=>{
+              // verbTable.redraw(true)
+              res()
+            })
+          })
+        })
+      })
+    }
+    function downloadToExcel(all){
+      verbTable.clearFilter(true)
+      if (!all) {
+        verbTable.setFilter(currentQuestion+"_"+checkType, "=", false)
+      }
+      let title=
+      verbTable.download("xlsx",$("#forstaSurvey option:selected").text()+" - "+currentQuestion+" for "+checkType+" "+moment().format("MMDDYYYY")+".xlsx")
+      verbTable.clearFilter(true)
+    }
+    function downloadToWord(all){
+      $.ajax({
+        url:"/verbatims-to-word",
+        method:"POST",
+        data:{
+          data:verbTable.getData().filter(d=>!d[verbQuestion+"_spellchecking"] || all).map(d=>({respid:d.respid,text:d[verbQuestion],field:currentField,topLevel:"",levelPath:""})),
+          pid:pid,
+          currentQuestion:verbQuestion
+        },
+        success: function (response) {
+          var source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(response);
+          var fileDownload = document.createElement("a");
+          document.body.appendChild(fileDownload);
+          fileDownload.href = source;
+          fileDownload.download = $("#forstaSurvey option:selected").text()+" - "+currentQuestion+" for "+checkType+' '+moment().format("DDMMYY")+'.doc';
+          fileDownload.click();
+          document.body.removeChild(fileDownload);
+        },
+      })
+    }
+    function uploadFromWord(){
+      let input=document.createElement("input")
+      input.type="file"
+      $(input).attr("accept",".doc, .docx").css("display","none")
+      $('body').append(input)
+      $(input).click()
+      $(input).on("change",function(e){
+        var formData = new FormData();
+        formData.append("wordDoc", input.files[0]);
+        $.ajax({
+          url: '/verbatims-from-word/',
+          type: 'POST',
+          global:false,
+          processData: false,
+          contentType: false,
+          data:formData,
+          success: function (response) {
+            if (response.pid!=pid || response.question!=verbQuestion) {
+              alert("Could not process the file. Ensure it is for this project and for question "+verbQuestion)
+            }else {
+              let currData=verbTable.getData()
+              jsonUpload(response.data.map(r=>{
+                r[verbQuestion+"_Current"]=currData.find(c=>c.respid==r.metadata.split("|")[0])[verbQuestion]
+                r[verbQuestion]=r.text
+                r.respid=r.metadata.split("|")[0]
+                // console.log(r,currentField,currentTopLevel,currentLevelPath)
+                return r
+              }).filter(r=>r.metadata.split("|")[1]==currentField && r.metadata.split("|")[2]==currentTopLevel && r.metadata.split("|")[3]==currentLevelPath))
+            }
+          }
+        })
+      })
+    }
+    function uploadFromExcel(){
+      let input=document.createElement("input")
+      input.type="file"
+      $(input).attr("accept",".xlsx, .xls").css("display","none")
+      $('body').append(input)
+      $(input).click()
+      $(input).on("change",function(e){
+        var formData = new FormData();
+        formData.append("dataFile", input.files[0]);
+        formData.append("requiredCols", ["respid",currentQuestion]);
+        $.ajax({
+          url: '/excel-to-json/',
+          type: 'POST',
+          global:false,
+          processData: false,
+          contentType: false,
+          data:formData,
+          success: function (response) {
+            let currData=verbTable.getData()
+            jsonUpload(response.map(r=>{
+              r[verbQuestion+"_Current"]=currData.find(c=>c.respid==r.respid)[verbQuestion]
+              r[codeQuestion+"_Current"]=currData.find(c=>c.respid==r.respid)[codeQuestion]
+              if (isMulti) {
+                r[codeQuestion+"_Current"]=r[codeQuestion+"_Current"].true
+              }
+              r[verbQuestion]=r[verbQuestion+(currentField?"#"+currentField:"")]
+              r[codeQuestion]=r[codeQuestion+(currentField?"#"+currentField:"")]
+              return r
+            }).filter(r=>(r.topLevel||"")==currentTopLevel && (r.levelPath||"")==currentLevelPath))
+          },
+          error: function (jqXHR, exception) {
+            alert(getErrorMessage(jqXHR, exception))
+          }
+        })
+      })
+    }
+    function updateBatchData(updateData,targetQ,isUndo){
+      //updateData={respid,newVal,oldVal}
+      return new Promise(res=>{
+        let vars=[targetQ]
+        let data={
+          keys:['respid'],
+          variables:vars,
+          pid:pid,
+          data:updateData.filter(r=>r[targetQ]!==undefined)
+        }
+        console.log(data)
+        $.ajax({url:"/update-forsta-data/"+isUndo,method:"post",data:data}).fail(e=>{
+          console.log(e)
+          alert("Could not update data")
+        }).done(e=>{
+          getVerbs()
+          addDataCleans(updateData)
+          res()
+        })
+      })
+    }
+    function jsonUpload(jsonData){
+      let checkTable=document.createElement("div")
+      let buttons=$(document.createElement("div"))
+      let uploadCheck=$().getModal({title:"Upload checked data",body:checkTable,footer:buttons,maxWidth:"57%"})
+      let acceptBtn=$(document.createElement("button"))
+      acceptBtn.addClass("btn btn-primary").html("Update and mark as checked")
+      let cancelBtn=$(document.createElement("button"))
+      cancelBtn.addClass("btn btn-secondary").html("Cancel")
+      buttons.append(acceptBtn)
+      buttons.append(cancelBtn)
+      let hasVerbs=jsonData.find(el=>el[verbQuestion])?true:false
+      let hasCodes=jsonData.find(el=>el[codeQuestion])?true:false
+      let checkTab=new Tabulator(checkTable,{
+        data:jsonData,
+        layout:"fitColumns",
+        height:'65vh',
+        nestedFieldSeparator:"¬",
+        columns:[
+          {field:verbQuestion+"_Current",visible:hasVerbs,cssClass:"verbCell",title:"Current "+verbQuestion},
+          {field:codeQuestion+"_Current",visible:hasCodes,cssClass:"verbCell",title:"Current "+codeQuestion},
+          {field:verbQuestion,mutator:v=>v?v.toString():"",visible:hasVerbs && checkType=="spellchecking",cssClass:"verbCell",title:"Updated "+verbQuestion},
+          {field:codeQuestion,mutator:v=>v?(Array.isArray(v)?v:v.toString()):"",visible:hasCodes,cssClass:"verbCell",title:"Updated "+codeQuestion},
+        ]
+      })
+      cancelBtn.click(function(e){
+        uploadCheck.modal("hide")
+        setTimeout(()=>{
+          uploadCheck.remove()
+        },1000)
+      })
+      acceptBtn.click(function(e){
+        let mapFunc=getDataObjectFunc()
+        let updateData=checkTab.getData().map(el=>{
+          let update={respid:el.respid}
+          if (el[targetQuestion] && el[targetQuestion]!=el[targetQuestion+"_Current"]) {
+            update=mapFunc(update,el[targetQuestion],el[targetQuestion+"_Current"])
+          }
+          return update
+        })
+        updateBatchData(updateData,targetQuestion,false).then(e=>{
+          uploadCheck.modal("hide")
+          setTimeout(()=>{
+            uploadCheck.remove()
+          },1000)
+        })
+      })
+    }
+    function toggleCheckFilter(){
+      if (verbTable.getFilters().length) {
+        verbTable.clearFilter(true)
+      }else {
+        verbTable.setFilter(currentQuestion+"_"+checkType, "=", false)
+      }
+    }
+    function toggleHistoryCols(){
+      for (var i = 1; i < 6; i++) {
+        verbTable.toggleColumn(verbQuestion+"_prev_"+i)
+        if (checkType!="spellchecking") {
+          verbTable.toggleColumn(codeQuestion+"_prev_"+i)
+        }
+      }
+      verbTable.redraw(true)
+    }
+    function updateCell(isCode,newVal,oldVal,c,isUndo){
+      $(c.getElement()).attr("contenteditable",false)
+      $(c.getElement()).attr("isLoading",true)
+      $(c.getRow().getElement()).attr("isLoading",true)
+      $(c.getElement()).removeClass("loadingError")
+      let loadingDots=getLoadingDots({css:{right:'unset',left:'0'}})
+      $(c.getElement()).append(loadingDots)
+      let update={'respid':c.getData().respid}
+      let targetQ=[]
+      if ((!isCode && checkType=="coding") || checkType=="spellchecking") {
+        targetQ.push(currentQuestion)
+        update[currentQuestion]={new:newVal,old:oldVal,topLevel:"",levelPath:"",field:currentField}
+      }
+      if (isCode && checkType=="coding") {
+        targetQ.push(currentQuestion+"_CODE")
+        update[currentQuestion+"_CODE"]={new:newVal,old:oldVal,topLevel:"",levelPath:"",field:currentField}
+      }
+      if (!isCode && checkType=="backcoding") {
+        targetQ.push(getSpecifyField())
+        update[getSpecifyField()]={new:newVal,old:oldVal,topLevel:"",levelPath:"",field:currentField}
+      }
+      if (isCode && checkType=="backcoding") {
+        targetQ.push(currentQuestion)
+        update[currentQuestion]={new:newVal,old:oldVal,topLevel:"",levelPath:"",field:currentField}
+      }
+      let data={
+        keys:['respid'],
+        variables:targetQ,
+        pid:pid,
+        data:[update]
+      }
+      return new Promise(res=>{
+        $.ajax({global:false,url:"/update-forsta-data/"+isUndo,method:"post",data:data}).fail(e=>{
+          c.getElement().removeChild(loadingDots)
+          $(c.getElement()).addClass("loadingError")
+          c.popup("There was an error updating this data. Please amend manually in Forsta")
+          // $(c.getElement()).tooltip({title:"There was an error updating this data. Please amend manually in Forsta"})
+          c.restoreOldValue()
+          $(c.getElement()).attr("contenteditable",true)
+          $(c.getElement()).attr("isLoading",false)
+          $(c.getRow().getElement()).attr("isLoading",false)
+          res()
+        }).done(e=>{
+          //if manually edited
+          if (isUndo===false) {
+            addDataCleans([c.getData()],!isCode)
+          }
+          c.getElement().removeChild(loadingDots)
+          updateHistory()
+          let obj={}
+          obj[currentQuestion+"_"+checkType]=true
+          c.getRow().update()
+          $(c.getElement()).attr("contenteditable",true)
+          $(c.getElement()).attr("isLoading",false)
+          $(c.getRow().getElement()).attr("isLoading",false)
+          c.getRow().reformat()
+          res()
+          // c.getCell(c.getField()+"_version").setValue(dataChanges.length)
+        })
+      })
+    }
+    function toggleCloser(){
+      $(".input-block").toggleClass("closed")
+      $(".opener").toggleClass("closed")
+      if ($(".opener").hasClass("closed")) {
+        verbTable.setHeight("calc(81vh - 36px)")
+      }else {
+        verbTable.setHeight("calc(67vh - 36px)")
+      }
+    }
+    function resetData(){
+      if (confirm("This will revert all data for this question back to its original state. This is not reversible. Continue?")) {
+        $.ajax("/get-forsta-data-changes?pid="+pid+"&question="+currentQuestion).done(changes=>{
+          let update=[]
+          verbTable.getData().forEach((row, i) => {
+            let rowChanges=changes.filter(c=>c.respid==row.respid)
+            if (rowChanges.length) {
+              let obj={'respid':row.respid}
+              obj[targetQuestion]={new:_.first(rowChanges).oldValue,old:null,forsta:setDatapoint(_.first(rowChanges).oldValue,targetQuestion),topLevel:"",levelPath:"",field:currentField}
+              update.push(obj)
+            }
+          });
+          let data={
+            keys:['respid'],
+            variables:[targetQuestion],
+            pid:pid,
+            data:update
+          }
+          $.ajax({url:"/update-forsta-data/all",method:"post",data:data}).fail(e=>{
+            alert("An error occurred")
+            console.log(e)
+          }).done(e=>{
+            getVerbs()
+          })
+        })
+      }
+    }
+    function addDataCleans(data,forceSpellchecking){
+      let cleanType=checkType
+      if (forceSpellchecking) {
+        cleanType="spellchecking"
+      }
+      $.ajax({
+        url:"/add-forsta-data-cleans",
+        method:"POST",
+        global:false,
+        data:{
+          keys:['respid'],
+          variables:[targetQuestion],
+          pid:pid,
+          data:data.map(d=>{
+            let update={'respid':d.respid}
+            update[targetQuestion]={cleanType:checkType,field:currentField,topLevel:currentTopLevel,levelPath:currentLevelPath}
+            return update
+          })
+        },
+        success:r=>{
+          console.log("updated data changes",r)
+        }
+      })
+    }
+    function createCoderTag(opt,onDel,onClick){
+      let resp=$(document.createElement("div"))
+      resp.addClass("coderTag")
+      let respLabel=$(document.createElement("div"))
+      respLabel.addClass("label")
+      let respCode=$(document.createElement("div"))
+      respCode.addClass("code")
+      let respDel=$(document.createElement("button"))
+      respDel.addClass("btn btn-primary").html('<i class="fa-solid fa-trash-can"></i>')
+      resp.append(respCode).append(respLabel)
+      if (onDel) {
+        resp.append(respDel)
+      }
+      console.log(opt)
+      let i=opt.code
+      respLabel.html(getTitle(opt))
+      respCode.html(i)
+      resp.prop("data-option",opt)
+      resp.attr("data-code",i)
+      resp.attr("data-label",getTitle(opt).toLowerCase())
+      if (onDel) {
+        respDel.click(e=>{
+          onDel(i)
+        })
+      }
+      if (onClick) {
+        resp.click(e=>{
+          onClick(i)
+        })
+      }
+      return resp
+    }
+    function getUnusedCode(arr){
+      var k = JSON.parse(JSON.stringify(arr));
+      k.sort(function(a, b) { return a-b; });   // To sort by numeric
+      var offset = 1;
+      var lowest = -1;
+      for (i = 0;  i < k.length;  ++i) {
+        if (k[i] != offset) {
+          lowest = offset;
+          break;
+        }
+        ++offset;
+      }
+      if (lowest == -1) {
+          lowest = k[k.length - 1] + 1;
+      }
+      return lowest
+    }
+    function startCoder(){
+      let backdrop=$(document.createElement("div"))
+      let respids=verbTable.getRows("active").map(el=>el.getData().respid)
+      let rowIndex=0
+      backdrop.css({
+        position:"absolute",
+        top:0,
+        left:0,
+        "z-index":"2",
+        width:"100%",
+        height:"100%",
+        background: "rgb(0 0 0 / 80%)"
+      })
+      let codeFrame=$(document.createElement("div"))
+      codeFrame.addClass("coderCodeFrame")
+      let filterOptions=(inp,att)=>{
+        codeFrame.children().hide()
+        codeFrame.children().removeClass("btn btn-secondary")
+        codeFrame.find(">div[data-"+att+(att=="code"?"^":"*")+"='"+inp.toLowerCase()+"']").show()
+        codeFrame.find(">div:visible").eq(0).addClass("btn btn-secondary")
+      }
+      let cont=$(document.createElement("div"))
+      $("body").append(backdrop).append(cont)
+      backdrop.click(function(e){
+        cont.remove()
+        backdrop.remove()
+      })
+      function getRow(currIndex){
+        let tableRow=verbTable.getRow(respids[currIndex])
+        cont.empty()
+        codeFrame.children().show()
+        let verb=$(document.createElement("div"))
+        verb.addClass("coderVerb")
+        verb.attr("contenteditable",true)
+        $.ajax({url:"/spellcheck",method:"post",global:false,data:{text:tableRow.getData()[verbQuestion]}}).done(e=>{
+          console.log(e)
+          e.forEach((token, i) => {
+            // var regex = new RegExp(/(token.token)/g)
+            let wordBox=$(document.createElement("span"))
+            wordBox.html(token.token)
+            wordBox.addClass("wordBox misspelled")
+            wordBox.attr("data-word",token.token)
+            wordBox.attr("data-suggestions",JSON.stringify(token.corrections.length?token.corrections:[null]))
+            // console.log(token,wordBox,wordBox.outerHTML[0],wordBox[0].innerHTML)
+            verb.html(verb.text().replaceAll(token.token,wordBox[0].outerHTML))
+          });
+          var menu = $(document.createElement("div"))
+          $("body").append(menu)
+          menu.hide()
+          let getMenu=(targetBox,e)=>{
+            menu.empty()
+            let menuBtn=(text)=>{
+              var btn = $(document.createElement("button"))
+              btn.addClass("btn btn-flat").html(text)
+              if (text) {
+                btn.click(function(e){
+                  targetBox.html(text).removeClass("wordBox")
+                  verb.trigger("blur")
+                })
+              }else {
+                btn.prop("disabled",true)
+              }
+              return btn
+            }
+            JSON.parse(targetBox.attr("data-suggestions")).forEach((sugg, i) => {
+              menu.append(menuBtn(sugg))
+            });
+            menu.css({
+              display: 'block',//show the menu
+              top: e.pageY,//make the menu be where you click (y)
+              left: e.pageX,
+              position: 'absolute',
+              'z-index': 5
+            });
+          }
+          verb.on('contextmenu', function(e) {//What this does is simply; if right-click, run function(contains an event)
+            console.log(e)
+            if ($(e.target).is(".wordBox")) {
+              e.preventDefault();//Prevent the default action: the normal right-click-menu to show
+              getMenu($(e.target),e)
+            }
+          });
+          $(document).one('click',function() { //When you left-click
+            menu.hide()
+          });
+        })
+        let codeInput=$(document.createElement("input"))
+        codeInput.addClass("coderInput").attr("placeholder","Start typing a code or text...")
+        cont.append(verb)
+        let runningCodes=isMulti?tableRow.getData()[codeQuestion]:[tableRow.getData()[codeQuestion]]
+        let tagHolder=$(document.createElement("div"))
+        tagHolder.addClass("coderTagHolder")
+        const clickDel=code=>{
+          isUndo=false
+          runningCodes=runningCodes.filter(c=>c!=code)
+          verbTable.getRow(respid).getCell(codeQuestion).setValue(runningCodes)
+          buildTagHolder()
+          buildCodeFrame()
+        }
+        const clickResp=code=>{
+          runningCodes=runningCodes.concat([code])
+          isUndo=false
+          verbTable.getRow(respid).getCell(codeQuestion).setValue(runningCodes)
+          buildTagHolder()
+          buildCodeFrame()
+        }
+        function buildTagHolder(){
+          tagHolder.empty()
+          runningCodes.forEach((rowCode, i) => {
+            let opt=codeOption.prop("data-variable").options.find(o=>o.code==rowCode)
+            if (!opt) {
+              opt=codeFrameAdditions.find(o=>o.code==rowCode)
+            }
+            tagHolder.append(createCoderTag(opt,clickDel))
+          });
+        }
+        function buildCodeFrame(){
+          codeFrame.empty()
+          codeOption.prop("data-variable").options.forEach((opt, i) => {
+            if (!runningCodes.includes(opt.code)) {
+              codeFrame.append(createCoderTag(opt,false,clickResp))
+            }
+          });
+          codeFrameAdditions.forEach((opt, i) => {
+            if (!runningCodes.includes(opt.code)) {
+              codeFrame.append(createCoderTag(opt,false,clickResp))
+            }
+          });
+        }
+
+        if (checkType!="spellchecking") {
+          buildTagHolder()
+          buildCodeFrame()
+          cont.prepend(tagHolder).append(codeInput).append(codeFrame)
+          codeInput.keyup(function(e){
+            if (e.which==13 || e.key=="," || e.key==";") {
+              if (!codeInput.val()) {
+                rowIndex++
+                getRow(rowIndex)
+              }else {
+                if (codeFrame.find("div:visible").length) {
+                  codeFrame.find("div:visible").eq(0).click()
+                  codeInput.val("")
+                }else {
+                  if (confirm("Add "+codeInput.val()+" to code frame?")) {
+                    let arr=codeOption.prop("data-variable").options
+                    arr=arr.concat(codeFrameAdditions)
+                    let newOpt={code:getUnusedCode(arr.map(el=>Number(el.code))),texts:[{text:_.capitalize(codeInput.val())}]}
+                    codeFrameAdditions.push(newOpt)
+                    arr.push(newOpt)
+                    $(".syncAlert").show()
+                    $(".syncAlertCodeframe").html("<table>"+arr.map(el=>"<tr><td>"+el.code+"</td><td>"+getTitle(el)+"</td></tr>").join("")+"</table>")
+                    $(".syncAlertCodeframe").prop("data-copy",arr.map(el=>el.code+" "+getTitle(el)+"<br>"))
+                    let newTag=createTag(newOpt,false,clickResp)
+                    codeFrame.append(newTag)
+                    newTag.click()
+                  }else {
+                    codeInput.click()
+                  }
+                }
+              }
+            }else {
+              console.log(codeInput.val())
+              if (codeInput.val()=="") {
+                console.log("no input, resetting")
+                codeFrame.children().show()
+                codeFrame.children().removeClass("btn btn-secondary")
+              }else if (isNaN(codeInput.val()/1)) {
+                console.log("string input",codeInput.val())
+                filterOptions(codeInput.val(),"label")
+              }else {
+                console.log("numeric input",codeInput.val())
+                filterOptions(codeInput.val(),"code")
+              }
+            }
+          })
+          codeInput.click(function(e){
+            codeInput.val("")
+            codeInput.trigger("keyup")
+            codeFrame.children().show()
+          })
+          codeInput.focus()
+        }
+        cont.addClass("coderCont")
+        verb.html(tableRow.getData()[verbQuestion])
+        verb.blur(function(e){
+          if (verb.text()!=tableRow.getData()[verbQuestion]) {
+            tableRow.getCell(verbQuestion).setValue(verb.text())
+          }
+        })
+      }
+      getRow(0)
+    }
+    function startCodeFramer(){
+      let backdrop=$(document.createElement("div"))
+      backdrop.css({
+        position:"absolute",
+        top:0,
+        left:0,
+        "z-index":"2",
+        width:"100%",
+        height:"100%",
+        background: "rgb(0 0 0 / 80%)"
+      })
+      let cont=$(document.createElement("div"))
+      cont.addClass("codeFramerOverlay")
+      let codeInput=$(document.createElement("input"))
+      codeInput.addClass("coderInput").attr("placeholder","Enter new responses here...").css({
+        background: "white",
+        color: "black",
+      })
+      let codeFrame=$(document.createElement("div"))
+      codeFrame.addClass("coderCodeFrame")
+      function delay(callback, ms) {
+        var timer = 0;
+        return function() {
+          var context = this, args = arguments;
+          clearTimeout(timer);
+          timer = setTimeout(function () {
+            callback.apply(context, args);
+          }, ms || 0);
+        };
+      }
+      let onDel=(code)=>{
+        codeFrameAdditions=codeFrameAdditions.filter(el=>el.code!=code)
+        buildCodeFrame()
+      }
+      codeInput.keyup(delay(function(e){
+        if (codeInput.val()) {
+          if (e.which==13) {
+            let arr=codeOption.prop("data-variable").options
+            arr=arr.concat(codeFrameAdditions)
+            let newOpt={code:getUnusedCode(arr.map(el=>Number(el.code))),texts:[{text:_.capitalize(codeInput.val())}]}
+            codeFrameAdditions.push(newOpt)
+            arr.push(newOpt)
+            $(".syncAlert").show()
+            $(".syncAlertCodeframe").html("<table>"+arr.map(el=>"<tr><td>"+el.code+"</td><td>"+getTitle(el)+"</td></tr>").join("")+"</table>")
+            $(".syncAlertCodeframe").prop("data-copy",arr.map(el=>el.code+" "+getTitle(el)+"<br>"))
+            let newTag=createCoderTag(newOpt,onDel)
+            codeFrame.append(newTag)
+            codeInput.val("")
+            buildCodeFrame()
+          }else {
+            // $.ajax({url:"/define-verbatims",method:"post",data:{verbs:[codeInput.val()]},global:false}).done(documents=>{
+            //   console.log(documents[0])
+            // })
+          }
+        }
+      },200))
+      function buildCodeFrame(){
+        codeFrame.empty()
+
+        codeOption.prop("data-variable").options.forEach((opt, i) => {
+          codeFrame.append(createCoderTag(opt))
+        });
+        // codeFrameAdditions.sort((a,b)=>Number(a.code)-Number(b.code))
+        codeFrameAdditions.forEach((opt, i) => {
+          codeFrame.append(createCoderTag(opt,false,onDel))
+        });
+      }
+      let allVerbCont=$(document.createElement("div"))
+      allVerbCont.addClass("codeFramerCont")
+      $.ajax({url:"/get-keywords",method:"post",data:{verbs:verbTable.getData().map(r=>r[verbQuestion])},global:false}).done(resp=>{
+        resp.documents.forEach((doc, i) => {
+          allVerbCont.find(">div[data-verb='"+doc.verb.verb+"']").each(function(e){
+            doc.commonStems.forEach((stem, i) => {
+              $(this).find(".wordBox[data-word='"+stem.word+"']").addClass("keyword").css("background","rgb(251 255 "+1-(stem.tfidf/4)+")")
+            });
+          })
+        });
+      })
+      function createVerbBox(verb){
+        let box=$(document.createElement("div"))
+        let tokenised=verb.split(/[ /-]/)
+        tokenised.forEach((token, i) => {
+          var regex = new RegExp(/(token)/g)
+          let wordBox=$(document.createElement("span"))
+          wordBox.html(token)
+          wordBox.addClass("wordBox")
+          wordBox.attr("data-word",token)
+          wordBox.click(function(e){
+            console.log(token+" clicked")
+          })
+          box.append(wordBox," ");
+        });
+        box.addClass("verbBox")
+        box.attr("data-verb",verb)
+        return box
+      }
+      verbTable.getData().forEach((row, i) => {
+        allVerbCont.append(createVerbBox(row[verbQuestion]))
+      });
+      buildCodeFrame()
+      cont.append(allVerbCont,codeInput,codeFrame)
+      $("body").append(backdrop,cont)
+      backdrop.click(function(e){
+        cont.remove()
+        backdrop.remove()
+      })
+      codeInput.focus()
+    }
+  </script>
+  <style media="screen">
+    .syncAlert {
+        position: fixed;
+        z-index: 5;
+        background: #ff8c8c;
+        padding: 5px 11px;
+    }
+    .syncAlertDetails {
+        max-height: 0px;
+        overflow: hidden;
+        transition: 0.5s all;
+        width: 256px;
+    }
+    .syncAlert:hover .syncAlertDetails {
+        max-height: 500px;
+    }
+    .syncAlertCodeframe table {
+        width: 100%;
+    }
+    .syncAlertCodeframe table td {
+        border: 1px solid gray;
+    }
+    .codeFramerOverlay {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        padding-top: 31px;
+        padding-left: 60px;
+        z-index: 2;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+    .codeFramerCont {
+        width: 100%;
+        max-height: 60%;
+        overflow-y: scroll;
+        background: #bfbfbf;
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-content: center;
+        padding: 11px 5px;
+    }
+    .verbBox {
+        white-space: break-spaces;
+        max-width: 100%;
+        padding: 3px;
+        background: white;
+        margin: 1px 1px;
+    }
+    span.wordBox.misspelled{
+      background: rgba(255,0,0,0.2)
+    }
+    span.wordBox.keyword{
+
+    }
+    span.wordBox:hover {
+      background: var(--secondary);
+      color: white;
+      cursor: pointer;
+
+    }
+  </style>
+</div>
+</body>
+</html>

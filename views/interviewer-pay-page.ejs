@@ -1,0 +1,32 @@
+<%- include('partials/'+versionPages.header) %>
+
+
+<% if (message) { %>
+  <p class="text-center text-danger"><%= message %></p>
+  <% } %>
+  <div class="container" style="padding-top:70px;">
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body">
+        <h5 class="card-title">Select Month to View</h5>
+        <div style="border:1px solid #ced4da; padding:50px; background:#f2f6ff!important">
+          <table>
+            <thead>
+            </thead>
+            <tbody>
+              <% const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                 dates.map((date) => { %>
+                  <tr>
+                   <td colspan=12><h5 style="border-bottom:2px black solid;"><%= date.Year %></h5></td>
+                  </tr>
+                  <tr>
+                    <% monthNames.forEach((month, index) => { %>
+                    <td><a href="/view-interviewer-pay/<%= index+1 %>/<%= date.Year %>/0" class="btn btn-primary" style="color:white;"> <%= month %> </a></td>
+                    <% }); %>
+                  </tr>
+              <% }) %>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

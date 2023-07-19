@@ -1,0 +1,253 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px;">
+  <style>
+    #isUserActive{
+      -webkit-transform: scale(2);
+      margin: 12px auto;
+      display: block;
+      text-align: center;
+    }
+    .namelist-cont{
+      padding:0px
+    }
+    .namelist-img{
+      border-radius:5px;
+      border:1px solid white;
+    }
+    .namelist-txt{
+      padding-left:5px;
+    }
+    #hiddenFields{
+      display:none;
+    }
+    #staffName {
+      background-image: url('https://hr.breathehr.com/images/new/Powered_by_breathev2.png');
+      background-repeat: no-repeat;
+      background-position: left;
+    }
+    #staffName:focus {
+      background-image: unset;
+    }
+    #staffName:valid {
+      background-image: unset;
+    }
+    .BreatheMessage {
+      padding: 10px;
+      width: 200px;
+      border-radius: 40px;
+
+      font-size: small;
+      margin: auto;
+    }
+    .hasBreathe{
+      background: #d5daf9;
+      border: 1px solid var(--primary);
+    }
+    .noBreathe{
+      background: #f7d7d7;
+      border: 1px solid var(--danger);
+    }
+    .avatarImg{
+      border: 2px solid var(--primary)
+    }
+    .bootstrap-select .dropdown-menu li a span.text {
+      width: 100%;
+    }
+    .teamupOpt{
+      color: white;
+      width: 100%;
+      display: block;
+      padding-left: 6px;
+      border-radius:6px;
+    }
+  </style>
+  <%
+
+  function dateIf(inDate, seperator, order){
+    let day =''
+    if (new Date(inDate).getDate() < 10) {
+      day = '0' + new Date(inDate).getDate()
+    } else {
+      day = new Date(inDate).getDate()
+    }
+    let month =''
+    if (new Date(inDate).getMonth()+1 < 10) {
+      month = '0' + (new Date(inDate).getMonth()+1)
+    } else {
+      month = (new Date(inDate).getMonth()+1)
+    }
+    let year = new Date(inDate).getFullYear()
+    if(order=="f"){
+      return(day+seperator+month+seperator+year)
+    }
+    if(order=="r"){
+      return(year+seperator+month+seperator+day)
+    }
+  }
+  %>
+  <script>
+    $(document).ready(function () {
+      var list=[]
+      $.ajax({
+        url: '/get-breathe-agent',
+        type: 'GET',
+        contentType: 'application/json',
+        dataType: "json",
+        success: function (data) {
+          data.agent.forEach((item, i) => {
+            list.push({
+              value: item.first_name.trim()+" "+item.last_name.trim(),
+              uname: (item.first_name.trim().substr(0,1)+item.last_name.trim()).toLowerCase(),
+              avatar: item.photo_url,
+              breatheID: item.id,
+              joined: item.join_date,
+              jobtitle: item.job_title
+            });
+          });
+          $( "#staffName" ).autocomplete({
+            source: list,
+            select: function (event, ui) {
+              $('#breatheID').val(ui.item.breatheID)
+              $('#staffJoined').val(ui.item.joined)
+              $('#avatarURL').val(ui.item.avatar)
+              if (!$('#login').attr('readonly')) {
+                $('#login').val(ui.item.uname)
+              }
+              $('.hasBreathe').show()
+              $('.avatarImg').show()
+              $('.noBreathe').hide()
+              $('.avatarImg').attr("src",ui.item.avatar)
+              $('#jobTitle option:contains('+ui.item.jobtitle+')').attr("selected","true")
+              $('#jobTitle').selectpicker('refresh')
+              $('#role option:contains('+ui.item.jobtitle+')').attr("selected","true")
+              $('#role').selectpicker('refresh')
+              return this.value;
+            }
+          }).data("ui-autocomplete")._renderItem = function (ul, item) {
+            var inner_html = '<div class="namelist-cont"><img class="namelist-img" src="' + item.avatar + '" height="40px"><span class="namelist-txt">' + item.value+'</span></div>';
+            return $("<li>")
+            .data("ui-autocomplete-item", item)
+            .attr("data-id", item.id)
+            .append(inner_html)
+            .appendTo(ul);
+          };
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+      });
+      <%if(edit){%>
+        $('#staffID').val('<%=staff.staffID%>')
+        $('#breatheID').val('<%=staff.breatheID%>')
+        $('#staffName').val('<%=staff.staffName%>')
+        $('#jobTitle').val('<%=staff.jobTitleID%>')
+        $('#jobTitle').selectpicker('refresh')
+        $('#staffJoined').val('<%=dateIf(staff.staffJoined,"-","r")%>')
+        $('#staffLeft').val('<%=new Date(staff.staffLeft).getFullYear()>1970?dateIf(staff.staffLeft,"-","r"):''%>')
+        $('#staffEmail').val('<%=staff.staffEmail%>')
+        $('#login').val('<%=staff.login%>')
+        $('#role').val('<%=staff.roleID%>')
+        $('#role').selectpicker('refresh')
+        $('#isUserActive').prop('checked', <%=staff.isUserActive==1%>);
+        $('#teamup').val('<%=staff.teamupID%>')
+        $('#teamup').selectpicker('refresh')
+      <%}%>
+      $('.dropdown-toggle').removeClass("btn")
+    })
+    function deleteClick(id){
+      if (confirm('Are you sure you want to permanently delete this staff member?')) {
+        window.location.href="/delete-staff/"+id
+      }
+    }
+  </script>
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body">
+        <h5 class="card-title"><%if(edit){%>Edit <%}else{%>Add a new <%}%>staff member</h5>
+        <form class="add-staff-form form-styles" action="<%if(edit){%>/edit-staff<%}%>" method="post" enctype="multipart/form-data">
+          <div class="form-row">
+            <div id="hiddenFields">
+              <%if(edit){%>
+              <input type="number" name="staffID" id="staffID">
+              <%}%>
+              <input type="number" name="breatheID" id="breatheID">
+            </div>
+            <div class="form-group col-md-12" style="text-align:center">
+            <img src='<%if(edit){%><%=breatheAgent.photo_url%><%}%>' height="150px" style="<%=edit?(breatheAgent.photo_url?'':'display:none'):'display:none'%>" class="avatarImg" alt="Image is missing">
+            <div class="BreatheMessage hasBreathe" style="<%=edit?(breatheAgent.photo_url?'':'display:none'):'display:none'%>">
+            <img src='/BreatheCloud.png' height='20px'>
+             Linked to BreatheHR
+            </div>
+            <div class="BreatheMessage noBreathe" style="<%=edit?(!breatheAgent.photo_url?'':'display:none'):''%>">
+            <img src='/BreatheNoCloud.png' height='20px'>
+             Not linked to BreatheHR
+            </div>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="intName">Name</label>
+              <input type="text" class="form-control" name="staffName" id="staffName" placeholder="" required>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="teamup">Teamup Planner</label>
+              <% if(teamupPlanners){%>
+              <select class="selectpicker form-control" data-style="form-control" name="teamup" id="teamup">
+                <option value=""></option>
+                <%teamupPlanners.forEach((planner , index) => { %>
+                <option value="<%= planner.id %>" data-content='<span class="teamupOpt" style="background-color:<%=teamupColors.find(el=>el.id==planner.color).hex%>"><%= planner.name %></span>'></option>
+                <% }) %>
+              </select>
+              <% }else{ %>
+                <input type="text" class="form-control" placeholder="Teamup unavailable" disabled>
+              <% } %>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="jobTitle">Job title</label>
+              <select class="selectpicker form-control" data-style="form-control" name="jobTitle" id="jobTitle" required>
+                  <% jobTitles.forEach((jobTitle , index) => { %>
+                  <option value="<%= jobTitle.jobTitleID %>"><%= jobTitle.jobTitleName %></option>
+                  <% }) %>
+              </select>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="staffJoined">Joined teamsearch</label>
+              <input type="date" class="form-control" name="staffJoined" id="staffJoined" placeholder="Joined" required>
+            </div>
+            <%if(edit){%>
+              <div class="form-group col-md-4">
+                <label for="staffLeft">Left teamsearch</label>
+                <input type="date" class="form-control" name="staffLeft" id="staffLeft" placeholder="Left">
+              </div>
+            <%}%>
+            <div class="form-group col-md-4">
+              <label for="staffEmail">Email</label>
+              <input type="email" class="form-control" name="staffEmail" id="staffEmail" placeholder="" required>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="login">JA2 Username</label>
+              <input type="text" class="form-control" name="login" id="login" <%if(edit){%>readonly<%}%> required>
+            </div>
+            <div class="form-group col-md-4">
+              <label for="jobTitle">JA2 role</label>
+              <select class="selectpicker form-control" data-style="form-control" name="role" id="role" required>
+                <option value=""></option>
+                <% roles.forEach((role , index) => {
+                  if (role.roleID>1) {%>
+                  <option value="<%= role.roleID %>"><%= role.roleName %></option>
+                  <% }}) %>
+                </select>
+              </div>
+            <div class="form-group col-md-12">
+              <label for="isUserActive">JA2 login active?</label>
+              <input type="checkbox" id="isUserActive" <%if(!edit){%>checked<%}%> name="isUserActive">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary"><%if(edit){%>Update<%}else{%>Add<%}%> Staff Member</button>
+        </form>
+        <%if(edit){%>
+        <button type="button" style="margin-top: 30px;" onclick="deleteClick(<%=staff.staffID%>)" class="btn btn-danger">Delete Staff Member</button>
+        <%}%>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

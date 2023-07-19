@@ -1,0 +1,627 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .tabulator .tabulator-header{
+    font-weight: 500!important;
+    font-size: small!important;
+  }
+  .tabulator .tabulator-header .tabulator-col .tabulator-col-content{
+    padding: 3px!important;
+    text-align: center;
+  }
+  .tabulator .tabulator-cell{
+    padding: 3px!important;
+    font-size: small!important;
+    text-align: center;
+  }
+  .tabulator-edit-select-list {
+    width: fit-content!important;
+    box-shadow: 2px 2px 4px 1px #00000075;
+    border-radius: 3px;
+    padding: 3px;
+    padding-right: 8px;
+  }
+  .tabulator-edit-select-list-item {
+    white-space: nowrap;
+  }
+  .wrapped{
+    white-space: normal!important;
+  }
+  .target,.trackerHead{
+    font-size: x-large;
+    font-weight: 400;
+    text-align: center;
+    width: 40%;
+    margin: auto;
+  }
+  .trackerRow{
+    text-align:center;
+    font-size:large;
+  }
+  .trackerHead{
+    display:none;
+  }
+  .fa-check{
+    color:var(--success);
+  }
+  #shiftsNeeded{
+    font-weight:bold;
+    color:var(--danger);
+  }
+  .card-title{
+    padding: 12px;
+  }
+  .removePanel{
+    padding: 2px;
+    font-size: 12px;
+    margin: 3px;
+  }
+  .noRightBorder{
+    border-right:none!important;
+  }
+  .calcCell{
+    color:'#868686';
+    font-style:italic;
+  }
+  hr {
+    margin: 0;
+  }
+  .dailyCont {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  input#linkEditor {
+    border-right: none;
+    border-top-right-radius: 0px;
+    border-bottom-right-radius: 0px;
+  }
+  button#copyLink {
+    border-color: #d3d9de;
+    padding: 0px 8px;
+    font-size: 21px;
+    border-left: none;
+    border-top-left-radius: 0px;
+    border-bottom-left-radius: 0px;
+  }
+  .arrow{
+    display:none!important;
+  }
+  .newPanel {
+    margin-top: 7px;
+  }
+  .tabulator{
+    margin-bottom:0px;
+  }
+</style>
+<div class="container" style="padding-top:70px;max-width: 100%;">
+  <div class="card viewerHeight">
+    <h5 class="card-title text-center"><a href="/edit-group-page/<%= job.jobID %>" rel="noopener"><%=job.fullJobName%></a> - Online Tracker</h5>
+    <div id="onlineTable"></div>
+    <button type="button" class='btn btn-primary' id="addPanel">Add panel</button><br>
+    <a href="/overview/<%= job.jobQuoteID %>" class="btn btn-sm" style="background-color:#4b7491; color:#fff;width:100%;">Back to project overview</a>
+  </div>
+</div>
+<div class='modal fade' role='dialog' id='panelAdder'>
+  <div class='modal-dialog modal-dialog-centered' role='document'>
+    <div class='modal-content'>
+      <div class='modal-body'>
+        <div class="form-group row">
+          <div class="col-sm-12">
+            <select class="selectpicker" data-live-search="true" data-width="100%" id="newPanelName">
+              <%allPanels.forEach((panel, i) => {%>
+                <option value="<%=panel.supplierID%>"><%=panel.supplierName%></option>
+              <%})%>
+            </select>
+            <input class="form-control newPanel" type="number" step="1" id="newPanelTarget" placeholder="Target ints">
+            <!-- <input class="form-control newPanel" type="number" step="0.01" id="newPanelSetup" placeholder="Setup fee"> -->
+            <input class="form-control newPanel" type="number" step="0.01" id="newPanelCPI" placeholder="CPI">
+            <input class="form-control newPanel" type="text" id="newPanelPO" placeholder="PO">
+          </div>
+        </div>
+      </div>
+      <div class='modal-footer'>
+        <button type='button' class='btn btn-secondary modalClose' data-dismiss='modal'>Close</button>
+        <button type='button' class='btn btn-primary' id='addPanelBtn' onclick='addPanel()'>Add</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class='modal fade' role='dialog' id='linkEdit'>
+  <div class='modal-dialog modal-dialog-centered' role='document'>
+    <div class='modal-content'>
+      <div class='modal-header'>
+
+      </div>
+      <div class='modal-body'>
+        <div class="form-group row">
+          <div class="col-sm-12" style="display: inline-flex;">
+            <input type="text" id="linkEditor" class="linkEditor form-control" value=""><button type="button" id="copyLink" class="clipboardBtn btn btn-sm btn-outline-secondary"><i class="fas fa-clipboard"></i></button>
+          </div>
+        </div>
+      </div>
+      <div class='modal-footer'>
+        <button type='button' class='btn btn-secondary modalClose' data-dismiss='modal'>Close</button>
+        <button type='button' class='btn btn-primary' id='updateLinkBtn'>Update</button>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  function updateTracker(tableData){
+    $('.trackerHead').hide()
+    $('.trackerHead').tooltip("dispose")
+    let ints=0
+    tableData.forEach((row, i) => {
+      for (const [key, value] of Object.entries(row)) {
+        if (key.indexOf("ints_")>-1) {
+          ints=ints+Number(value?value:0)
+        }
+      }
+    });
+    let shifts=0
+    tableData.forEach((row, i) => {
+      for (const [key, value] of Object.entries(row)) {
+        if (key.indexOf("ints_")>-1 && value!==undefined && value!==null) {
+          shifts=shifts+1
+        }
+      }
+    });
+    let avg=ints/shifts
+    let toDo=<%=job.interviewsTarget%>-ints
+  }
+  function sumCompletes(cell){
+    var sum=0
+    for (const [key, value] of Object.entries(cell.getData())) {
+      if (key.indexOf("ints_")>-1) {
+        sum=sum+Number(value?value:0)
+      }
+    }
+    return sum
+  }
+  function countDays(cell){
+    var sum=0
+    for (const [key, value] of Object.entries(cell.getData())) {
+      if (key.indexOf("ints_")>-1 && value!==null && value!==undefined) {
+        sum=sum+1
+      }
+    }
+    return sum
+  }
+  var redirectClick=function(e,cell){
+    $('#linkEditor').val(cell.getValue())
+    $('#linkEdit').modal("show")
+    $('#linkEdit').find(".modal-header").text(cell.getColumn().getDefinition().title)
+    $('#updateLinkBtn').one('click',function(e){
+      updateJob('update','OnlineAllocations',[cell.getField()],[$('#linkEditor').val()],'allocationID',cell.getRow().getIndex(),false).then(function(e){
+        $('#linkEdit').modal("hide")
+        cell.getRow().getTable().replaceData()
+      })
+    })
+    $('#copyLink').on('click',function(e){
+      // navigator.clipboard.writeText($('#linkEditor').val()).then(function() {
+      //   $('#copyLink').parent().tooltip({title:"Copied to clipboard!",trigger:"manual",position:"top",offset:'0, -40'}).tooltip('show')
+      //   setTimeout(function(){
+      //     $('#copyLink').parent().tooltip("hide")
+      //     setTimeout(function(){$('#copyLink').parent().tooltip("dispose")},2000)
+      //   },1000)
+      // }, function(err) {
+      //   console.error('Async: Could not copy text: ', err);
+      // });
+      $('#linkEditor')[0].focus();
+      $('#linkEditor')[0].select();
+      try {
+        var successful = document.execCommand('copy');
+        if (successful) {
+          $('#copyLink').parent().tooltip({title:"Copied to clipboard!",trigger:"manual",position:"top",offset:'0, -40'}).tooltip('show')
+            setTimeout(function(){
+              $('#copyLink').parent().tooltip("hide")
+              setTimeout(function(){$('#copyLink').parent().tooltip("dispose")},2000)
+            },1000)
+        }else {
+          alert("Could not copy text")
+        }
+      } catch (err) {
+        alert("Could not copy text")
+        console.error('Fallback: Unable to copy', err);
+      }
+    })
+  }
+  var jobID=<%=job.jobID%>
+  var jobCPI=<%=job.CPI%>
+  var dateEditor = function(cell, onRendered, success, cancel, editorParams){
+    var editor = document.createElement("input");
+    editor.setAttribute("type", "date");
+    editor.style.padding = "0px";
+    editor.style.width = "100%";
+    editor.style.height = "100%";
+    editor.style.boxSizing = "border-box";
+    editor.value = cell.getValue()
+    onRendered(function(){
+      editor.focus();
+      editor.style.css = "100%";
+    });
+    function successFunc(){
+      success(editor.value==''?'':editor.value);
+    }
+    editor.addEventListener("blur", successFunc);
+    return editor;
+  };
+  function updateJob(query,table,fields,values,idfield,id,silent){
+    var data =[]
+    var jsonData={};
+    var vals=[]
+    var strVals={}
+    jsonData.table=table
+    jsonData.query=query
+    for (var i = 0; i < fields.length; i++) {
+      if (values[i]!==undefined && values[i]!=='' && values[i]!==null) {
+        if (typeof values[i] === "string") {
+          vals.push(fields[i]+"=@"+fields[i])
+          strVals[fields[i]]=values[i]
+        }else {
+          vals.push(fields[i]+"='"+values[i]+"'")
+        }
+      }else {
+        vals.push(fields[i]+"=NULL")
+      }
+    }
+    jsonData.values=vals.join(", ")
+    jsonData.stringValues=strVals
+    jsonData.idfield=idfield
+    jsonData.id=id
+    jsonData.fieldsArr=fields
+    jsonData.valuesArr=values
+    var data2={}
+    data2.jobID=id
+    data.push(jsonData)
+    var targetUpdateDone=true
+    return $.ajax({
+      url: '/update-group-ajax',
+      type: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify(data),
+      success:function(response){
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  var oTable = new Tabulator("#onlineTable", {
+    height: "67vh",
+    resizableRows:true,
+    ajaxURL:"/get-online-allocations/"+jobID,
+    ajaxConfig:"GET",
+    columnCalcs:"table",
+    columnHeaderVertAlign:"middle",
+    headerSort:false,
+    keybindings:{
+      "navLeft" : "37",
+      "navRight" : "39",
+    },
+    index:'allocationID',
+    columns:[
+      {title:"", frozen:true, columns:[
+        {field:"allocationID",visible:false},
+        {field:"supplierID",visible:false},
+        {title:"Panel", headerSort:true, field:"supplierName", width:120, formatter:function(cell){
+          return cell.getValue()+'<br><button type="button" data-id="'+cell.getData().allocationID+'" class="btn btn-sm btn-outline-danger removePanel">Remove</button>'
+        }},
+        {title:"Name",field:'allocationName',editor:"input", width:150,editorParams:{elementAttributes:{maxlength:"255"}}},
+        // {title:"Account manager",field:'contactName',cssClass:"calcCell"},
+        // {title:"Email",field:'contactEmail',cssClass:"calcCell"},
+        // {title:"Tel",field:'contactTel',cssClass:"calcCell"},
+        {title:"Setup fee",field:"setupFee",editor:"number",formatter:"money",formatterParams:{symbol:"£"}},
+        {title:"CPI", field:"panelCPI",editor:"number",formatter:"money",formatterParams:{symbol:"£"},width:75},
+        {title:"Target",field:"targetCompletes",editor:"number",width:75},
+        {title:"Complete",cssClass:"calcCell",formatter:function(cell){
+          return sumCompletes(cell)
+        }},
+      ]},
+      {title:"PO",field:"PO",editor:"input"},
+      {title:"Spend",cssClass:"calcCell",formatter:function(cell){
+        let pay=(cell.getData().panelCPI*sumCompletes(cell))+Number(cell.getData().setupFee)
+        return pay?"£"+pay.toFixed(2):"£-"
+      }},
+      {title:"Sales",cssClass:"calcCell",formatter:function(cell){
+        let sales=sumCompletes(cell)*jobCPI
+        return sales?"£"+sales.toFixed(2):"£-"
+      }},
+      {title:"Cont",cssClass:"calcCell",formatter:function(cell){
+        let pay=(cell.getData().panelCPI*sumCompletes(cell))+Number(cell.getData().setupFee)
+        let sales=sumCompletes(cell)*jobCPI
+        return Math.round((pay/sales)*100)+"%"
+      }},
+      {title:"Redirects",columns:[
+        {title:"Complete",field:"redirectComplete",formatter:"tickCross",formatterParams:{allowTruthy:true},cellClick:redirectClick},
+        {title:"Screenout",field:"redirectScreenout",formatter:"tickCross",formatterParams:{allowTruthy:true},cellClick:redirectClick},
+        {title:"Quotafull",field:"redirectQuotafull",formatter:"tickCross",formatterParams:{allowTruthy:true},cellClick:redirectClick},
+      ]},
+      {title:"Invite link",field:"inviteLink",formatter:"tickCross",formatterParams:{allowTruthy:true},cellClick:redirectClick},
+      // {title:"% allocated",cssClass:"calcCell",formatter:function(cell){return Math.round((cell.getData().targetCompletes/<%=job.interviewsTarget%>)*100)+"%"}},
+      {title:"Notes",field:"notes",width:200,editor:"textarea"},
+      {title:"",columns:[
+        {title:"", formatter:function(cell){
+          return "<div class='dailyCont'>Day achievement:<hr>Start-of-day total:</div>"
+        }},
+        <%
+        var dates=moment.range(moment.utc(job.startDate),moment.min(moment.utc(job.endDate),moment.utc()))
+        let i=0
+        for (let day of dates.by('day')) { %>
+          {title:"<%=day.format("DD/MMM")%>",field:"ints_<%=day.format("YYYY-MM-DD")%>", formatter:function(cell){
+            <% if (day.valueOf()>=moment.utc().subtract(1,"d").valueOf()) {%>
+              let val=cell.getValue()>=0?cell.getValue():''
+            <%}else {%>
+              let val=cell.getValue()>=0?cell.getValue():0
+            <%} %>
+            let intKeys=Object.keys(cell.getData()).filter(el=>el.indexOf("ints_")>-1)
+            let pastKeys=intKeys.filter(el=>moment.utc(el.split("_")[1]).valueOf()<moment.utc("<%=day.format("YYYY-MM-DD")%>").valueOf()).filter(el=>cell.getData()[el])
+            <% if (day.valueOf()==moment.utc().valueOf()) {%>
+              let pastTotal=""
+            <%}else {%>
+              let pastTotal=pastKeys.reduce((a,b)=>{
+                return a+Number(cell.getData()[b])
+              },0)
+            <%} %>
+            let ydayVal=cell.getData()["ints_"+moment.utc("<%=day.format("YYYY-MM-DD")%>").subtract(1,"d").format("YYYY-MM-DD")]
+            ydayVal=ydayVal?ydayVal:0
+            return "<div class='dailyCont'><div class='dailyVal' data-field='"+cell.getField()+"' data-aid='"+cell.getData().allocationID+"'>"+val+"</div><hr><div class='runningVal'<%=i==0?" data-first='true'":""%> data-pastTotal='"+(Number(pastTotal)-ydayVal)+"' data-field='"+cell.getField()+"' data-aid='"+cell.getData().allocationID+"'>"+pastTotal+"</div></div>"
+          }},
+        <%
+        i++
+        }%>
+      ]}
+    ],
+    ajaxResponse:function(url, params, response){
+      var tableData=response.allocations.map(al=>{
+        response.dailys.filter(d=>d.allocationID==al.allocationID).forEach((daily, i) => {
+          al['ints_'+moment.utc(daily.inputDate).format("YYYY-MM-DD")]=daily.inputInterviews
+        });
+        let record=response.notes.find(el=>el.otherID==al.allocationID)
+        al.notes=record?record.note:''
+        return al
+      })
+      return tableData
+    },
+    dataChanged:function(data){
+      // updateTracker(data)
+    },
+    dataLoaded:function(data){
+      // updateTracker(data)
+      let table=this
+      $('.dailyVal').on('click',function(){
+        let id=$(this).attr('data-aid')
+        let field=$(this).attr('data-field')
+        let val=$(this).text()
+        $(this).hide()
+        let input="<input type='number' step='1' class='intsInput' value='"+val+"'/>"
+        $(this).parent().prepend(input)
+        $('.intsInput').focus().select()
+        $('.intsInput').one('blur',function(){
+          updateInput(id,$(this).val(),field.split("_")[1]).then(function(e){
+            let spend={}
+            table.replaceData().then(function(e){
+              let cell=table.getRow(id).getCell('supplierName')
+              spend.units=sumCompletes(cell)
+              spend.unitValue=cell.getData().panelCPI
+              updateJob('update','ProjectSpends',["units","unitValue","PO"],[spend.units,spend.unitValue,cell.getData().PO],'spendID',cell.getData().spendID,false)
+            })
+          })
+        })
+        $('.intsInput').on('keypress',function(e) {
+          if(e.which == 13) {
+            $('.intsInput').trigger("blur")
+          }
+        });
+      })
+      $('.runningVal').on('click',function(){
+        let id=$(this).attr('data-aid')
+        let field=$(this).attr('data-field')
+        let pastTotal=$(this).attr('data-pastTotal')
+        let val=$(this).text()
+        if (!$(this).attr("data-first")) {
+          $(this).hide()
+          let input="<input type='number' step='1' class='runningInput' value='"+val+"'/>"
+          $(this).parent().append(input)
+          $('.runningInput').focus().select()
+          $('.runningInput').one('blur',function(){
+            let yday=moment.utc(field.split("_")[1]).subtract(1,"d")
+            updateInput(id,$(this).val()-pastTotal,yday.format("YYYY-MM-DD")).then(function(e){
+              table.replaceData().then(function(e){
+                let spend={}
+                let cell=table.getRow(id).getCell('supplierName')
+                spend.units=sumCompletes(cell)
+                spend.unitValue=cell.getData().panelCPI
+                updateJob('update','ProjectSpends',["units","unitValue","PO"],[spend.units,spend.unitValue,cell.getData().PO],'spendID',cell.getData().spendID,false)
+              })
+            })
+          })
+          $('.runningInput').on('keypress',function(e) {
+            if(e.which == 13) {
+              $('.runningInput').trigger("blur")
+            }
+          });
+        }
+      })
+    },
+    rowUpdated:function(row){
+    },
+    cellEdited:function(cell){
+      runEdits(cell).then(function(e){
+        cell.getTable().replaceData()
+      }).catch(err=>console.log(err))
+    },
+  });
+  function runEdits(cell){
+    let spend={}
+    spend.units=sumCompletes(cell)
+    spend.unitValue=cell.getData().panelCPI
+    updateJob('update','ProjectSpends',["units","unitValue","PO"],[spend.units,spend.unitValue,cell.getData().PO],'spendID',cell.getData().spendID,false)
+    updateNote('overview',cell.getData().spendID,(cell.getData().allocationName?cell.getData().allocationName:''),'spendTable',<%=job.projectID%>)
+    if (cell.getData().setupFeeID) {
+      updateNote('overview',cell.getData().setupFeeID,"Setup fee"+(cell.getData().allocationName?" - "+cell.getData().allocationName:''),'spendTable',<%=job.projectID%>)
+    }
+    if(cell.getField()=="notes") {
+      return updateNote('online-tracker',cell.getData().allocationID,cell.getValue(),'onlineTable',jobID)
+    }else if (cell.getField()=="setupFee") {
+      if (cell.getData().setupFeeID) {
+        if (!cell.getValue()) {
+          updateNote('overview',cell.getData().setupFeeID,"",'spendTable',<%=job.projectID%>)
+          return updateJob('update','OnlineAllocations',["setupFeeID"],[""],'allocationID',cell.getRow().getIndex(),false).then(function(e){
+            return updateJob('delete','ProjectSpends',[],[],'spendID',cell.getData().setupFeeID)
+          })
+        }else {
+          return updateJob('update','ProjectSpends',["units","unitValue","PO"],[1,Number(cell.getData().setupFee),cell.getData().PO],'spendID',cell.getData().setupFeeID,false)
+          updateNote('overview',cell.getData().setupFeeID,"Setup fee"+(cell.getData().allocationName?" - "+cell.getData().allocationName:''),'spendTable',<%=job.projectID%>)
+        }
+      }else {
+        if (cell.getValue()) {
+          return addSpend(moment.utc().format("YYYY-MM-DD"),cell.getValue(),1,<%=job.projectID%>,3,cell.getData().supplierID,cell.getData().PO,jobID).then(function(setup){
+            updateNote('overview',setup.id,"Setup fee"+(cell.getData().allocationName?" - "+cell.getData().allocationName:''),'spendTable',<%=job.projectID%>)
+            return updateJob('update','OnlineAllocations',['setupFeeID'],[setup.id],'allocationID',cell.getData().allocationID,false)
+          })
+        }else {
+          return $.ajax()
+        }
+      }
+    }else if (cell.getField()=="panelCPI") {
+      return $.ajax()
+    }else {
+      return updateJob('update','OnlineAllocations',[cell.getField()],[cell.getValue()],'allocationID',cell.getRow().getIndex(),false)
+    }
+  }
+  $(document).on('click', '#addPanel', function(evt) {
+    $('#panelAdder').modal('show')
+  })
+  $(document).on('click', '.removePanel', function(evt) {
+    var table = Tabulator.prototype.findTable('#onlineTable')[0];
+    let id=$(this).attr('data-id')
+    let cell=table.getRow(id).getCell('supplierName')
+    let completes=sumCompletes(cell)
+    if (completes>0) {
+      alert("Cannot delete a panel with interviews")
+    }else {
+      if (confirm("Are you sure you want to remove this panel?")) {
+        $.ajax({
+          url: '/delete-online-allocation',
+          data:{allocationID:id},
+          type: 'POST',
+          success: function (response) {
+            updateJob('delete','ProjectSpends',[],[],'spendID',cell.getData().spendID)
+            updateJob('delete','ProjectSpends',[],[],'spendID',cell.getData().setupFeeID)
+            updateNote('overview',cell.getData().spendID,'','spendTable',<%=job.projectID%>)
+            updateNote('online-tracker',cell.getData().allocationID,'','onlineTable',jobID)
+            table.setData()
+          },
+          error: function (jqXHR, exception) {
+            alert(exception)
+            console.log(exception)
+          },
+        })
+      }
+    }
+  })
+  function addPanel(){
+    if ($('#newPanelName').val() && $('#newPanelPO').val() && $('#newPanelTarget').val() && $('#newPanelCPI').val()) {
+      var table = Tabulator.prototype.findTable('#onlineTable')[0];
+      $.ajax({
+        url: '/add-online-allocation',
+        data:{supplierID:$('#newPanelName').val(),PO:$('#newPanelPO').val(),targetCompletes:$('#newPanelTarget').val(),panelCPI:$('#newPanelCPI').val(),jobID:jobID},
+        type: 'POST',
+        success: function (response) {
+          addSpend(moment.utc().format("YYYY-MM-DD"),$('#newPanelCPI').val(),0,<%=job.projectID%>,3,$('#newPanelName').val(),$('#newPanelPO').val(),jobID).then(function(cpi){
+            updateJob('update','OnlineAllocations',['spendID'],[cpi.id],'allocationID',response.allocationID,false).then(function(e){
+              table.setData().then(function(e){
+                $('#panelAdder').modal('hide')
+              })
+            })
+          })
+        },
+        error: function (jqXHR, exception) {
+          alert(exception)
+        },
+      })
+    }else {
+      alert("Please fill in all fields")
+    }
+  }
+  function updateInput(a,v,d){
+    if (v>=0) {
+      return $.ajax({
+        url: '/add-online-daily',
+        data:{allocationID:a,ints:v,dte:d},
+        type: 'POST',
+        success: function (response) {
+
+        },
+        error: function (jqXHR, exception) {
+          alert(exception)
+        },
+      })
+    }else {
+      return $.ajax()
+    }
+  }
+  function updateNote(page,dateID,note,table,jobID){
+    var data =[]
+    var jsonData={};
+    var vals=[]
+    jsonData.tableName=table
+    jsonData.jobID=jobID
+    jsonData.otherID=dateID
+    jsonData.page=page
+    jsonData.note=note
+    data.push(jsonData)
+    return $.ajax({
+        url: '/update-note',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  }
+  function addSpend(spendDate,unitValue,units,projectID,typeID,supplierID,PO,jobID){
+    var data =[]
+    var jsonData={};
+    var vals=[]
+    var returnID
+    jsonData.spendDate=spendDate
+    jsonData.unitValue=unitValue
+    jsonData.units=units
+    jsonData.projectID=projectID
+    jsonData.typeID=typeID
+    jsonData.jobID=jobID?jobID:'NULL'
+    jsonData.PO=PO
+    jsonData.supplierID=supplierID
+    data.push(jsonData)
+    console.log(jsonData.unitValue)
+    if (jsonData.unitValue) {
+      console.log("running addspend")
+      return $.ajax({
+        url: '/add-project-spend',
+        type: 'POST',
+        contentType: 'application/json',
+        async: false,
+        data: JSON.stringify(data),
+        success: function (response) {
+          returnID=response.id
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+      });
+    }else {
+      console.log("not running addspend")
+      return $.ajax()
+    }
+    return returnID
+  }
+</script>
+</div>
+</body>
+</html>

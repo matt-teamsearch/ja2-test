@@ -1,0 +1,1391 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  $("body").addClass("loading");
+  var jobsChanged=false
+  const jobs=<%-JSON.stringify(jobs)%>
+  $(document).ready(function () {
+    $('.selectFilters:not(.multiFilter)').change(function() {
+      refreshReport(false)
+    })
+    $('select.selectFilters.multiFilter').change(function() {
+      $(this).off('hidden.bs.select')
+      $(this).one('hidden.bs.select',function() {
+        let t="<%=sessTeam%>"
+        if (!_.isEmpty(_.xor(t.split(","), $(this).selectpicker('val')))) {
+          refreshReport(false)
+        }
+      })
+    })
+    $('.selectFilterJobs').on('changed.bs.select', function (e, clickedIndex, isSelected, previousValue) {
+      jobsChanged=true
+    })
+    $('.selectFilterJobs').on('hidden.bs.select', function () {
+      if (jobsChanged) {
+        refreshReport(true)
+        jobsChanged=false
+      }
+    })
+    $("#dte").val('<%=dte%>')
+    <%
+    function pad2(number) {
+      return (number < 10 ? '0' : '') + number
+    }
+    let jobColsArr=[]
+    let jobCols=""
+    agents.forEach((agent, i2) => {
+      let jobCols=""
+      jobs.forEach((job, i) => {
+        let hrs=findRecord(allocations,agent.agentID,job.jobID,"agentAllocationHours")
+        if (!hrs && dte<tdy) {
+          hrs=findRecord(dailys,agent.agentID,job.jobID,"inputHours")
+        }
+        let ahrRow=findRecord(dailys,agent.agentID,job.jobID,"inputInterviews")/hrs
+        if (hrs=="") {
+          ahrRow=""
+        }
+        jobCols=jobCols+', hours_'+job.jobID+':"'+hrs+'"'
+        jobCols=jobCols+', jobCPI_'+job.jobID+':"'+job.CPI+'"'
+        jobCols=jobCols+', ints_'+job.jobID+':"'+findRecord(dailys,agent.agentID,job.jobID,"inputInterviews")+'"'
+        jobCols=jobCols+', AHR_'+job.jobID+':"'+ahrRow+'"'
+        jobCols=jobCols+', bonusIncl_'+job.jobID+':'+(findRecord(dailys,agent.agentID,job.jobID,"excludeFromBonus")!==true)+''
+        jobCols=jobCols+', isJobHourly_'+job.jobID+':'+job.isJobHourly
+      })
+      jobColsArr.push(jobCols)
+    })
+    %>
+    var tabledata = [
+      <% agents.forEach((agent, i) => {
+        var agentPoints=points.find(function (point) {return point.agentID==agent.agentID;})
+        if (!agentPoints) {
+          agentPoints={}
+          agentPoints.fatalCount=0
+          agentPoints.points=0
+        }
+        var retPoints=(agentPoints.fatalCount>0) ? "Fatal" : Math.max(0,100+agentPoints.points) %>
+        {id:<%=agent.agentID%>,bookingID:'<%=agent.bookingID%>', teamID: <%=agent.teamID%>, startTime: "<%=agent.startTime%>", endTime: "<%=agent.endTime%>", bonus:"<%-retPoints%>",contractFlag:'<%=agent.fixedHours==1?'Fixed':null%>', teamFlag:'<%=!agent.isAllocatable==1?'Academy':(agent.teamID==14?'BMG':null)%>', isRemote:"<%=agent.isRemote%>",excBreak:<%=[4].includes(Number(agent.contractVersion))%>,excLunch:<%=[2,3,4].includes(Number(agent.contractVersion))%>, paidBreak:<%=[2,3,4].includes(Number(agent.contractVersion))%>, status:"<%=agent.absenceType%>", lateMins_1:"<%=agent.lateMins1%>", lateMins_2:"<%=agent.lateMins2%>", lateMins_3:"<%=agent.lateMins3%>",payReduction:"<%=agent.payReduction%>",agentName:"<%=agent.agentName+"_"+agent.agentID%>", wageRate:"<%=agent.wageRate%>", isDay:"<%=agent.isDay%>",note: `<%-(agent.note==null) ? "" : agent.note.replace(/\r\n/g, ' ')-%>`<%-jobColsArr[i]%>},
+      <%});%>
+    ];
+    var statusIcon = function(cell, formatterParams, onRendered){ //plain text value
+      switch (cell.getValue()) {
+        case "Present":
+          val="<i class='fas fa-caret-down'></i>"
+          break;
+        case "No show":
+          val="<i class='fas fa-question'></i>"
+          break;
+        case "Sick":
+          val="<i class='fas fa-briefcase-medical'></i>"
+          break;
+        case "Cancelled by manager":
+          val="<i class='fas fa-ban'></i>"
+          break;
+        case "Cancelled by agent":
+          val="<i class='fas fa-user-slash'></i>"
+          break;
+        case "Paid leave":
+          val="<i class='fas fa-pound-sign'></i>"
+          break;
+        case "Late":
+          val='<i class="fas fa-hourglass-end"></i>'
+          break;
+        default:
+          val="<i class='fas fa-caret-down'></i>"
+      }
+      return val;
+    };
+    var remoteIcon = function(cell, formatterParams, onRendered){ //plain text value
+      var val=""
+      if (cell.getValue()==1) {
+        val="<i class='fas fa-home' title='Working from home'></i>"
+      }
+      return val;
+    };
+    var teamIcon = function(cell, formatterParams, onRendered){ //plain text value
+      var val=""
+      if (cell.getValue()=='Academy') {
+        val='<i class="fas fa-graduation-cap"></i>'
+      }else if (cell.getValue()=='BMG') {
+        val='<i class="fas fa-bmg"></i>'
+      }
+      return val;
+    };
+    var contractIcon = function(cell, formatterParams, onRendered){ //plain text value
+      var val=""
+      if (cell.getValue()=='Fixed') {
+        val='<i class="fas fa-file-contract"></i>'
+      }
+      return val;
+    };
+    var paidBreakIcon = function(cell, formatterParams, onRendered){ //plain text value
+      var val=""
+      if (cell.getValue()==1) {
+        val="<span class='material-icons' title='Breaks are not paid' style='font-size: 20px;'>timer_off</span>"
+      }
+      return val;
+    };
+    var pointsIcon = function(cell, formatterParams, onRendered){ //plain text value
+      var val=cell.getValue()
+      if (cell.getValue()=='Fatal') {
+        val="<i class='fas far fa-check-square'></i>"
+      }
+      if ([318,381].includes(cell.getData().id) || cell.getData()["status"]!="Present") {
+        val=0
+      }
+      return val;
+    };
+    var agentLink = function(cell, formatterParams, onRendered){
+      val=cell.getValue()
+      return "<a href='/int-performance/<%=currPayPeriodSt%>/<%=currPayPeriodEn%>/"+val.split("_")[1]+"/0'>"+val.split("_")[0]+"</a>";
+    };
+    var editCheck = function(cell){
+      // return cell.getData()["status"]=="Present"; // only allow the cell to be edited
+      return true
+    }
+    var intsEditCheck = function(cell){
+      return cell.getData()["ints_"+cell.getField().split("_")[1]]!==undefined
+    }
+    var bonusTitle = function(values, data, calcParams){
+      return "Bonus"
+    }
+    var notesTitle = function(values, data, calcParams){
+      return "Notes"
+    }
+    var agentTitle = function(values, data, calcParams){
+      return "Agent"
+    }
+    ahrFormat = function(cell, formatterParams, onRendered){
+      var val=0
+      if (parseFloat(cell.getRow().getCell(cell.getField().replace("AHR","hours")).getValue())) {
+        if (parseFloat(cell.getValue())>0) {
+          val=parseFloat(cell.getValue()).toFixed(2)
+        }else {
+          val=val.toFixed(2)
+        }
+      }else {
+        val=""
+      }
+      return val;
+    };
+    var liveReport=<%-JSON.stringify(report)%>
+    var intsEditor = function(cell, onRendered, success, cancel, editorParams){
+      var editor = document.createElement("input");
+      var isFromReport=cell.getValue()!=editorParams.elementAttributes.reportInts
+      editor.setAttribute("type", "number");
+      editor.style.padding = "0px";
+      editor.style.width = "100%";
+      editor.style.height = "100%";
+      editor.style.boxSizing = "border-box";
+      if (isFromReport) {
+        $(editor).addClass("fromReport")
+      }
+      editor.value = isFromReport?editorParams.elementAttributes.reportInts:cell.getValue()
+      onRendered(function(){
+        editor.focus();
+        editor.style.css = "100%";
+      });
+      function successFunc(){
+        $(editor).tooltip('dispose')
+        success(editor.value==''?'':editor.value);
+      }
+      editor.addEventListener("blur", successFunc);
+      editor.addEventListener("focus", function(e){
+        $(editor).tooltip('show')
+      });
+      editor.addEventListener("keydown", function(e){
+        if (e.keyCode==13) {
+          editor.blur()
+        }
+        if (e.keyCode==27) {
+          if (isFromReport) {
+            editor.value = cell.getValue()
+            $(editor).tooltip('dispose')
+            isFromReport=false
+            editor.select()
+          }else {
+            cancel()
+          }
+        }
+        $(editor).removeClass("fromReport")
+      });
+      if (isFromReport) {
+        $(editor).tooltip({
+          title:"<span class='reportTooltip'>Auto-generated from hourly report. Press ENTER to accept, ESC to ignore</span>",
+          trigger:"manual",
+          html:true,
+          placement:'bottom'
+        })
+      }
+
+      return editor;
+    };
+    var bonusTooltip=function(e, cell){
+      //e - the event object
+      //cell - cell component
+      let bandings=[]
+      let banding={}
+      let jobID=cell.getField().split("_")[1]
+      let isEve=cell.getData()["isDay"]==0
+      let weighting=(cell.getData()["wageRate"]/Number(<%=maxPayRate%>))*(isEve?0.9:1)
+      let cont=[<%=bonusScoring.map(el=>el.contribution).join(",")%>]
+      let CPI=cell.getData()["jobCPI_"+jobID]
+      let hours=cell.getData()["hours_"+jobID]
+      let ints=cell.getData()["ints_"+jobID]
+      let pay=cell.getData()["wageRate"]*hours
+      let bandLabs=["A","B","C","D","E"]
+      let current=null
+      if (hours) {
+        for (var i = 0; i < cont.length; i++) {
+          let band=Math.ceil((pay/(cont[i]/100))/CPI/weighting)
+          bandings.push(band)
+          if (ints>=band && current===null) {
+            current=i
+          }
+        }
+        let title="<div class='bandCont'>"
+          +"<div class='flrow'>"+bandLabs.map((el,i)=>"<div class='bandHead flcol'>"+el+"</div>").join("")+"</div>"
+          +"<div class='flrow'>"+bandings.map((el,i)=>"<div class='band flcol "+bandLabs[i]+" "+(current==i?'currBand':'')+"'>"+el+"</div>").join("")+"</div>"
+          +"</div>"
+        $(cell.getElement()).tooltip({
+          html:true,
+          delay:{
+            show:500,
+            hide:0
+          },
+          placement:"top",
+          boundary:'window',
+          title:title
+        }).tooltip("show")
+      }
+    }
+    var bonusTooltipHourly=function(e, cell){
+      //e - the event object
+      //cell - cell component
+      let bandings=[]
+      let banding={}
+      let jobID=cell.getField().split("_")[1]
+      let isEve=cell.getData()["isDay"]==0
+      let weighting=(cell.getData()["wageRate"]/Number(<%=maxPayRate%>))*(isEve?0.9:1)
+      let cont=[<%=bonusScoring.map(el=>el.contribution).join(",")%>]
+      let CPI=cell.getData()["jobCPI_"+jobID]
+      let hours=cell.getData()["hours_"+jobID]
+      let ints=cell.getData()["ints_"+jobID]
+      let pay=cell.getData()["wageRate"]*hours
+      let bandLabs=["A","B","C","D","E"]
+      let current=null
+      let currCont=cell.getData()["wageRate"]/CPI
+      if (hours) {
+        for (var i = 0; i < cont.length; i++) {
+          let contBand=(cont[i]*weighting)/100
+          bandings.push('<i class="far fa-clock"></i>')
+          if (currCont<=contBand && current===null) {
+            current=i
+          }
+        }
+        let title="<div class='bandCont'>"
+          +"<div class='flrow'>"+bandLabs.map((el,i)=>"<div class='bandHead flcol'>"+el+"</div>").join("")+"</div>"
+          +"<div class='flrow'>"+bandings.map((el,i)=>"<div class='band flcol "+bandLabs[i]+" "+(current==i?'currBand':'')+"'>"+el+"</div>").join("")+"</div>"
+          +"</div>"
+        $(cell.getElement()).tooltip({
+          html:true,
+          delay:{
+            show:500,
+            hide:0
+          },
+          placement:"top",
+          boundary:'window',
+          title:title
+        }).tooltip("show")
+      }
+    }
+    let lateParts=['start','break','lunch']
+    let lateCol=function(n){
+        return {title:"",headerSort:false,titleDownload:"Late ("+lateParts[n-1]+")",topCalc:val=>"Late ("+lateParts[n-1]+")",field:"lateMins_"+n,cssClass:"lateCell",formatter:cell=>(cell.getValue()?Number(cell.getValue())+" mins":''),editor:"input",editorParams:{
+        mask:'999',
+        elementAttributes:{
+          placeholder:'Mins'
+        }
+      },width:90}
+    }
+    let cellContextMenu=[
+      // {label:"Add/remove downtime",action:(e,cell)=>{
+      //   showDowntime(cell)
+      // }}
+    ]
+    var oTable = new Tabulator("#tally-table", {
+      height: "83vh",
+      data:tabledata,
+      autoResize:false,
+      resizableRows:true,
+      groupBy:function(data){
+        var grp
+        if (["Present","No show"].includes(data.status)) {
+          grp="Present"
+        }else {
+          grp="Absent"
+        }
+        return grp
+      },
+      groupHeader:function(value, count, data, group){
+        return value;
+      },
+      columnCalcs:"table",
+      columnDefaults:{
+        headerFilterPlaceholder:"search agents...",
+      },
+      columnHeaderVertAlign:"middle",
+      keybindings:{
+        "navLeft" : "37",
+        "navRight" : "39",
+      },
+      columns:[
+        {title:"", frozen:true, columns:[
+          {title:"Sort by agent name", titleDownload:"Agent", headerSort:true, cssClass:"agentCell", field:"agentName", accessorDownload:function(value){return value?value.split("_")[0]:""}, headerFilter:true, formatter:agentLink, width:120},
+          {title:"", visible:false, headerSort:false, cssClass:"agentTeamCell", field:"teamID", download:false},
+          {field:"wageRate",visible:false},
+          {field:"isDay",visible:false},
+          {title:"", headerSort:false,hozAlign:'center',cssClass:"remoteCell", formatter:remoteIcon, field:"isRemote", width:40, accessorDownload:function(value){return value==1?"Working from home":""}},
+          {title:"", headerSort:false,hozAlign:'center',cssClass:"paidBreakCell", formatter:c=>c.getValue()?'<i class="fas fa-utensils"></i>':'', field:"excLunch", width:25, download:false},
+          {title:"", headerSort:false,hozAlign:'center',cssClass:"paidBreakCell", formatter:c=>c.getValue()?'<i class="fas fa-coffee"></i>':'', field:"excBreak", width:25, download:false},
+          {title:"", headerSort:false,hozAlign:'center', formatter:contractIcon, field:"contractFlag", width:40},
+          {title:"", headerSort:false,hozAlign:'center',cssClass:"academyCell", formatter:teamIcon, field:"teamFlag", width:40},
+          {title:"Sort by start time", cssClass:"timeCell",headerSort:true,columns:[
+            {title:"", titleDownload:"Shift start", headerSort:false, hozAlign:"center", cssClass:"timeCell", field:"startTime",editable:c=>c.getData().contractFlag!='Fixed', width:60, editor:"input", editorParams:{mask:"99:99"}},
+            {title:"", titleDownload:"Shift end", headerSort:false, hozAlign:"center", cssClass:"timeCell", field:"endTime",editable:c=>c.getData().contractFlag!='Fixed', width:60, editor:"input", editorParams:{mask:"99:99"}},
+          ]},
+          {title:"", titleDownload:"Status", headerSort:false, cssClass:"noShowCell", field:"status", formatter:statusIcon, width:40, hozAlign:"center", editor:"list", editorParams:{
+              values:["Present","No show","Sick","Cancelled by manager","Cancelled by agent","Paid leave"], //create list of values from all values contained in this column
+              defaultValue:"Present", //set the value that should be selected by default if the cells value is undefined
+              elementAttributes:{
+                  maxlength:"10", //set the maximum character length of the input element to 10 characters
+              },
+          }},
+          {title:"", titleDownload:"Notes", topCalc:notesTitle, headerSort:false, cssClass:"noteCell", field:"note", width:200, editor:"input"},
+        ]},
+        lateCol(1),
+        lateCol(2),
+        lateCol(3),
+        {title:"", titleDownload:"Pay reduction (hrs)", topCalc:d=>"Pay reduction (hrs)", headerSort:false,field:"payReduction",cssClass:"lateCell",editable:c=>c.getData().contractFlag=='Fixed' && c.getData().status=='Present', editor:"input"},
+        <%jobs.forEach((job, i) => {%>
+          {//create column group
+            title:"<a href='/edit-group-page/<%=job.jobID%>'><%=job.jobName%></a>",
+            titleDownload:"<%=job.jobName%>",
+            field:"jobCol_<%=job.jobID%>",
+            cssClass:"jobCol-<%=job.jobID%><%=job.hoursNeeded?'':' noneNeeded'%>",
+            headerHozAlign:'center',
+            columns:[
+            {headerHozAlign:'center',title:"<%if(job.projectID>2){%><i class='fas fa-bullseye'></i> <%=((job.hourlyTarget>0)?job.hourlyTarget:0).toFixed(2)%><br><i class='fas fa-users'></i> <%=((job.resourceTarget>0) ? job.resourceTarget : ((job.AHR>0) ? job.AHR : job.hourlyTarget)).toFixed(2)%><%}else{%><span style='color:white'>n/a<br>n/a</span><%}%>",
+              titleDownload:"<%=((job.hourlyTarget>0)?job.hourlyTarget:0).toFixed(2)%> / <%=((job.resourceTarget>0) ? job.resourceTarget : ((job.AHR>0) ? job.AHR : job.hourlyTarget)).toFixed(2)%>",
+              headerClick:function(e, column){getPerformance(<%=job.jobID%>,column.getElement(),e)},
+              cssClass:'hourlyTargets jobCol-<%=job.jobID%><%=job.hoursNeeded?'':' noneNeeded'%>',
+              columns:[
+              <%if(job.projectID>2){%>
+                {title:"Ints", topCalcFormatter:"html", cellMouseOver:<%=job.isJobHourly==1?'bonusTooltipHourly':'bonusTooltip'%>, topCalcParams:totalFormatInts<%=job.jobID%>, topCalc:intsCalc<%=job.jobID%>, field:"ints_<%=job.jobID%>", cssClass:"intsCell<%=job.hoursNeeded?'':' noneNeeded'%> jobCol-<%=job.jobID%>", hozAlign:"center", width:60, editor:intsEditor, editable: intsEditCheck, editorParams:function(cell){
+                  var rep=liveReport.find(el=>el.agentID==cell.getData().id && el.jobID==Number(cell.getField().split("_")[1]))
+                  return {
+                    min:0,
+                    max:999,
+                    step:1,
+                    elementAttributes:{
+                      maxlength:"3",
+                      reportInts:rep?rep.ints:null
+                    },
+                    mask:"999",
+                    verticalNavigation:"table", //up and down arrow keys navigate away from cell without changing value
+                  }
+                }},<%}%>
+                {<%if(job.projectID<3){%>width:100, <%}else{%>width:60, <%}%>title:"Hrs", topCalcFormatter:"html",clickMenu:cellContextMenu, topCalcParams:totalFormatHours<%=job.jobID%>, topCalc:hoursCalc<%=job.jobID%>, field:"hours_<%=job.jobID%>", cssClass:"jobCol-<%=job.jobID%><%=job.hoursNeeded?'':' noneNeeded'%> <%if(job.projectID<3){%>adminCell<%}else{%>hoursCell<%}%>", hozAlign:"center", editor:"number", editable: editCheck, editorParams:{
+                    min:0,
+                    max:24,
+                    step:0.01,
+                    elementAttributes:{
+                        maxlength:"2", //set the maximum character length of the input element to 10 characters
+                    },
+                    verticalNavigation:"table", //up and down arrow keys navigate away from cell without changing value
+                }}<%if(job.projectID>2){%>,
+                {
+                  title:"P/H", topCalcFormatter:"html", formatter:ahrFormat, topCalc:ahrCalc<%=job.jobID%>, topCalcParams:totalFormatAHR<%=job.jobID%>, field:"AHR_<%=job.jobID%>", cssClass:"ahrCell<%=job.hoursNeeded?'':' noneNeeded'%> jobCol-<%=job.jobID%>", hozAlign:"center", width:60
+                },
+                {
+                  title:"Bonus", headerSort:false, formatter:function(cell){
+                    let hrs=cell.getData()['hours_'+cell.getField().split("_")[1]]
+                    return hrs!=""?(cell.getValue()?'<i class="fas fa-check"></i>':'<i class="fas fa-times"></i>'):''
+                  }, field:"bonusIncl_<%=job.jobID%>", cssClass:"inclCell<%=job.hoursNeeded?'':' noneNeeded'%> jobCol-<%=job.jobID%>", hozAlign:"center", width:60,cellClick:function(e,cell){
+                    if (cell.getData()['hours_'+cell.getField().split("_")[1]]!="") {
+                      cell.setValue(!cell.getValue()); $(cell.getElement()).trigger('edit')}
+                    }
+                }<%}%>
+              ],
+            }
+            ],
+          hozAlign:"center",
+          },
+        <%})%>
+      ],
+      initialSort:[
+      {column:"agentName", dir:"asc"},
+      <%jobs.map(job => job.jobID).reverse().forEach((id, i) => {%>
+        {column:"hours_<%=id%>", dir:"desc"},
+      <%})%>
+      ]
+    });
+    oTable.on('cellEdited',function(cell){
+      var a=cell.getData().id
+      var j=cell.getField().split("_")[1]
+      var v=cell.getValue()
+      var h=cell.getData()["hours_"+j]
+      var i=cell.getData()["ints_"+j]
+      var incl=cell.getData()["bonusIncl_"+j]
+      var t=cell.getData()["teamID"]
+      var s=["Present","No show"].includes(cell.getData()["status"])?"Present":"Absent"
+      var d="<%=dte%>"
+      if (h=="") {
+        h=0
+      }
+      if (i=="") {
+        i=0
+      }
+      var hrs=0
+      for( var fld in cell.getData() ) {
+        if (fld.substring(0,5)=="hours" && cell.getData()[fld]>0) {
+          hrs=hrs+parseFloat(cell.getData()[fld])
+        }
+      }
+      if (cell.getField()=="payReduction"){
+        updatePayReduction(a,d,v,cell)
+      }
+      if (cell.getField()=="status") {
+        this.setGroupBy((data)=>["Present","No show"].includes(data.status)?"Present":"Absent")
+        if (s!="Present") {
+          <%jobs.forEach((job, i) => {%>
+          cell.getRow().getCell("hours_<%=job.jobID%>").setValue("",true)
+          <%if(job.projectID>2){%>
+          cell.getRow().getCell("ints_<%=job.jobID%>").setValue("",true)
+          <%}})%>
+          cell.getRow().getCell("payReduction").setValue('',true)
+        }
+        updateAbsence(a,d,v,cell)
+        // cell.getRow().getCell("bonus").setValue(updateBonus(a,d,s))
+      }
+      if (cell.getField().indexOf("lateMins")>-1) {
+        if (Number(v)>0) {
+          updateLateness(a,d,j,v,cell)
+        }else{
+          cell.setValue(null)
+          updateLateness(a,d,j,null,cell)
+        }
+      }
+      if (cell.getField().indexOf("bonusIncl_")>-1) {
+        updateAllo("daily",a,j,h,i,d,cell,incl)
+      }
+      if (cell.getField().substring(0,5)=="hours") {
+        updateAllo("allo",a,j,h,i,d,cell,incl)
+        updateAllo("daily",a,j,h,i,d,cell,incl)
+      }
+      if (cell.getField().substring(0,4)=="ints") {
+        updateAllo("allo",a,j,h,i,d,cell,incl)
+        updateAllo("daily",a,j,h,i,d,cell,incl)
+      }
+      if (cell.getField()=="note") {
+        updateNote(a,d,v,cell)
+      }
+      if (cell.getField().substring(0,5)=="hours" || cell.getField().substring(0,4)=="ints") {
+        var rint=cell.getRow().getCell("ints_"+j).getValue()
+        var rhours=cell.getRow().getCell("hours_"+j).getValue()
+        cell.getRow().getCell("AHR_"+j).setValue(rint/rhours,true)
+        // cell.getRow().getCell("bonus").setValue(updateBonus(a,d,s))
+      }
+      if (cell.getField()=="startTime" || cell.getField()=="endTime") {
+        var st=cell.getData()["startTime"]
+        var en=cell.getData()["endTime"]
+        updateBooking(a,d,st,en,cell,t)
+      }
+    })
+    oTable.on('dataLoaded',function(data){
+      let table=this
+      $(".container").css("visibility","visible")
+      $("body").removeClass("loading");
+      let timeSortEl=$('[aria-title="Sort by start time"][role="columngroup"]')
+      timeSortEl.addClass('tabulator-sortable').attr('aria-sort="none"')
+      $('.tabulator-col-sorter').eq(0).clone().appendTo($('[aria-title="Sort by start time"][role="columngroup"] .tabulator-col-title-holder'))
+      timeSortEl.on('click',function(){
+        if ($(this).attr('aria-sort')=="asc" || $(this).attr('aria-sort')=="none") {
+          $(this).attr('aria-sort',"desc")
+          table.setSort("startTime", "desc");
+        }else {
+          $(this).attr('aria-sort',"asc")
+          table.setSort("startTime", "asc")
+        }
+      })
+    })
+    $(window).keydown(function(e) {
+      if ((e.keyCode == 70 && (e.ctrlKey || e.metaKey))) {
+        e.preventDefault()
+        oTable.setHeaderFilterFocus("agentName");
+      }
+    })
+  });
+  function downloadTableXlsx(){
+    var oTable = Tabulator.findTable("#tally-table")[0]
+    $.ajax({
+        url: '/get-staff/<%=dte%>',
+        type: 'GET',
+        contentType: 'application/json',
+        success: function (response) {
+          oTable.download("xlsx", "Tally sheet <%=dte%>.xlsx",{
+            documentProcessing:function(wb){
+              //workbook - sheetJS workbook object
+              //set some properties on the workbook file
+              var ws_name = "Attendance sheet";
+              /* make worksheet */
+              var ws_data = [
+                ["Name","Shift"]
+              ];
+              XLSX.utils.sheet_to_json(wb.Sheets.Sheet1).forEach((agent, i) => {
+                if (agent["_2"]!="" && agent["_4"]=="Present" && agent["_1"]=="") {
+                  ws_data.push([agent[""],agent["_2"]+"-"+agent["_3"]])
+                }
+              });
+              response.staffs.forEach((staff, i) => {
+                if (response.absences.filter(el=>el.cancelled==false && el.employee.id==staff.breatheID).length==0) {
+                  ws_data.push([staff.staffName,"Core staff"])
+                }
+              });
+              var ws = XLSX.utils.aoa_to_sheet(ws_data);
+              /* Add the worksheet to the workbook */
+              XLSX.utils.book_append_sheet(wb, ws, ws_name);
+              // XLSX.utils.sheet_add_json(wb.Sheets.Sheet1, staffRows, {header: [""], skipHeader: true, origin: -1});
+              wb.Props = {
+                Title: "Tally Sheet "+new Date(),
+                CreatedDate: new Date()
+              };
+              return wb;
+            }
+          });
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  }
+  function updateAllo(db,agent,job,hrs,ints,dte,cell,incl){
+    var data =[]
+    var jsonData={};
+    var src=cell;
+    jsonData.agentID=agent
+    jsonData.jobID=job
+    jsonData.hrs=hrs
+    jsonData.ints=ints
+    jsonData.dte=dte
+    jsonData.incl=incl
+    jsonData.bookingID=cell.getData().bookingID
+    jsonData.sales=cell.getData()["jobCPI_"+job]*(cell.getData()["isJobHourly_"+job]?hrs:ints)
+    jsonData.sales=jsonData.sales?jsonData.sales.toFixed(2):0
+    data.push(jsonData)
+    $.ajax({
+        url: '/update-tally-'+db,
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  }
+  function updateAbsence(agent,dte,type,cell){
+    var data =[]
+    var jsonData={};
+    var src=cell;
+    jsonData.agentID=agent
+    jsonData.type=type
+    jsonData.dte=dte
+    data.push(jsonData)
+    $.ajax({
+        url: '/update-absence',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  }
+  function updatePayReduction(agent,dte,red,cell){
+    var data =[]
+    var jsonData={};
+    var src=cell;
+    jsonData.agentID=agent
+    jsonData.reduction=red
+    jsonData.dte=dte
+    data.push(jsonData)
+    $.ajax({
+      url: '/update-pay-reduction',
+      type: 'POST',
+      data: jsonData,
+      success: function (response) {
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  function updateLateness(agent,dte,type,mins,cell){
+    var data =[]
+    var jsonData={};
+    var src=cell;
+    jsonData.agentID=agent
+    jsonData.lateMins=mins
+    jsonData.lateType=type
+    jsonData.dte=dte
+    data.push(jsonData)
+    $.ajax({
+      url: '/update-lateness',
+      type: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify(data),
+      success: function (response) {
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  function updateNote(agent,dte,note,cell){
+    var data =[]
+    var jsonData={};
+    var src=cell;
+    jsonData.page='tally-sheet'
+    jsonData.agentID=agent
+    jsonData.note=note
+    jsonData.date=dte
+    data.push(jsonData)
+    $.ajax({
+        url: '/update-note',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  }
+  function manualBonus(agent,dte,points){
+    var jsonData={};
+    jsonData.agentID=agent
+    jsonData.dte=dte
+    jsonData.points=points
+    $.ajax({
+      url: '/manual-bonus',
+      type: 'POST',
+      contentType: 'application/json',
+      data: JSON.stringify(jsonData),
+      success: function (response) {
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    });
+  }
+  function updateBonus(agent,dte,status){
+    var data =[]
+    var jsonData={};
+    let resp=0
+    let ret={}
+    jsonData.agentID=agent
+    jsonData.dte=dte
+    data.push(jsonData)
+    $.ajax({
+        url: '/update-tally-bonus',
+        type: 'POST',
+        async:false,
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+          ret.points=response.points
+          ret.fatal=response.fatalCount
+          return ret
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+    if (ret.fatal>0) {
+      resp='Fatal'
+    }else if (status=="Absent") {
+      resp='Absent'
+    }else{
+      resp=Math.max(ret.points+100,0)
+    }
+    return resp
+  }
+  function updateBooking(agent,dte,stTime,enTime,cell,teamID){
+    var data =[]
+    var jsonData={};
+    var src=cell;
+    jsonData.agentID=agent
+    jsonData.stTime=stTime
+    jsonData.enTime=enTime
+    jsonData.dte=dte
+    jsonData.teamID=teamID
+    jsonData.bookingID=cell.getData().bookingID
+    data.push(jsonData)
+    $.ajax({
+        url: '/update-tally-booking',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(data),
+        success: function (response) {
+        },
+        error: function (jqXHR, exception) {
+          alert(getErrorMessage(jqXHR, exception))
+        },
+    });
+  }
+  function getPerformance(job,column,e){
+    if (e.srcElement.children.length>0) {
+      var data =[]
+      var jsonData={};
+      var src=column
+      jsonData.jobID=job
+      jsonData.dte="<%=dte%>"
+      data.push(jsonData)
+      $.ajax({
+          url: '/get-tally-performance',
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify(data),
+          success: function (response) {
+            createPerfPopover(src,response)
+          },
+          error: function (jqXHR, exception) {
+            alert(getErrorMessage(jqXHR, exception))
+          },
+      });
+    }
+  }
+  $('body').on('click', function (e) {
+    $('.hourlyTargets').each(function () {
+        // hide any open popovers when the anywhere else in the body is clicked
+        if (!$(this).is(e.target) && $(this).has(e.target).length === 0 && $('.popover').has(e.target).length === 0 && $('.ui-timepicker-wrapper').has(e.target).length === 0) {
+            $(this).popover('dispose');
+        }
+    });
+  })
+  function getErrorMessage(jqXHR, exception) {
+    var msg = '';
+    if (jqXHR.status === 0) {
+       msg = 'Not connect.\n Verify Network.';
+    } else if (jqXHR.status == 404) {
+       msg = 'Requested page not found. [404]';
+    } else if (jqXHR.status == 500) {
+       msg = 'Internal Server Error [500]. '+JSON.parse(jqXHR.responseText).error;
+    } else if (exception === 'parsererror') {
+       msg = 'Requested JSON parse failed.';
+    } else if (exception === 'timeout') {
+       msg = 'Time out error.';
+    } else if (exception === 'abort') {
+       msg = 'Ajax request aborted.';
+    } else {
+       msg = 'Uncaught Error.\n' + jqXHR.responseText;
+    }
+    return msg;
+  }
+  function createPerfPopover(source,arr){
+    cont=""
+    cont=cont+"<table id='perfTable' width='100%' class='table table-sm'><thead><th>Agent</th><th>Hours</th><th>AHR</th></thead><tbody>"
+    arr.forEach((agent, i) => {
+      cont=cont+"<tr><td>"+agent.agentName+"</td><td>"+agent.hrsWorked+"</td><td>"+agent.AHR.toFixed(2)+"</td></tr>"
+    })
+    cont=cont+"</tbody></table>"
+    $(source).popover({
+      html: true,
+      sanitize: false,
+      title: "<span class='close pop-close'>&times;</span>",
+      content: function() { return cont; }
+    });
+    $(source).popover("show")
+    $('#perfTable').DataTable({
+      paging: false,
+      order:[]
+    })
+  }
+  $(document).on('click', '.pop-close', function(evt) {
+    $(this).parent().parent().popover("dispose")
+  })
+</script>
+<%
+function findRecord(arr,agent,job,field){
+  var record=arr.find(function (daily) {
+    return daily.jobID==job && daily.agentID==agent;
+  })
+  if (record) {
+    return record[field]
+  }else {
+    return ""
+  }
+}
+%>
+<style>
+  span.academySup {
+    position: absolute;
+    top: -9px;
+    right: -11px;
+    font-size: 11px;
+    color: #d422a9;
+    text-shadow: 0 0px 2px white;
+  }
+  .hourlyTargets{
+    cursor:pointer;
+  }
+  .hourlyTargets>.tabulator-col-content:hover{
+    background: #e6e6e6;
+  }
+  .pop-close{
+    line-height:9px;
+  }
+  .popover-header {
+    height: 29px;
+  }
+  .popover-body {
+    height: 300px;
+    width: fit-content;
+    overflow-y: auto;
+    white-space:pre-wrap;
+  }
+  .popover{
+    max-width: unset!important;
+    box-shadow: 3px 6px 9px 1px rgb(0 0 0 / 23%);
+  }
+  .container{
+    max-width: fit-content;
+    visibility:hidden;
+  }
+  .tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+    padding: 3px;
+  }
+  .tabulator-cell{
+    padding:3px!important;
+    height:30px;
+    vertical-align:middle;
+  }
+  .tabulator-cell.inclCell, .tabulator-cell.adminCell, .tabulator-cell.noShowCell, .tabulator-cell.timeCell, .tabulator-cell.lateCell{
+    border-right: 1px solid #e8e8e8!important;
+  }
+  .remoteCell, .agentCell, .paidBreakCell{
+    border-color:transparent!important;
+  }
+  .bonusCell{
+    height:100%
+  }
+  <!-- .tabulator-calcs-top {
+    background-color: #f8f9fa;
+  } -->
+  .tabulator-col-title{
+    white-space: normal!important;
+  }
+  .tabulator-col-group {
+    height: 100%!important;
+    text-align: center;
+  }
+  .card-body{
+    padding-bottom:0px;
+  }
+  .tabulator-col .noShowCell, .tabulator-col .bonusCell, .tabulator-col .timeCell, .tabulator-col .academyCell, .tabulator-col .lateCell, .tabulator-col-group-cols{
+    border-color:transparent!important;
+  }
+  .ahrCell{
+    color: gray;
+    font-style: italic;
+    cursor: default;
+    border:none!important;
+  }
+  table.table.table-sm{
+    white-space: nowrap;
+  }
+  .fa-check-square{
+    color:red;
+  }
+  .bandCont{
+    display: table;
+  }
+  .bandHead{
+    font-size:10px;
+    font-weight:bold;
+    color:black;
+  }
+  .flrow{
+    display:table-row;
+  }
+  .flcol{
+    display:table-cell;
+  }
+  .band.A{
+    background-color:#f2d235;
+  }
+  .band.B{
+    background-color:#e3d07b;
+  }
+  .band.C{
+    background-color:#c2c2c2;
+  }
+  .band.D{
+    background-color:#c7a67f;
+  }
+  .band.E{
+    background-color:#d99f4c;
+  }
+  .band{
+    padding:3px;
+  }
+  .currBand{
+    border:2px solid black;
+  }
+  .tooltip-inner {
+    background-color:white;
+    opacity:1;
+    box-shadow: 2px 2px 4px 1px #00000075;
+  }
+  .reportTooltip{
+    color:var(--primary);
+  }
+  .fromReport{
+    color: var(--primary);
+    font-weight: bold;
+    background: #e2f0ff!important;
+    border: 2px solid var(--primary)!important;
+  }
+  .fa-times{
+    color: var(--danger);
+  }
+  #incAcademy,#neededOnly,#incFixed {
+    transform: scale(1.5);
+    margin-left: 10px;
+  }
+  #tally-table .tabulator-col[tabulator-field="startTime"], #tally-table .tabulator-col[tabulator-field="endTime"] {
+    opacity: 0;
+  }
+  .paidBreakCell i::after {
+    content: '\f715';
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%) translateY(-50%);
+    top: 50%;
+    text-shadow: 0 0 0px white;
+  }
+  .fa-bmg:before {
+    content: "BMG";
+    font-family: 'Arial Nova';
+    letter-spacing: -2px;
+    font-size: 13px;
+  }
+  .tabulator-row.tabulator-row-even{
+    background-color: #f5f5f5;
+  }
+  .tabulator-menu.tabulator-popup-container {
+    transform: translate(10px, 10px);
+  }
+  input.form-control.clockInput {
+    padding: 1px 7px;
+  }
+  span.input-group-addon {
+    background: #ebe7e7;
+    padding: 3px 2px;
+    border-radius: 0px 3px 3px 0px;
+  }
+  .modal-dialog {
+    max-width: 700px!important;
+  }
+  .tick-disabled{
+    opacity:0.5;
+    pointer-events:none;
+  }
+  #downtimeTable .tabulator-row:last-child {
+    margin-top: 10px;
+    filter: drop-shadow(2px 4px 6px black);
+  }
+  #downtimeTable{
+    padding:7px;
+  }
+</style>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center viewerHeight">
+    <div class="card-body">
+      <form class="filter-form" id="filterForm" action="" method="post" enctype="multipart/form-data">
+      <h5 class="card-title">Tally sheet</h5><input type="date" style="display:inline; width:auto;" class="form-control inputdate selectFilters" id="dte" name="dte" style="width:200px; margin:auto;">
+      <select class="selectpicker selectFilters" style="display:inline; width:auto;" data-live-search="true" id="shift_search" name="shift_search">
+        <option value>Filter agents by shift</option>
+        <option value="d" <%if(sessShift=="d"){%>selected<%}%>>Day</option>
+        <option value="e" <%if(sessShift=="e"){%>selected<%}%>>Eve</option>
+      </select>
+      <select multiple class="selectpicker selectFilters multiFilter" style="display:inline; width:auto;" title="Filter agents by team" data-live-search="true" id="team_search" name="team_search">
+        <!-- <option value>Filter agents by team</option> -->
+      <% teams.forEach((team,i) => {%>
+        <option value="<%=team.agentTeamID%>" <%if(sessTeam.toString().split(",").includes(team.agentTeamID.toString())){%>selected<%}%>><%=team.teamName%></option>
+      <% }) %>
+      </select>
+      <select multiple class=" selectFilterJobs" style="display:none; width:auto;" data-live-search="true" id="job_search" name="job_search">
+        <option value>Filter jobs</option>
+        <%allJobs.forEach((job, i) => {%>
+          <option value="<%=job.jobID%>" <%if(jobs.map(job => job.jobID).includes(job.jobID)){%>selected<%}%>><%=job.jobName%></option>
+        <%});%>
+      </select>
+      <input type="checkbox" class="selectFilters" name="incAcademy" id="incAcademy" <%if(incAcademy==1){%>checked<%}%>>
+      <label for="incAcademy">Include Academy</label>
+      <input type="checkbox" onchange="toggleNeededCols()" class="" name="neededOnly" id="neededOnly">
+      <label for="neededOnly">Only show jobs needing hours</label>
+      <input type="checkbox" class="selectFilters" name="incFixed" id="incFixed" <%if(incFixed==1){%>checked<%}%>>
+      <label for="incFixed">Include fixed-hour interviewers</label>
+      </form>
+      <a href="#" class="btn btn-sm btn-xlsx" onclick="downloadTableXlsx()">Download to Excel</a>
+      <div id="tally-table"></div>
+    </div>
+  </div>
+</div>
+<div class='modal fade' role='dialog' id='logDowntimeModal'>
+  <div class='modal-dialog modal-dialog-centered' role='document'>
+    <div class='modal-content'>
+      <div class='modal-header'>
+        <h5 class='modal-title'>Log downtime</h5>
+        <button type='button' class='close modalClose' data-dismiss='modal' aria-label='Close'>
+          <span aria-hidden='true'>&times;</span>
+        </button>
+      </div>
+      <div class='modal-body'>
+        <h6 class='modal-info' style="text-align: center;"></h6>
+        <div id="downtimeTable">
+
+        </div>
+      </div>
+      <div class='modal-footer'>
+        <button type='button' class='btn btn-secondary modalClose' data-dismiss='modal'>Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/clockpicker/0.0.7/bootstrap-clockpicker.min.css" integrity="sha512-MT4B7BDQpIoW1D7HNPZNMhCD2G6CDXia4tjCdgqQLyq2a9uQnLPLgMNbdPY7g6di3hHjAI8NGVqhstenYrzY1Q==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/clockpicker/0.0.7/bootstrap-clockpicker.min.js" integrity="sha512-x0qixPCOQbS3xAQw8BL9qjhAh185N7JSw39hzE/ff71BXg7P1fkynTqcLYMlNmwRDtgdoYgURIvos+NJ6g0rNg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+  function addDowntime(data){
+    return $.ajax({
+      url:'/update-downtime/add',
+      type:'POST',
+      data:{data:data}
+    })
+  }
+  function removeDowntime(data){
+    return $.ajax({
+      url:'/update-downtime/remove',
+      type:'POST',
+      data:{data:data}
+    })
+  }
+  function updateDowntime(data,type){
+    $('#downtimeTable').loader({container:'#logDowntimeModal .modal-content'})
+    return $.ajax({
+      url:'/update-downtime/'+type,
+      type:'POST',
+      global:false,
+      data:{data:data},
+    })
+  }
+  function showDowntime(cell){
+    let timeEdit=false
+    let getClockPicker=(c)=>{
+      let el=jQuery.parseHTML(`<div class="input-group clockpicker">
+          <input type="text" class="form-control clockInput" value="`+(c.getValue()?moment.utc(c.getValue()).format("HH:mm"):'')+`">
+          <span class="input-group-addon">
+              <i class="fas fa-clock"></i>
+          </span>
+      </div>`)
+      // console.log(el,el[0])
+      $(el[0]).clockpicker({
+        donetext: 'Done',
+        autoclose:true
+      })
+      let row=c.getData()
+      let a=row.id
+      let d=$("#dte").val()
+      let j=cell.getField().split("_")[1]
+      $(el[0]).click(function(){
+        let thisEl=$(this)
+        // console.log($(this).data().clockpicker)
+        let hrsEl=thisEl.data().clockpicker.hoursView[0]
+        let minsEl=thisEl.data().clockpicker.minutesView[0]
+        setTimeout(()=>{
+          // console.log(hrsEl,minsEl)
+          $(hrsEl).find(".clockpicker-tick").filter(function(index,element){
+            return c.getField()=='endTime' && row.startTime?Number($(element).text())<moment.utc(row.startTime).hour():(moment.utc(d).isSame(moment.utc(),'d')?Number($(element).text())>moment.utc().hour():false)
+          }).addClass('tick-disabled');
+        },100)
+      })
+      $(el[0]).find('.clockInput').on('change',function(e){
+        let h=$(this).val().split(":")[0]
+        let m=$(this).val().split(":")[1]
+        // console.log(h,m,c.getData().startTime,moment.utc(c.getData().startTime).hour(),moment.utc(c.getData().startTime).minute())
+        if (c.getField()=='endTime' && moment.utc(row.startTime).hour()==h && moment.utc(row.startTime).minute()>=Number(m)) {
+          m=moment.utc(row.startTime).minute()+1
+          $(this).val(h.toString().padStart(2,'0')+":"+m.toString().padStart(2,'0'))
+        }
+        timeEdit=true
+        c.setValue(moment.utc(c.getValue()).set({hour:h,minute:m}).format("YYYY-MM-DD HH:mm"))
+        c.getRow().update({duration:null})
+        // console.log(c.getValue())
+      })
+      return $(el[0])[0]
+    }
+    $("#downtimeTable").empty()
+    if (Tabulator.findTable("#downtimeTable")[0]) {
+      Tabulator.findTable("#downtimeTable")[0].destroy()
+    }
+    $('#downtimeTable').loader({container:'#logDowntimeModal .modal-content'})
+    var dtTable = new Tabulator("#downtimeTable", {
+      ajaxURL:'/get-downtime',
+      ajaxParams:{agentID:a,inputDate:d,jobID:j},
+      ajaxResponse:(u,p,data)=>{
+        let rec=data.map(d=>({...d,...p}))
+        let blank={dtID:-1,startTime:moment.utc().format("YYYY-MM-DD HH:mm")}
+        rec.push({...blank,...p})
+        return rec
+      },
+      layout:"fitColumns",
+      columnDefaults:{
+        headerSort:false,
+      },
+      initialSort:[{column:'pos',dir:'asc'}],
+      columns:[
+        {field:'pos',visible:false,mutator:(v,d)=>d.dtID==-1?Math.pow(100,10):d.startTime,sorter:(a,b)=>moment(a).valueOf()-moment(b).valueOf()},
+        {field:'startTime',mutateLink:["addRem"],width:84,title:"From",formatter:c=>getClockPicker(c)},
+        {field:'endTime',mutateLink:["addRem"],width:84,title:"Until",formatter:c=>getClockPicker(c)},
+        {title:"Duration (m)",width:110,field:'duration',editor:'number',mutator:(v,d)=>d.endTime?moment.utc(d.endTime).diff(d.startTime,'minutes'):''},
+        {field:'downtimeType',mutateLink:["addRem"],title:"Reason",editor:'select',editorParams:{
+          values:["QC","System","One2One","Sample","Briefing"]
+        }},
+        {field:'note',widthGrow:4,editor:'input',title:"Notes"},
+        {title:"",field:'addRem',mutator:(v,d)=>d.startTime && d.endTime && d.downtimeType,formatter:c=>{
+          let addBtn=document.createElement('button')
+          addBtn.type="button"
+          let remBtn=document.createElement('button')
+          remBtn.type="button"
+          $(addBtn).addClass("btn btn-sm btn-secondary")
+          addBtn.innerHTML='<i class="fas fa-plus"></i>'
+          $(remBtn).addClass("btn btn-sm btn-danger")
+          remBtn.innerHTML='<i class="fas fa-trash-alt"></i>'
+          if (!c.getValue()) {
+            $(addBtn).addClass("disabled").prop('disabled',true)
+          }
+          $(addBtn).click(f=>{
+            updateDowntime(c.getData(),'add').then(e=>{
+              dtTable.replaceData()
+            })
+          })
+          $(remBtn).click(f=>{
+            updateDowntime(c.getData(),'remove').then(e=>dtTable.replaceData())
+          })
+          return c.getData().dtID>-1?remBtn:addBtn
+        }},
+      ]
+    })
+    dtTable.on('tableBuilt',d=>{
+      $('#logDowntimeModal .modal-info').html(cell.getData().agentName.split("_")[0]+"<br>"+jobs.find(r=>r.jobID==j).jobName)
+      $('#logDowntimeModal').modal("show")
+      $('#logDowntimeModal').one('shown.bs.modal',()=>{
+
+      })
+    })
+    dtTable.on('renderComplete',d=>{
+      $('#downtimeTable').loader('done')
+    })
+    dtTable.on('cellEdited',c=>{
+      console.log(c.getField(),"edited")
+      if (c.getField()=='duration' && !timeEdit) {
+        c.getRow().getCell('endTime').setValue(moment.utc(c.getData().startTime).add(c.getValue(),'minutes'),false)
+      }else if (c.getData().dtID>-1 && c.getData().addRem) {
+        updateDowntime(c.getData(),'update').then(e=>{
+          $('#downtimeTable').loader('done')
+        })
+      }else {
+        c.getRow().reformat()
+      }
+      timeEdit=false
+    })
+  }
+  function toggleNeededCols(){
+    $('.noneNeeded').toggle()
+  }
+  function refreshReport(post){
+    let dte=new Date($("#dte").val())
+    if (dte instanceof Date && !isNaN(dte.valueOf())) {
+      let team=$("#team_search").val()
+      let shift=$("#shift_search").val()
+      let incAcademy=$("#incAcademy:checked").length
+      let incFixed=$("#incFixed:checked").length
+      if (team=="") {
+        team=0
+      }
+      if (shift=="") {
+        shift=0
+      }
+      if (post) {
+        $("#filterForm").attr('action',"/tally-sheet/" + dateIf(dte,"-","r") + "/" + shift + "/" + team + "/" + incAcademy + "/" + incFixed)
+        $("#filterForm").submit();
+      }else {
+        window.location.href=("/tally-sheet/" + dateIf(dte,"-","r") + "/" + shift + "/" + team + "/" + incAcademy + "/" + incFixed)
+      }
+    }
+  }
+  function dateIf(inDate, seperator, order){
+    let day =''
+    if (new Date(inDate).getDate() < 10) {
+      day = '0' + new Date(inDate).getDate()
+    } else {
+      day = new Date(inDate).getDate()
+    }
+    let month =''
+    if (new Date(inDate).getMonth()+1 < 10) {
+      month = '0' + (new Date(inDate).getMonth()+1)
+    } else {
+      month = (new Date(inDate).getMonth()+1)
+    }
+    let year = new Date(inDate).getFullYear()
+    if(order=="f"){
+      return(day+seperator+month+seperator+year)
+    }
+    if(order=="r"){
+      return(year+seperator+month+seperator+day)
+    }
+  }
+  <%
+  function getBusinessDatesCount(sDate, eDate){
+    var count = 0;
+    var curDate = sDate
+    while (curDate < eDate) {
+      var dayOfWeek = curDate.getDay();
+      if(!((dayOfWeek == 6) || (dayOfWeek == 0))){
+        count++;
+      }
+      curDate.setDate(curDate.getDate() + 1);
+    }
+    return count+1;
+  };
+  jobs.forEach((job, i) => {
+    let daysLeft=1
+    let AHR=0
+    if (job.projectID>2) {
+      AHR=0
+      if (job.resourceTarget>0) {
+        AHR=job.resourceTarget
+      }else if (job.AHR>0) {
+        AHR=job.AHR
+      }else {
+        AHR=job.hourlyTarget
+      }
+      startDate=new Date(Math.max.apply(null,[new Date(),new Date(job.startDate)]))
+      daysLeft=getBusinessDatesCount(startDate,new Date(job.endDate))
+    }
+    //remove for new version
+    // job.hoursNeeded=(job.plannerHours==null) ? Math.ceil((job.intsLeft/AHR)/daysLeft) : Math.ceil(job.plannerHours+Number(job.plannerHoursAcademy))
+    //end
+    let neededHrs=job.hoursNeeded || 0
+    let neededHrsAcademy=job.hoursNeededAcademy || 0
+    let neededInts=neededHrs/AHR || 0
+    %>
+  var neededhours_<%=job.jobID%> = <%=neededHrs%>
+  var neededhoursAcademy_<%=job.jobID%> = <%=neededHrsAcademy%>
+  var neededints_<%=job.jobID%> = <%=neededInts%>
+  var intsCalc<%=job.jobID%> = function(values, data, calcParams){
+    var val = 0;
+    var i=0
+    values.forEach(function(value){
+      if(parseFloat(value)>0){
+        val=val+parseFloat(value)
+      }
+    });
+    val=neededints_<%=job.jobID%>-val
+    return "<span style='color:"+calcParams.color+"'>"+Math.ceil(val)+"</span>"
+  }
+  var hoursCalc<%=job.jobID%> = function(values, data, calcParams){
+    var val = 0;
+    var i=0
+    values.forEach(function(value){
+      if(parseFloat(value)>0){
+        val=val+parseFloat(value)
+      }
+    });
+    val=neededhours_<%=job.jobID%>-val
+    let acVal=neededhoursAcademy_<%=job.jobID%>
+    return "<span "+(acVal?"data-toggle='tooltip' title='"+acVal+" of the "+neededhours_<%=job.jobID%>+" hours need to be taken from the academy' ":'')+"style='position:relative;color:"+calcParams.color+"'>"+val+(acVal?"<span class='academySup'>"+acVal+"</span>":'')+"</span>"
+  }
+  var ahrCalc<%=job.jobID%> = function(values, data, calcParams){
+    var valAhr = [];
+    var val=""
+    if (data.length>0) {
+      data.forEach(function(value){
+        if(parseFloat(value["ints_<%=job.jobID%>"])>=0){
+          valAhr.push(parseFloat(value["ints_<%=job.jobID%>"])/parseFloat(value["hours_<%=job.jobID%>"]))
+        }
+      });
+      val=(valAhr.reduce((a, b) => a + b, 0)/valAhr.length).toFixed(2)
+    }
+    var ret="<span style='color:"+calcParams.color+"'>"+val+"</span>"
+    if (val=="NaN") {
+      ret=""
+    }
+    return ret
+  }
+  function totalFormatHours<%=job.jobID%>(values, data){
+    var val = 0;
+    values.forEach(function(value){
+      if(parseFloat(value)>0){
+        val=val+parseFloat(value)
+      }
+    });
+    val=neededhours_<%=job.jobID%>-val
+    var col="red"
+    if (val<1) {
+      col="green"
+    }
+    return {color:col};
+  }
+  function totalFormatInts<%=job.jobID%>(values, data){
+    var val = 0;
+    values.forEach(function(value){
+      if(parseFloat(value)>0){
+        val=val+parseFloat(value)
+      }
+    });
+    val=neededints_<%=job.jobID%>-val
+    var col="red"
+    if (val<1) {
+      col="green"
+    }
+    return {color:col};
+  }
+  function totalFormatAHR<%=job.jobID%>(values, data){
+    var valAhr = [];
+    var val=""
+    if (data.length>0) {
+      data.forEach(function(value){
+        if(parseFloat(value["ints_<%=job.jobID%>"])>=0){
+          valAhr.push(parseFloat(value["ints_<%=job.jobID%>"])/parseFloat(value["hours_<%=job.jobID%>"]))
+        }
+      });
+      val=valAhr.reduce((a, b) => a + b, 0)/valAhr.length
+    }
+    var col="red"
+    if (val>=<%=AHR%>) {
+      col="green"
+    }
+    return {color:col};
+  }
+  <%})%>
+</script>
+</div>
+
+</div>
+</body>
+</html>

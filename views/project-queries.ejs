@@ -1,0 +1,530 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .tabulator-editing, .noPadding{
+    padding:0px!important;
+  }
+  .queryCell {
+    white-space: pre-line!important;
+  }
+  .tabulator-col-title {
+    text-align: center;
+  }
+  .tabulator-col.tabulator-sortable .tabulator-col-title{
+    padding-right:15px!important;
+  }
+  .tabulator-col:not(.tabulator-sortable) .tabulator-col-title{
+    padding-right:4px!important;
+  }
+  .tabulator-col-sorter {
+    right: 1px!important;
+  }
+  .tabulator-col-content{
+    padding: 4px 0px 4px 4px!important;
+  }
+  .tabulator-cell input,.tabulator-cell button,.tabulator-cell {
+    align-self: center;
+  }
+  .replyBtn, .remBtn, .approveBtn, .urgentBtn {
+    padding: 3px;
+    border: none;
+    width: 100%;
+    height: 100%;
+    border-radius: 0px;
+    font-size: x-large;
+  }
+  .approveBtn.btn-outline-secondary, .urgentBtn.btn-outline-secondary{
+    opacity:0.3;
+  }
+  .approveBtn.btn-outline-secondary:hover{
+    background:var(--success);
+  }
+  .urgentBtn.btn-outline-secondary:hover{
+    background:var(--danger);
+  }
+  .approveBtn.btn-outline-success:hover, .urgentBtn.btn-outline-danger:hover{
+    background:var(--secondary);
+  }
+  .urgentBtn.btn-outline-danger:not(:hover){
+    text-shadow: 0 0 4px #ff0000b3;
+  }
+  .replyHover:hover{
+    cursor:pointer;
+    background-color:#d3d3d3;
+  }
+  .badge{
+    vertical-align: top;
+    font-size: x-small;
+  }
+  table.replyTable tr {
+    border-bottom: 1px solid gainsboro;
+  }
+  table.replyTable td {
+    padding-bottom:5px;
+    background:white;
+  }
+  table.replyTable {
+    width: 100%;
+    margin-bottom: 20px;
+  }
+  .modal-dialog.modal-dialog-centered {
+    max-width: none;
+    width: 900px;
+  }
+  .originalQuery{
+    font-style: italic;
+    color: darkblue;
+  }
+  .qm-source {
+    font-style: italic;
+  }
+  .qm-query {
+    text-align: center;
+    font-size: larger;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    height: 100%;
+  }
+  .qm-query-text{
+    width:90%;
+  }
+  .qm-queries{
+    border-bottom: 1px solid gainsboro;
+  }
+  .qm-replyBox, .qm-replyBtn{
+    display: inline-block;
+    margin:auto;
+    margin: 0.5%;
+  }
+  .qm-replyBox{
+    width: 85%;
+  }
+  .qm-replyBtn{
+    width:10%;
+    vertical-align: unset;
+  }
+  .qm-replyCont {
+    margin-bottom: 10px;
+  }
+  span.qm-added {
+    font-style: italic;
+    font-size: small;
+  }
+  .qm-queriesCont{
+    position: absolute;
+    width: 100%;
+    top: 15px;
+    transition: top 0.5s;
+  }
+  .qm-mask{
+    height: 0px;
+    overflow: hidden;
+    position: relative;
+    transition: height 0.5s;
+  }
+  .qm-mask:after {
+    content: "";
+    position: absolute;
+    z-index: 1;
+    bottom: 0;
+    left: 0;
+    background-image: linear-gradient(
+      0deg
+      ,rgba(255,255,255, 1) 0%, rgba(255,255,255, 0) 20%, rgba(255,255,255, 0) 80%, rgba(255,255,255, 1) 100%);
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+  }
+  .qm-navBtn{
+    height:20px;
+    padding:0px;
+    border:none;
+    width: 100%;
+  }
+  .qm-badge{
+    opacity:1;
+    transition:opacity 0.5s;
+  }
+  .qm-approveBtn{
+    width: 10%;
+    position: relative;
+  }
+  .qm-responded{
+    text-align: center;
+    font-size: x-large;
+    padding: 15px;
+    font-style: italic;
+  }
+  .query-badge{
+    position: absolute;
+    top: 1px;
+    left: 2px;
+  }
+  #quickReview{
+    position: relative;
+    margin-bottom: 10px;
+  }
+  #groupBySel{
+    display: inline-block;
+    width: 200px;
+    padding: 4px;
+    height: auto!important;
+    vertical-align:bottom;
+  }
+  .replyHoverList{
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+  }
+</style>
+
+<div class="container" style="padding-top:70px;max-width:97%">
+  <div class="card viewerHeight text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <span class="guideHover" id="viewGuide"></span>
+      <h5 class="card-title">Project Queries</h5>
+      <h2><%=project.quoteNo+" "+project.quoteName%></h2>
+      <button type="button" class="btn btn-primary btn-sm" id="quickReview">Quick review<span id="qm-replyCount" class="replyCount new" style="visibility:hidden;"></span></button><br>
+      <button type="button" class="btn btn-sm btn-xlsx" id="downloadToXL">Download to XLSX</button>
+      <select class="form-control" id="groupBySel" name="groupBySel" placeholder="Group queries by...">
+        <option value="" selected><i>Group queries by...</i></option>
+        <option value="raisedByID">Raised by</option>
+        <option value="raisedForID">Raised for</option>
+        <option value="queryCat">Type</option>
+        <option value="repliesCount">Addressed</option>
+        <option value="resolved">Resolved</option>
+      </select>
+      <div id="queriesTable"></div>
+      <a href="/overview/<%= project.quoteID[0] %>" class="btn btn-sm" style="background-color:#4b7491; color:#fff;width:100%;">Back to project overview</a>
+  </div>
+</div>
+<div class='modal fade' role='dialog' id='Modal'>
+  <div class='modal-dialog modal-dialog-centered' role='document'>
+    <div class='modal-content'>
+      <div class='modal-header'>
+        <h5 class='modal-title' id='Modal-title'></h5>
+        <button type='button' class='close modalClose' data-dismiss='modal' aria-label='Close'>
+          <span aria-hidden='true'>&times;</span>
+        </button>
+      </div>
+      <div class='modal-body' id='modal-body'>
+
+      </div>
+      <div class="modal-footer">
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  $(document).ready(function(){
+    $('.modal-content').resizable({
+      alsoResize: ".modal-dialog",
+      // minHeight: 520,
+      minWidth: 850,
+      ghost: true
+    });
+    $('.modal-dialog').draggable({
+      handle: ".modal-header",
+      cursor: "crosshair",
+    });
+
+    $('#myModal').on('show.bs.modal', function() {
+      $(this).find('.modal-body').css({
+        'max-height': '100%'
+      });
+    });
+  })
+  var projectID=<%=project.projectID%>
+  <%
+  var obj={}
+  jobs.forEach((el, i) => {
+    obj[el.jobID]=el.jobName
+  });%>
+  var jobList=<%-JSON.stringify(obj)%>
+  var typeList=['Scripting','Sample','Interviewing','Data','Tables']
+  <%
+  var obj={}
+  staff.forEach((el, i) => {
+    obj[el.staffID]=el.staffName
+  });
+  obj[1]='Client'
+  %>
+  var staffInitials=<%-JSON.stringify(obj)%>
+  var thisUser=<%-JSON.stringify(staff.find(el=>el.userID==user))%>
+  var raisedByInitials={}
+  raisedByInitials[thisUser.staffID]=thisUser.staffName
+  raisedByInitials[1]='Client'
+  var projectCM=<%= project.projectCM %>
+  var projectPM=<%= project.projectDP %>
+  var projectName="<%=project.quoteNo+" "+project.quoteName%>"
+  const blankQueryRow={queryID:-1,projectID:projectID,queryPos:999999,raisedByID:thisUser.staffID,raisedDate:moment().format("YYYY-MM-DD HH:mm")}
+  var queriesTable = Tabulator.prototype.findTable('#queriesTable')[0];
+  $('body').on('keydown', function (e) {
+    if (e.keyCode==46) {
+      queriesTable = Tabulator.prototype.findTable('#queriesTable')[0];
+      var rows = queriesTable.getSelectedRows();
+      if (e.originalEvent.path[0].nodeName!="INPUT" && rows.length>0) {
+        if (confirm("Delete selected queries?")) {
+          rows.forEach(function(row){
+            deleteQueryImg(null,row.getData().queryID,null).then(e=>{
+              updateJob('delete','ProjectQueries',[],[],'queryID',row.getData().queryID).then(function(e){
+                row.delete()
+              })
+            })
+          });
+          setPostitionsAfter(rows[0])
+        }
+      }
+    }
+  })
+  $(document).on('click','#downloadToXL', function (e) {
+    let table=Tabulator.prototype.findTable('#queriesTable')[0]
+    let data=table.getData()
+    var maxReplies=Math.max.apply(null,data.map(row=>row.repliesCount?row.repliesCount:0))
+    var replyCols=[]
+    for (var i = 0; i < maxReplies; i++) {
+      replyCols.push({
+        title:"Reply "+(i+1),
+        field:"reply"+i,
+        visible:false,
+        download:true,
+      })
+    }
+    let rcol=table.getColumns(true).find(el=>{
+      return el.getField()=='replyDL'
+    })
+    var i=0
+    if (rcol) {
+      rcol.delete().then(e=>{
+        table.addColumn({title:"Replies", visible:false, download:true, field:"replyDL", accessorDownload:downloadYN,columns:replyCols},false).then(e=>{
+          table.redraw()
+          table.download("xlsx", projectName+" queries "+moment.utc().format("DDMMYY")+".xlsx", {sheetName:"Queries "+moment.utc().format("DDMMYY")});
+        })
+      })
+    }else {
+      table.redraw()
+      table.download("xlsx", projectName+" queries "+moment.utc().format("DDMMYY")+".xlsx", {sheetName:"Queries "+moment.utc().format("DDMMYY")});
+    }
+  })
+  $(document).on('change','#groupBySel', function (e) {
+    Tabulator.prototype.findTable('#queriesTable')[0].setGroupBy($(this).find('option:selected').val())
+  })
+  $('#quickReview').on('click',function(e){
+    let html=""
+    let user=thisUser.staffID
+    $.ajax({
+      url: '/get-quickmode-queries/',
+      type: 'POST',
+      data: {staffID:user,projectID:projectID},
+      success: function(response){
+        if (response.queries.length==0) {
+          html=html+'<div class="qm-responded">You have no queries to review.</div>'
+        }else {
+          html='<button type="button" class="btn btn-outline-secondary qm-navBtn" id="qm-upBtn"><i class="fas fa-chevron-up"></i></button>'
+            +'<div class="qm-mask" width="100%">'
+            +'<div class="qm-queriesCont" width="100%">'
+          response.queries.forEach((query, i) => {
+            var thisQuery={
+              source:{
+                type:query.reply?'Reply':'Query',
+                date:query.reply?query.replyDate:query.raisedDate,
+                staffID:query.reply?query.replyFromID:query.raisedByID,
+                query:query.reply?query.query:''
+              },
+              query:query.reply?query.reply:query.query,
+              jobID:query.jobID,
+            }
+            var adds=response.additions.filter(el=>el.queryID==query.queryID && el.replyID!=query.replyID)
+            html=html+'<div class="qm-queries" data-seen="'+query.seenDate+'" data-index="'+i+'" data-id="'+query.queryID+'" width="100%">'
+              +'<div class="qm-source">'+thisQuery.source.type+' from '+staffInitials[thisQuery.source.staffID]+' sent '+moment.utc(thisQuery.source.date).format("DD/MMM HH:mm")
+              +'<span class="qm-badge badge badge-warning" style="visibility:'+(query.seenDate==null?'visible':'hidden')+'">New</span></div>'
+              +(thisQuery.source.type=='Reply'?'<div class="originalQuery">Original query: '+thisQuery.source.query+'</div>':'')
+              +'<div class="qm-query"><div class="qm-query-text">'+thisQuery.query+adds.map(el=>"<br><span class='qm-added'>"+staffInitials[el.replyFromID]+" added:</span> "+el.reply).join("")
+              +(query.raisedByID==thisUser.staffID || (query.raisedByID==1 && thisUser.staffID==projectCM) || thisUser.staffID==3?'</div><button type="button" data-approved="false" class="btn approveBtn qm-approveBtn btn-outline-secondary"><i class="fas fa-check"></i></button>':'')
+              +'</div><div class="qm-replyCont">'
+              +'<input type="text" class="qm-replyBox '+(i==0?'initial ':'')+'form-control" placeholder="Reply here...'+(query.raisedByID==thisUser.staffID || (query.raisedByID==1 && thisUser.staffID==projectCM)?'(CTRL+Enter to accept as resolution)':'')+'"/>'
+              +'<button type="button" class="btn btn-primary qm-replyBtn">Send</button>'
+              +'</div>'
+              +'</div>'
+          });
+          html=html+'<div class="qm-queries" data-index="'+response.queries.length+'" width="100%"><div class="qm-responded">All done!</div></div>'
+          html=html+'</div></div>'
+            +'<button type="button" class="btn btn-outline-secondary qm-navBtn" id="qm-downBtn"><i class="fas fa-chevron-down"></i></button>'
+          var currIndex=0
+          function checkBtns(){
+            if (currIndex==0) {
+              $('#qm-upBtn').css('visibility','hidden')
+            }else {
+              $('#qm-upBtn').css('visibility','visible')
+            }
+            if (currIndex==response.queries.length) {
+              $('#qm-downBtn').css('visibility','hidden')
+            }else {
+              $('#qm-downBtn').css('visibility','visible')
+            }
+          }
+          function seenReply(i){
+            var queryDiv=$('.qm-queries[data-index="'+i+'"]')
+            if (response.queries[i].seenDate==null) {
+              response.queries[i].seenDate==moment.utc().format("YYYY-MM-DD HH:mm")
+              addEventSeen('ProjectQueries',[response.queries[i].queryID],[projectID])
+              queryDiv.find('.qm-badge')[0].style.opacity=0
+            }
+            var replies=response.additions.filter(el=>el.queryID==response.queries[i].queryID && el.seenDate==null)
+            if (replies.length>0) {
+              addEventSeen('ProjectQueryReplies',replies.map(el=>el.replyID),replies.map(el=>el.queryID)).then(function(e){
+                // Tabulator.prototype.findTable('#queriesTable')[0].setData()
+              })
+            }
+          }
+          $('#Modal').on('shown.bs.modal', function(evt) {
+            function counterTop(){
+              setTimeout(()=>{
+                $('#qm-replyCount').css('top',$('#Modal-title')[0].getBoundingClientRect().top-$('#quickReview')[0].getBoundingClientRect().top-50)
+              },400)
+            }
+            $('#qm-replyCount').addClass('qm-mode-active')
+            checkBtns()
+            $('.qm-mask').height($('div[data-index="0"]').height()+50)
+            $('.qm-replyBox')[0].focus({preventScroll:true})
+            seenReply(currIndex)
+            counterTop()
+            $('#qm-downBtn').on('click', function(evt) {
+              var top=$('.qm-queriesCont').position().top
+              $('.qm-queriesCont').css('top',top-$('div[data-index="'+currIndex+'"]').height())
+              currIndex++
+              $('.qm-mask').height($('div[data-index="'+currIndex+'"]').height()+50)
+              checkBtns()
+              counterTop()
+              if (currIndex<response.queries.length) {
+                $('.qm-replyBox')[currIndex].focus({preventScroll:true})
+                seenReply(currIndex)
+              }
+            })
+            $('#qm-upBtn').on('click', function(evt) {
+              var top=$('.qm-queriesCont').position().top
+              currIndex--
+              $('.qm-queriesCont').css('top',top+$('div[data-index="'+currIndex+'"]').height())
+              $('.qm-mask').height($('div[data-index="'+currIndex+'"]').height()+50)
+              checkBtns()
+              counterTop()
+              if (currIndex<response.queries.length) {
+                $('.qm-replyBox')[currIndex].focus({preventScroll:true})
+                seenReply(currIndex)
+              }
+            })
+            $('.approveBtn').on('click', function(evt) {
+              let queryDiv=$(this).closest('.qm-queries')
+              var el=this
+              updateJob('update','ProjectQueryReplies',['isResolution'],[''],'queryID',response.queries[currIndex].queryID,true).then(function(e){
+                if ($(el).attr("data-approved")=='false') {
+                  var now=moment.utc().format("YYYY-MM-DD HH:mm")
+                  var replies=response.additions.filter(el=>el.queryID==response.queries[currIndex].queryID)
+                  updateJob('update','ProjectQueryReplies',['isResolution'],[now],'replyID',replies[replies.length-1].replyID,true).then(function(e){
+                    $(el).removeClass('btn-outline-secondary')
+                    $(el).addClass('btn-outline-success')
+                    $(el).attr("data-approved",true)
+                    $(el).closest('.qm-queries').find('.qm-replyBtn').click()
+                  })
+                }else {
+                  $(el).removeClass('btn-outline-success')
+                  $(el).addClass('btn-outline-secondary')
+                  $(el).attr("data-approved",false)
+                  $(el).closest('.qm-queries').find('.qm-replyBtn').click()
+                }
+              })
+            })
+            $('.qm-replyBox').on('keydown', function (e) {
+              if (e.keyCode==13 || e.keyCode==9) {
+                if (e.ctrlKey && (response.queries[currIndex].raisedByID==thisUser.staffID || (response.queries[currIndex].raisedByID==1 && thisUser.staffID==projectCM))) {
+                  let queryDiv=$(this).closest('.qm-queries')
+                  var el=queryDiv.find('.qm-approveBtn')
+                  updateJob('update','ProjectQueryReplies',['isResolution'],[''],'queryID',response.queries[currIndex].queryID,true).then(function(e){
+                    var now=moment.utc().format("YYYY-MM-DD HH:mm")
+                    var replies=response.additions.filter(el=>el.queryID==response.queries[currIndex].queryID)
+                    updateJob('update','ProjectQueryReplies',['isResolution'],[now],'replyID',replies[replies.length-1].replyID,true).then(function(e){
+                      $(el).removeClass('btn-outline-secondary')
+                      $(el).addClass('btn-outline-success')
+                      $(el).attr("data-approved",true)
+                      $(el).closest('.qm-queries').find('.qm-replyBtn').click()
+                    })
+                  })
+                }else {
+                  $(this).closest('.qm-queries').find('.qm-replyBtn').click()
+                }
+              }
+            })
+            $('.qm-replyBtn').on('click', function(evt) {
+              let queryDiv=$(this).closest('.qm-queries')
+              if (queryDiv.find('.qm-replyBox').val()) {
+                let replyData={}
+                replyData.queryID=queryDiv.attr("data-id")
+                replyData.reply=queryDiv.find('.qm-replyBox').val()
+                replyData.replyDate=moment().format("YYYY-MM-DD HH:mm")
+                replyData.replyFromID=thisUser.staffID
+                $.ajax({
+                  url: '/add-projectquery-reply/',
+                  type: 'POST',
+                  data: JSON.stringify(replyData),
+                  contentType: 'application/json',
+                  success: function(response){
+                    addEventSeen('ProjectQueryReplies',[response.id],[replyData.queryID]).then(function(e){
+                      // Tabulator.prototype.findTable('#queriesTable')[0].setData()
+                      updateQMcount(projectID)
+                      queryDiv.find('.qm-replyBox').prop('disabled',true)
+                      queryDiv.find('.qm-replyBtn').prop('disabled',true)
+                      if ($('#qm-downBtn').css('visibility')=='visible') {
+                        $('#qm-downBtn').click()
+                      }
+                    })
+                  },
+                  error: function (jqXHR, exception) {
+                    alert(getErrorMessage(jqXHR, exception))
+                  },
+                })
+              }else {
+                updateQMcount(projectID)
+                if ($('#qm-downBtn').css('visibility')=='visible') {
+                  $('#qm-downBtn').click()
+                }
+              }
+            })
+            $('#Modal').on('hide.bs.modal', function(evt) {
+              $('#Modal').off('shown.bs.modal')
+              $('#qm-upBtn, #qm-downBtn, .qm-replyBox, .qm-replyBtn').off()
+              $('#qm-replyCount').removeClass('qm-mode-active')
+              $('#qm-replyCount').css('top','')
+            })
+            $('#Modal').on('hidden.bs.modal', function(evt) {
+              Tabulator.prototype.findTable('#queriesTable')[0].replaceData()
+            })
+          })
+        }
+        $('#Modal-title').html('Quick Review')
+        $('#modal-body').html(html)
+        $('#Modal').modal("show")
+      },
+      error: function (jqXHR, exception) {
+        alert(getErrorMessage(jqXHR, exception))
+      },
+    })
+  })
+  $(window).keydown(function(e) {
+    if ((e.keyCode == 70 && (e.ctrlKey || e.metaKey))) {
+      e.preventDefault()
+      Tabulator.prototype.findTable('#queriesTable')[0].setHeaderFilterFocus("query");
+    }
+  })
+
+  $(document).on('mousedown', '#viewGuide', function(evt) {
+    var html='<div style="max-width: 640px;margin: auto;"><div style="position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden;""><iframe width="640" height="360" src="https://web.microsoftstream.com/embed/video/b4558324-a454-4d8d-9563-7681689d9486?autoplay=false&amp;showinfo=true" allowfullscreen style="border:none;"></iframe></div></div>'
+    $("#modal-body").html(html)
+    $("#Modal-title").text('Using project queries')
+    $("#Modal").modal("show")
+  })
+</script>
+<script src="/js/JA2tableFuncs.js" type="text/javascript"></script>
+<script src="/js/JA2queriesTable.js" type="text/javascript"></script>
+<link rel='stylesheet' href='/css/JA2tables.css'>
+</body>
+</html>

@@ -1,0 +1,164 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .tabulator-cell,.tabulator-col-content {
+    padding: 3px!important;
+  }
+  .changeInfo{
+    white-space: nowrap;
+  }
+  .tooltip-inner {
+    max-width: 700px;
+  }
+  .increase::after{
+    content: '\25B2';
+    margin: 0px 2px;
+    color: var(--danger);
+  }
+  .decrease::after{
+    content: '\25BC';
+    margin: 0px 2px;
+    color: var(--success);
+  }
+</style>
+<div class="container" style="padding-top:70px;max-width: 96%;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5 class="card-title">CPI changes</h5>
+      <div class="selectFilters">
+        <!-- <select class="selectpicker filters" title="Job" id="changeJobSelect" data-field="changeJob" multiple data-live-search="true"></select>
+        <select class="selectpicker filters" title="Agent" id="changeAgentSelect" data-field="changeAgent" multiple data-live-search="true"></select> -->
+        <select class="selectpicker filters" title="Team" id="teamNameSelect" data-field="teamName" multiple data-live-search="true"></select>
+        <select class="selectpicker filters" title="Period" id="periodSelect" data-field="period" multiple data-live-search="true"></select>
+      </div>
+      <a href="#" onclick="downloadTable()">Download to Excel</a>
+      <div id="contTable"></div><br><br>
+      <!-- <h5 class="card-title">Logs</h5>
+      <div id="logsTable"></div> -->
+    </div>
+  </div>
+</div>
+<script type="text/javascript">
+  let allJobs=[]
+  let allAgents=[]
+  var nfNumber=(val,dp)=>{
+    return val?Math.round(val*Math.pow(10,dp))/Math.pow(10,dp):0
+  }
+  var nfPerc=(cell,p)=>{
+    let txt=(cell.getValue()?Math.round(cell.getValue()*100*Math.pow(10,p.dp))/Math.pow(10,p.dp):'-')+"%"
+    let spanClass=''
+    if (p.diffFrom) {
+      spanClass=cell.getData()[p.diffFrom]<cell.getValue()?'increase':'decrease'
+    }
+    return "<span class='"+spanClass+"'>"+txt+"</span>"
+  }
+  var nfMoney=(val)=>{
+    let ret='-'
+    if (val) {
+      var num_parts = val.toFixed(2).split(".")
+      num_parts[0] = num_parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+      ret=num_parts.join(".")
+    }
+    return "£"+ret
+  }
+  var changesFormat=(cell,p,onRendered)=>{
+    if (cell.getValue().length>0) {
+      onRendered(function(){
+        $(cell.getElement()).tooltip({
+          title:cell.getValue().map(el=>"<span class='changeInfo'>"+el.info+": <b>"+p.formatter(el.from,p.dp)+" -> "+p.formatter(el.to,p.dp)+"</b></span>").join("<br>"),
+          html:true,
+          sanitize:false,
+          boundary:'window'
+        })
+      })
+    }
+    return cell.getValue().length>0?cell.getValue().length+" change"+(cell.getValue().length==1?'':'s'):''
+  }
+  var changesDownload=(val,data,t,p)=>{
+    let ret=""
+    console.log(p)
+    if (val.length>0) {
+      ret=val.map(el=>el.info+": "+p.formatter(el.from,p.dp)+" -> "+p.formatter(el.to,p.dp)+"").join("\r\n")
+    }
+    return ret
+  }
+  function downloadTable(){
+    Tabulator.prototype.findTable('#contTable')[0].download("xlsx", "Contribution change log "+moment.utc().format("DDMMYY")+".xlsx");
+  }
+  var contTable=new Tabulator("#contTable",{
+    ajaxURL:"/contribution-tracker-data/",
+    autoResize:true,
+    ajaxResponse:(url,params,resp)=>{
+      allAgents=resp.allAgents
+      allJobs=resp.allJobs
+      return resp.data
+    },
+    height:'65vh',
+    layout:"fitData",
+    columns:[
+      {field:'changeDate',title:'Change made',formatter:cell=>moment.utc(cell.getValue()).format("DD/MM/YYYY HH:mm"),width:170},
+      {field:'period',title:'Period',mutator:(val,data)=>moment.utc(data.changeDate).subtract(1,'month').startOf('month').format("DD/MMM")+'-'+moment.utc(data.changeDate).subtract(1,'month').endOf('month').format("DD/MMM")},
+      {field:'teamName',title:'Team'},
+      {field:'oldCont',title:'From',formatter:nfPerc,formatterParams:{dp:2}},
+      {field:'newCont',title:'To',formatter:nfPerc,formatterParams:{dp:2,diffFrom:'oldCont'}},
+      {title:'Changes logged',columns:[
+        {field:'cpi',title:'CPI',accessorDownload:changesDownload,accessorDownloadParams:{formatter:nfMoney},formatter:changesFormat,formatterParams:{formatter:nfMoney},mutator:(val,data)=>JSON.parse(data.shiftChanges)?JSON.parse(data.shiftChanges).cpi.map(el=>({info:allJobs.find(j=>j.jobID==el.jobID).fullJobName,from:el.cpi.old,to:el.cpi.new})):''},
+        {field:'payrate',title:'Pay rate',accessorDownload:changesDownload,accessorDownloadParams:{formatter:nfMoney},formatter:changesFormat,formatterParams:{formatter:nfMoney},mutator:(val,data)=>JSON.parse(data.shiftChanges)?JSON.parse(data.shiftChanges).payRate.map(el=>({info:allAgents.find(a=>a.agentID==el.agentID).agentName,from:el.payRate.old,to:el.payRate.new})):''},
+        {field:'hours',title:'Hours',accessorDownload:changesDownload,accessorDownloadParams:{formatter:nfNumber,dp:2},formatter:changesFormat,formatterParams:{formatter:nfNumber,dp:2},mutator:(val,data)=>JSON.parse(data.shiftChanges).hours.map(el=>({info:(allJobs.find(j=>j.jobID==el.jobID)?allJobs.find(j=>j.jobID==el.jobID).fullJobName:'[Missing job]')+" - "+allAgents.find(a=>a.agentID==el.agentID).agentName+" - "+moment.utc(el.inputDate).format("DD/MM/YYYY"),from:el.Hours.old,to:el.Hours.new}))},
+        {field:'ints',title:'Ints',accessorDownload:changesDownload,accessorDownloadParams:{formatter:nfNumber,dp:0},formatter:changesFormat,formatterParams:{formatter:nfNumber,dp:0},mutator:(val,data)=>JSON.parse(data.shiftChanges)?JSON.parse(data.shiftChanges).ints.map(el=>({info:(allJobs.find(j=>j.jobID==el.jobID)?allJobs.find(j=>j.jobID==el.jobID).fullJobName:'[Missing job]')+" - "+allAgents.find(a=>a.agentID==el.agentID).agentName+" - "+moment.utc(el.inputDate).format("DD/MM/YYYY"),from:el.Ints.old,to:el.Ints.new})):''},
+      ]}
+    ],
+    dataLoaded:(data)=>{
+      let vals={}
+      vals.teamName=data.map(el=>el.teamName).filter((el,i,self)=>self.indexOf(el)==i)
+      vals.period=data.map(el=>el.period).filter((el,i,self)=>self.indexOf(el)==i)
+      Object.keys(vals).forEach((key, i) => {
+        if (vals[key].filter(el=>el!=null).length>0) {
+          $('#'+key+'Select').html('').append('<option value=""></option>').append(vals[key].map(el=>`<option value="`+el+`">`+el+`</option>`).join("")).selectpicker("refresh")
+        }else {
+          $('#'+key+'Select').html('').append('<option value=""></option>')
+        }
+      });
+    }
+  })
+  // var logsTable=new Tabulator("#logsTable",{
+  //   ajaxURL:"/get-changelog/",
+  //   autoResize:true,
+  //   height:'65vh',
+  //   layout:"fitColumns",
+  //   columns:[
+  //     {field:'changeDate',title:'Date',formatter:cell=>moment(cell.getValue()).format("DD/MM/YYYY HH:mm:SS"),width:170},
+  //     {title:'Detail',formatter:cell=>cell.getData().changeBy+" changed "+cell.getData().changeField+" to "+cell.getData().changeValue+(cell.getData().changeAgent?" for "+cell.getData().changeAgent:'')+(cell.getData().changeJob?" on "+cell.getData().changeJob:(cell.getData().changeProject?" on "+cell.getData().changeProject:''))},
+  //   ],
+  //   dataLoaded:(data)=>{
+  //     let vals={}
+  //     vals.changeBy=data.map(el=>el.changeBy).filter((el,i,self)=>self.indexOf(el)==i)
+  //     vals.changeJob=data.map(el=>el.changeJob?el.changeJob:el.changeProject).filter((el,i,self)=>self.indexOf(el)==i)
+  //     vals.changeAgent=data.map(el=>el.changeAgent).filter((el,i,self)=>self.indexOf(el)==i)
+  //     vals.changeField=data.map(el=>el.changeField).filter((el,i,self)=>self.indexOf(el)==i)
+  //     Object.keys(vals).forEach((key, i) => {
+  //       if (vals[key].filter(el=>el!=null).length>0) {
+  //         $('#'+key+'Select').html('').append('<option value=""></option>').append(vals[key].map(el=>`<option value="`+el+`">`+el+`</option>`).join("")).selectpicker("refresh")
+  //       }else {
+  //         $('#'+key+'Select').html('').append('<option value=""></option>')
+  //       }
+  //     });
+  //   }
+  // })
+  $('select.filters').on("change",function(e){
+    contTable.clearFilter(true)
+    let filters=[]
+    $('select.filters').each(function(e){
+      let field=$(this).attr("data-field")
+      let thisFilter=[]
+      $(this).find(":selected").each(function(e){
+        if ($(this).val()) {
+          thisFilter.push({field:field,type:"=",value:$(this).val()})
+        }
+      })
+      filters.push(thisFilter)
+    })
+    contTable.setFilter(filters)
+  })
+</script>
+</body>
+</html>

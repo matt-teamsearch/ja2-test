@@ -1,0 +1,320 @@
+<%- include('partials/'+versionPages.header) %>
+<script src='/js/rainbowvis.js'></script>
+<style media="screen">
+  .popover{
+    max-width:100%!important;
+  }
+  a.scoreCell:focus {
+    font-weight: bold;
+  }
+  a.scoreCell {
+    color: white;
+    cursor: pointer;
+  }
+</style>
+<script type="text/javascript">
+  $(document).ready(function () {
+    $('#league_table').DataTable({
+      paging: false,
+      order: [[ 11, "desc" ]],
+      dom: 'Bfrtip',
+      buttons: [
+         'copy', 'csv', 'excel', 'print'
+      ],
+      columnDefs:[
+        {targets:[12,13],visible:false},
+        {
+          targets:11,
+          createdCell: function (td, cellData, rowData, row, col) {
+            let data=JSON.parse(rowData[13])
+            $(td).attr('style', function(i,s) { return (s || '') + 'background-color:#'+bgCols.colourAt(row)+"!important" })
+            $(td).css('color', 'white')
+            $(td).attr('tabindex',0)
+            let a=$(document.createElement("a"))
+            a.text(cellData)
+            a.attr('tabindex',0)
+            a.addClass('scoreCell')
+            $(td).html(a)
+            $(a).popover({
+              html:true,
+              sanitize:false,
+              trigger:'focus',
+              content:'<canvas id="chart-'+data.agentID+'" width="330" height="330"></canvas>'
+            })
+            $(a).on('shown.bs.popover', function () {
+              let chartData=data.chartData
+              let scoreChart=new Chart($('#chart-'+data.agentID)[0], {
+                data: {
+                  datasets: [{
+                    data:chartData.map(k=>Math.round((Math.max(k.data,-0.5)*100)*10)/10),
+                  }],
+                  labels:chartData.map(k=>k.label)
+                },
+                type: 'polarArea',
+                options:{
+                  title: {
+                    display: true,
+                    text: 'Weighted KPIs',
+                    fontFamily:"'Arial Nova', sans-serif",
+                    fontStyle:'Normal',
+                    fontSize:18,
+                    padding:2,
+                  },
+                  layout:{
+                    padding:10
+                  },
+                  scale: {
+                    display:false,
+                    ticks: {
+                      min: -50,
+                      max: 50
+                    }
+                  },
+                  tooltips:{
+                    callbacks:{
+                      label:(e,data)=>e.value+"%"
+                    }
+                  },
+                  legend:{
+                    display:false
+                  },
+                  plugins: {
+                    datalabels: {
+                      anchor:'end',
+                      align:'end',
+                      clamp:true,
+                      padding:1,
+                      offset:1,
+                      textAlign:'center',
+                      formatter:(val,con)=>{
+                        return (con.chart.data.labels[con.dataIndex]).match(/.{1,13}(\s|$)/g)
+                      },
+                      font:{
+                        family:"'Arial Nova', sans-serif",
+                        size:14
+                      },
+                    }
+                  },
+                }
+              });
+            })
+          },
+        }
+      ]
+    });
+    $("#jobType").val("<%=jobType%>");
+    $("#minHrs").val("<%=minHrs%>");
+    $('form #minHrs').change(function() {
+      $('#updateReportBtn').show();
+    });
+    $('form select').change(function() {
+      $('#updateReportBtn').show();
+    });
+    $('#datemessage').css("display","none")
+    $("#stdate").val('<%=stdate%>')
+    $("#endate").val('<%=endate%>')
+    $('.inputdate').change(function() {
+      let en=new Date($("#endate").val())
+      let st=new Date($("#stdate").val())
+      let empty=new Date("1970-01-01")
+      if (st<=en && en > empty && st > empty) {
+        $('#datemessage').css("visibility","hidden")
+        $('#updateReportBtn').show();
+      }else if (st>en) {
+        $("#datemessage").text('Start date cannot be after end date')
+        $('#datemessage').css("display","block")
+      }else if (en <= empty || st <= empty) {
+        $("#datemessage").text('Must enter both dates')
+        $('#datemessage').css("display","block")
+      }
+    })
+    try{
+      $().reportFilter({
+        filters:{
+          stDate:'<%=stdate%>',
+          enDate:'<%=endate%>',
+          jobTypes:<%-JSON.stringify(jobType)%>,
+          minHours:<%=minHrs%>
+        },
+        onRefresh:(vals)=>{
+          let form=document.createElement("form")
+          form.method = "POST"
+          form.action = ""
+          form.enctype="multipart/form-data"
+          form.style.display="none"
+          let jobType=document.createElement("select")
+          jobType.name='jobType'
+          jobType.id='jobType'
+          jobType.multiple=true
+          if (vals.jobTypes && vals.jobTypes!=='0') {
+            vals.jobTypes.split(",").forEach((j, i) => {
+              let opt=new Option(j,j)
+              $(opt).attr('selected',true)
+              $(jobType).append(opt)
+            });
+          }
+          let stdate=document.createElement("input")
+          stdate.name='stdate'
+          stdate.id='stdate'
+          stdate.value=vals.stDate
+          let endate=document.createElement("input")
+          endate.name='endate'
+          endate.id='endate'
+          endate.value=vals.enDate
+          let minHrs=document.createElement("input")
+          minHrs.name='minHrs'
+          minHrs.id='minHrs'
+          minHrs.value=vals.minHours
+          form.appendChild(jobType).appendChild(stdate).appendChild(endate).appendChild(minHrs)
+          $(document.body).append(form)
+          form.submit()
+        }
+      })
+    }catch(e){
+      $('#league-table-select').show()
+    }
+
+  });
+  var bgCols = new Rainbow()
+  bgCols.setNumberRange(0, <%=interviewers.length+1%>)
+  bgCols.setSpectrum('green', 'orange' ,'red')
+  var fgCols = new Rainbow()
+  fgCols.setNumberRange(0, <%=interviewers.length+1%>)
+  fgCols.setSpectrum('white', 'white' ,'black')
+  </script>
+  <style media="screen">
+    table.dataTable tbody th, table.dataTable tbody td {
+      padding: 1px 3px;
+      white-space: nowrap;
+    }
+    table.dataTable thead th, table.dataTable thead td {
+      padding: 4px 7px;
+    }
+  </style>
+  <div class="container" style="padding-top:70px;max-width:90%">
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body viewerHeight">
+        <h5 class="card-title">Interviewer league table</h5>
+        <form class="league-table-select" style="display:none;" id="league-table-select" action="" method="post" enctype="multipart/form-data" style="width:100%; border:1px solid #ced4da; border-radius:5px; padding:10px;">
+          Show performance on
+              <select class="" name="jobType" id="jobType" required>
+                <option value="All" Selected>all</option>
+                <option value="isJobBusiness">B2B</option>
+                <option value="isJobConsumer">consumer</option>
+                <option value="isJobRecruitment">recruitment</option>
+              </select>
+            jobs, from
+              <input type="date" style="display:inline; width:145px; margin:auto;" class=" inputdate" id="stdate" name="stdate"> to <input type="date" style="display:inline; width:145px; margin:auto;" class="inputdate" id="endate" name="endate">
+              from agents who worked at least <input type="number" style="width: 3em" class="" name="minHrs" id="minHrs" required> hours overall.
+              </input>
+              <br>
+              <button type="submit" style="display:none;margin: auto;" class="btn btn-primary" id="updateReportBtn" name="button">Update report</button>
+        </form>
+        <div class="alert alert-danger fade show" id="datemessage" role="alert">Please enter a valid date range</div>
+              <table class="table table-sm table-striped table-bordered" id="league_table">
+                <thead>
+                  <th style="width:200px;">Agent </th>
+                  <th>WFH </th>
+                  <th>Team </th>
+                  <th>Hours </th>
+                  <th>Interviews </th>
+                  <th>Contribution </th>
+                  <th>Shifts on/above target </th>
+                  <th>Avg hours p/wk </th>
+                  <th>Avg QC score </th>
+                  <th>Shifts absent </th>
+                  <th>Shifts late </th>
+                  <th>Score </th>
+                  <th>chartData</th>
+                  <th>sourceData</th>
+                </thead>
+                <tbody>
+                  <%
+                  interviewers=interviewers.map(interviewer=>{
+                    if (interviewer.onTarget==null) {
+                      interviewer.onTarget=0
+                    }
+                    let contTarg=interviewer.isEve?0.35:0.39
+                    interviewer.kpis={
+                      cont:(interviewer.Pay/interviewer.Sales),
+                      onTarget:(interviewer.onTarget),
+                      hrsPerWeek:(interviewer.hrsPerWeek),
+                      qcScore:(interviewer.qcScore),
+                      absences:(interviewer.absencePerShift),
+                      lates:(interviewer.latesPerShift),
+                    }
+                    interviewer.kpiTargets={
+                      cont:contTarg,
+                      onTarget:50,
+                      hrsPerWeek:30,
+                      qcScore:85,
+                      absences:0.1,
+                      lates:0.1,
+                    }
+                    let calc=(field,lowerIsBetter)=>{
+                      if (lowerIsBetter) {
+                        return (interviewer.kpiTargets[field]+-interviewer.kpis[field])/interviewer.kpiTargets[field]
+                      }else {
+                        return (interviewer.kpis[field]-interviewer.kpiTargets[field])/interviewer.kpiTargets[field]
+                      }
+                    }
+                    interviewer.kpiScores={
+                      cont:calc('cont',true),
+                      onTarget:calc('onTarget'),
+                      hrsPerWeek:calc('hrsPerWeek'),
+                      qcScore:calc('qcScore'),
+                      absences:calc('absences',true),
+                      lates:calc('lates',true),
+                    }
+                    interviewer.kpiWeightings={
+                      cont:0.2,
+                      onTarget:0.3,
+                      hrsPerWeek:0.2,
+                      qcScore:0.15,
+                      absences:0.1,
+                      lates:0.05
+                    }
+                    interviewer.weightedScores={}
+                    Object.keys(interviewer.kpis).forEach((k, i) => {
+                      interviewer.weightedScores[k]=interviewer.kpiScores[k]*interviewer.kpiWeightings[k]
+                    });
+                    let scoreLabels={
+                      cont:'Profitability',
+                      onTarget:'Shifts on target',
+                      hrsPerWeek:'Hours worked',
+                      qcScore:'QC scores',
+                      absences:'Attendance',
+                      lates:'Promptness'
+                    }
+                    interviewer.score=Object.keys(interviewer.kpis).reduce((a,b)=>a+interviewer.weightedScores[b],0)
+                    interviewer.chartData=Object.keys(interviewer.kpis).map(el=>({label:scoreLabels[el],data:interviewer.weightedScores[el]}))
+                    return interviewer
+                  })
+                  interviewers.sort((a,b)=>b.score-a.score).forEach((interviewer, index) =>{
+                    if (interviewer.Sales > 0 && interviewer.hrs >= minHrs) {
+                  %>
+                  <tr>
+                    <td><%=interviewer.agentName%></td>
+                    <td><%if (interviewer.isRemote==1) {%><i class='fas fa-home'></i><%}%></td>
+                    <td><%=interviewer.teamName%></td>
+                    <td><%=interviewer.hrs.toFixed(0)%></td>
+                    <td><%=interviewer.Ints%></td>
+                    <td><%=((interviewer.Pay/interviewer.Sales)*100).toFixed(1)%>%</td>
+                    <td><%=(interviewer.onTarget).toFixed(1)%>%</td>
+                    <td><%=Math.round(interviewer.hrsPerWeek*10)/10%></td>
+                    <td><%=Math.round(interviewer.qcScore*10)/10%></td>
+                    <td><%=Math.round((interviewer.absencePerShift*100)*10)/10%>%</td>
+                    <td><%=Math.round((interviewer.latesPerShift*100)*10)/10%>%</td>
+                    <td><%=Math.round((interviewer.score*100)*10)/10%>%</td>
+                    <td><%-JSON.stringify(interviewer.chartData)%></td>
+                    <td><%-JSON.stringify(interviewer)%></td>
+                  </tr>
+                  <% }
+                }); %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        </body>
+        </html>

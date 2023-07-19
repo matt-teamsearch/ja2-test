@@ -1,0 +1,69 @@
+<%- include('partials/'+versionPages.header) %>
+
+<style>
+  div.dropdown-menu.open{
+  max-height: 314px !important;
+  overflow: hidden;
+}
+ul.dropdown-menu.inner{
+  max-height: 260px !important;
+  overflow-y: auto;
+}
+</style>
+
+<div class="container" style="padding-top:70px; width: 90%!important;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5 class="card-title">Input daily tally sheet</h5>
+      <form class="tally-form form-styles" action="" method="post" enctype="multipart/form-data">
+        <input type="text" name="user" id="user" style="display:none;">
+        <div class="form-row">
+          <div class="form-group col-md-12" style="border:solid 1px #ced4da; border-radius:5px; padding:10px;">
+            <label for="tDate"><h3>Tally sheet date</h3></label>
+            <br>
+            <input class="form-control" type="date" id="tDate" name="tDate" style="width:200px; margin:auto;" value="<%= new Date().getFullYear() %>-<%= ('0' + (new Date().getMonth()+1)).slice(-2) %>-<%= ('0' + new Date().getDate()).slice(-2) %>"required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group col-md-12" style="border:solid 1px #ced4da; border-radius:5px; padding:10px;">
+            <a href="/view-tally/d" class="btn btn-secondary">Use day allocation for today</a>
+            <a href="/view-tally/e" class="btn btn-secondary">Use evening allocation for today</a>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group col-md-12" style="border:solid 1px #ced4da; border-radius:5px; padding:10px;">
+            <label for="Projects"><h3>Projects</h3></label>
+            <select class="selectpicker" multiple data-live-search="true" data-width="100%" name="projects" id="projects" required>
+              <%  projects.forEach((project , index) => {%>
+                <% jobs.forEach((job, index) => { if(job.jobID == project.jobID){ %>
+                <option value="<%= project.jobID %>" data-tokens="<%= project.quoteNo %> <%= project.quoteName %> <%= project.jobName %>"><%= project.quoteNo %> <%= project.quoteName %> <%= project.jobName %></option>
+                <% }
+                })
+              }) %>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group col-md-12" style="border:solid 1px #ced4da; border-radius:5px; padding:10px;">
+              <label for="Interviewers"><h3>Interviewers</h3></label>
+              <select class="selectpicker" multiple data-live-search="true" data-width="100%" data-height="150px" name="interviewers" id="interviewers" required>
+                <%  interviewers.forEach((interviewer , index) => { %>
+                  <option value="<%= interviewer.agentID %>" data-tokens="<%= interviewer.agentName %>" <% if (interviewer.agentID < 2){%>style="display:none;"<%}%>><%= interviewer.agentName %></option>
+                  <% }) %>
+                </select>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-success float-right tally">Create tally</button>
+          </form>
+        </div>
+      </div>
+    </div>
+    <script>
+      $('select').selectpicker();
+      $('#projects').on('click', '.clickable-row', function(event) {
+        $(this).addClass('active').siblings().removeClass('active');
+      });
+
+    </script>
+  </body>
+  </html>

@@ -1,0 +1,191 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px;">
+	<%  numbers.forEach((number , index) => { %>
+		<p class="text-center text-danger"><%= message %></p>
+		<div class="card text-dark bg-light mb-2 text-center">
+			<div class="card-body">
+				  <h3><%= numbers[0].clientName %> conversion</h3>
+				<canvas id='quotesChart' style='width:90%; margin:auto; height:350px;'></canvas>
+				<br/>
+				<table class="table table-sm table-hovered table-bordered">
+					<thead class="thead">
+						<tr>
+							<th scope="col">Project types</th>
+							<th scope="col">Total</th>
+							<th scope="col">Converted</th>
+							<th scope="col">Conversion percentage</th>
+						</tr>
+					</thead>
+					<tbody>
+						<tr>
+							<td>Total</td>
+							<td><%= number.totalquotes %></td>
+							<td><%= number.ProjectConverted %></td>
+							<td><% if (number.ProjectConverted  == 0 ) { %> 0<% } else { %> <%= Math.floor((number.ProjectConverted / number.totalquotes ) * 100) %><% } %>%</td>
+							<tr>
+								<td><a href="1">B2B</a></td>
+								<td><%= number.B2BProject %></td>
+								<td><%= number.B2BProjectConverted %></td>
+								<td><% if (number.B2BProjectConverted  == 0 ) { %> 0<% } else { %> <%= Math.floor((number.B2BProjectConverted / number.B2BProject ) * 100) %><% } %>%</td>
+							</tr>
+							<tr>
+								<td><a href="2">Consumer</a></td>
+								<td><%= number.ConsumerProject %></td>
+								<td><%= number.ConsumerProjectConverted %></td>
+								<td><% if (number.ConsumerProjectConverted  == 0 ) { %> 0<% } else { %> <%= Math.floor((number.ConsumerProjectConverted / number.ConsumerProject ) * 100) %><% } %>%</td>
+							</tr>
+							<tr>
+								<td><a href="3">F2F</a></td>
+								<td><%= number.F2FProject %></td>
+								<td><%= number.F2FProjectConverted %></td>
+								<td><% if (number.F2FProjectConverted  == 0 ) { %> 0<% } else { %> <%= Math.floor((number.F2FProjectConverted / number.F2FProject ) * 100) %><% } %>%</td>
+							</tr>
+							<tr>
+								<td><a href="4">CATI</a></td>
+								<td><%= number.CATIProject %></td>
+								<td><%= number.CATIProjectConverted %></td>
+								<td><% if (number.CATIProjectConverted  == 0 ) { %> 0<% } else { %> <%= Math.floor((number.CATIProjectConverted / number.CATIProject ) * 100) %><% } %>%</td>
+							</tr>
+							<tr>
+								<td><a href="5">Online</a></td>
+								<td><%= number.OnlineProject %></td>
+								<td><%= number.OnlineProjectConverted %></td>
+								<td><% if (number.OnlineProjectConverted  == 0 ) { %> 0<% } else { %> <%= Math.floor((number.OnlineProjectConverted / number.OnlineProject ) * 100) %><% } %>%</td>
+							</tr>
+							<tr>
+								<td><a href="6">International</a></td>
+								<td><%= number.InternationalProject %></td>
+								<td><%= number.InternationalProjectConverted %></td>
+								<td><% if (number.InternationalProjectConverted  == 0 ) { %> 0<% } else { %> <%= Math.floor((number.InternationalProjectConverted / number.InternationalProject ) * 100) %><% } %>%</td>
+							</tr>
+							<tr>
+								<td><a href="7">Recruit</a></td>
+								<td><%= number.RecruitProject %></td>
+								<td><%= number.RecruitProjectConverted %></td>
+								<td><% if (number.RecruitProjectConverted  == 0 ) { %> 0<% } else { %> <%= Math.floor((number.RecruitProjectConverted / number.RecruitProject ) * 100) %><% } %>%</td>
+							</tr>
+							<tr>
+								<td><a href="8">DP</a></td>
+								<td><%= number.DPProject %></td>
+								<td><%= number.DPProjectsConverted %></td>
+								<td><% if (number.DPProjectsConverted  == 0 ) { %> 0<% } else { %> <%= Math.floor((number.DPProjectsConverted / number.DPProject ) * 100) %><% } %>%</td>
+							</tr>
+							<td colspan="7">
+								<a href="/client-projects/<%= number.clientID %>" class="btn btn-sm" style="background-color:#4b7491; color:#fff;width:100%;">View <%= number.clientName %> projects</a>
+							</td>
+						</tbody>
+					</table>
+					<% }) %>
+				</div>
+			</div>
+		</div>
+		<script>
+
+
+			var quoteC = $('#quotesChart');
+			new Chart(quoteC, {
+				type: 'bar',
+				data: {
+					labels: ['Total','B2B','Consumer','F2F','CATI','Online','International','Recruitment', 'Dataprocessing'],
+					datasets: [{
+						label: 'Quoted',
+						backgroundColor:'rgba(153, 102, 255, 0.8)',
+						data: [
+						<%  numbers.forEach((number , index) => { %>
+							<%= number.totalquotes %>,
+							<%= number.B2BProject %>,
+							<%= number.ConsumerProject %>,
+							<%= number.F2FProject %>,
+							<%= number.CATIProject %>,
+							<%= number.OnlineProject %>,
+							<%= number.InternationalProject %>,
+							<%= number.RecruitProject %>,
+							<%= number.DPProject %>
+							<% }) %>],
+							backgroundColor: [
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							],
+							borderColor: [
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							'rgba(153, 102, 255, 0.8)',
+							],
+
+							borderWidth: 1
+						},
+						{
+							label: 'Converted',
+							backgroundColor: 'rgba(255, 99, 132, 1)',
+							data: [<%  numbers.forEach((number , index) => { %>
+								<%= number.ProjectConverted %>,
+								<%= number.B2BProjectConverted %>,
+								<%= number.ConsumerProjectConverted %>,
+								<%= number.F2FProjectConverted %>,
+								<%= number.CATIProjectConverted %>,
+								<%= number.OnlineProjectConverted %>,
+								<%= number.InternationalProjectConverted %>,
+								<%= number.RecruitProjectConverted %>,
+								<%= number.DPProjectsConverted %>
+								<% }) %>],
+								backgroundColor: [
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								],
+								borderColor: [
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								'rgba(54, 247, 103, 0.8)',
+								],
+								borderWidth: 1
+							}]
+						},
+						options: {
+							scales: {
+								yAxes: [{
+									ticks: {
+										beginAtZero: false,
+										precision: 0,
+										stepSize: 1
+									}
+								}]
+							}
+						}
+					});
+
+				</script>
+			</body>
+			</html>

@@ -1,0 +1,137 @@
+<%- include('partials/'+versionPages.header) %>
+<style>
+  .form-row {
+    align-items: baseline;
+  }
+  label.col-md-3 {
+    text-align: left;
+  }
+  .d-flex {
+    justify-content: space-around;
+    flex-wrap: wrap;
+  }
+  input[type="checkbox"] {
+    transform: scale(1.8);
+    margin: 7px;
+  }
+  .checkCont {
+    padding: 4px;
+  }
+</style>
+<script type="text/javascript">
+  $(document).ready(e=>{
+    <%if(supplier){%>
+      let supplier=<%-JSON.stringify(supplier)%>
+      Object.keys(supplier).forEach((field, i) => {
+        if (supplier[field]==true || supplier[field]==false) {
+          $('#'+field).prop('checked',supplier[field])
+        }else {
+          $('#'+field).val(supplier[field])
+        }
+      });
+      $('#notes').html(supplier.note)
+      $('#onboardedDate').val(moment(supplier.onboardedDate).format("YYYY-MM-DD"))
+    <%}else {%>
+      const name = document.getElementById("supplierName");
+      const supplierNames=<%-JSON.stringify(suppliers.map(el=>el.supplierName))%>
+      $(name).on("keyup",e=>{
+        let match=supplierNames.find(el=>el.toLowerCase().replace(/ /g,'')==$(name).val().toLowerCase().replace(/ /g,''))
+        if (match) {
+          name.setCustomValidity("'"+match+"' already present in database.");
+          name.reportValidity()
+        }else {
+          name.setCustomValidity("");
+        }
+      })
+    <%}%>
+  })
+</script>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5 class="card-title"><%= supplier?"Edit":"Add" %> supplier</h5>
+      <form class="card-body" id="<%= supplier?"update":"add" %>SupplierForm" action="/<%= supplier?"update":"add" %>-supplier<%= supplier?"/"+supplier.supplierID:'' %>" method="post" enctype="multipart/form-data">
+        <div class="form-row">
+          <label for="supplierName" class="col-md-3 required">Supplier name:</label>
+          <div class="form-group col-md-9">
+            <input type="text" class="form-control" name="supplierName" id="supplierName" value="" placeholder="Company name" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="contactName" class="col-md-3 required">Contact/Account manager:</label>
+          <div class="form-group col-md-3">
+            <input type="text" class="form-control" name="contactName" id="contactName" value="" placeholder="Name">
+          </div>
+          <div class="form-group col-md-3">
+            <input type="email" class="form-control" name="contactEmail" id="contactEmail" value="" placeholder="Email">
+          </div>
+          <div class="form-group col-md-3">
+            <input type="text" class="form-control" name="contactTel" id="contactTel" value="" placeholder="Tel">
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="supplierTypes" class="col-md-3 required">Supplier offerings:</label>
+          <div class="form-group col-md-9 d-flex">
+            <div class="checkCont"><input type="checkbox" value="1" id="isOnlineCons" name="isOnlineCons"/><label for="isOnlineCons">Online consumer panel</label></div>
+            <div class="checkCont"><input type="checkbox" value="1" id="isOnlineB2B" name="isOnlineB2B"/><label for="isOnlineB2B">Online B2B panel</label></div>
+            <div class="checkCont"><input type="checkbox" value="1" id="isConsSample" name="isConsSample"/><label for="isConsSample">Consumer CATI sample</label></div>
+            <div class="checkCont"><input type="checkbox" value="1" id="isB2bSample" name="isB2bSample"/><label for="isB2bSample">B2B CATI sample</label></div>
+            <div class="checkCont"><input type="checkbox" value="1" id="isUkFieldwork" name="isUkFieldwork"/><label for="isUkFieldwork">UK CATI fieldwork</label></div>
+            <div class="checkCont"><input type="checkbox" value="1" id="isIntFieldwork" name="isIntFieldwork"/><label for="isIntFieldwork">International CATI fieldwork</label></div>
+            <div class="checkCont"><input type="checkbox" value="1" id="isIncentives" name="isIncentives"/><label for="isIncentives">Incentives</label></div>
+            <div class="checkCont"><input type="checkbox" value="1" id="isF2fFieldwork" name="isF2fFieldwork"/><label for="isF2fFieldwork">F2F fieldwork</label></div>
+            <div class="checkCont"><input type="checkbox" value="1" id="isAdmin" name="isAdmin"/><label for="isAdmin">Admin/Other</label></div>
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="onboardedDate" class="col-md-3 required">Onboarded:</label>
+          <div class="form-group col-md-9">
+            <input type="date" class="form-control" name="onboardedDate" id="onboardedDate" value="<%=moment().format("YYYY-MM-DD")%>" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="SLAs" class="col-md-3">SLA(s):</label>
+          <div class="form-group col-md-9">
+            <%if(supplier){%>
+              <table class="table table-sm fileList">
+                <%for (var i = 0; i < files.length; i++) {%>
+                  <tr data-rowID="<%=i%>">
+                    <td onclick="downloadFile('SLAs','<%=files[i]%>')"><%=files[i]%></td>
+                    <td onclick="deleteFile('SLAs','<%=files[i]%>',<%=i%>)"><i class="far fa-trash-alt"></i></td>
+                  </tr>
+                <%}%>
+              </table>
+            <%}%>
+            <input type="file" class="form-control" id="SLAs" name="SLAs" multiple>
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="iso" class="col-md-3 required">ISO Accreditation:</label>
+          <div class="form-group col-md-9">
+            <select class="selectpicker" name="iso" id="iso" data-width="100%" title="Select an ISO accreditation...">
+              <option value="26362:2009">ISO 26362:2009</option>
+              <option value="20252:2012">ISO 20252:2012</option>
+              <option value="19731:2017">ISO 19731:2017</option>
+              <option value="20252:2019">ISO 20252:2019</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <label for="notes" class="col-md-3 required">Notes:</label>
+          <div class="form-group col-md-9">
+            <textarea class="form-control" name="notes" id="notes"></textarea>
+          </div>
+        </div>
+        <div class="form-row" style="display: flex;flex-direction: column;align-items: center;">
+          <div class="checkCont"><input type="checkbox" value="1" id="isSupplierActive" name="isSupplierActive" checked/><label for="isSupplierActive">Currently active?</label></div>
+          <div class="checkCont"><input type="checkbox" value="1" id="isSupplierPreferred" name="isSupplierPreferred"/><label for="isSupplierPreferred">Preferred supplier?</label></div>
+        </div>
+        <div class="col-md-12">
+          <button type="submit" class="btn btn-primary submit"><%=supplier?"Update":"Add"%></button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,592 @@
+<%- include('partials/'+versionPages.header) %>
+<script type="text/javascript">
+
+  function fnExcelReport(id)
+  {
+    var tab_text="<table border='2px'><tr bgcolor='#87AFC6'>";
+      var textRange; var j=0;
+      tab = document.getElementById(id); // id of table
+
+      for(j = 0 ; j < tab.rows.length ; j++)
+      {
+        tab_text=tab_text+tab.rows[j].innerHTML+"</tr>";
+        //tab_text=tab_text+"</tr>";
+      }
+
+      tab_text=tab_text+"</table>";
+      tab_text= tab_text.replace(/<A[^>]*>|<\/A>/g, "");
+      tab_text= tab_text.replace(/<a[^>]*>|<\/a>/g, "");
+      tab_text= tab_text.replace(/<img[^>]*>/gi,"");
+      tab_text= tab_text.replace(/<input[^>]*>|<\/input>/gi, "");
+
+      var ua = window.navigator.userAgent;
+      var msie = ua.indexOf("MSIE ");
+
+      if (msie > 0 || !!navigator.userAgent.match(/Trident.*rv\:11\./))
+      {
+        txtArea1.document.open("txt/html","replace");
+        txtArea1.document.write(tab_text);
+        txtArea1.document.close();
+        txtArea1.focus();
+        sa=txtArea1.document.execCommand("SaveAs",true,"Project_Deadlines.xls");
+      }
+      else
+      sa = window.open('data:application/vnd.ms-excel,' + encodeURIComponent(tab_text));
+
+      return (sa);
+    }
+
+  </script>
+  <style>
+    .teamStats .fas,.teamStats .far, .agentList .fas,.agentList .far{
+      color: rgb(0 0 0 / 19%);
+    }
+    .head{
+
+    }
+    .alt{
+      background-color: #3784691a;
+    }
+    .value-text {
+
+    }
+    .good{
+      fill: rgb(50, 168, 82);
+      color: rgb(50, 168, 82);
+    }
+    .bad{
+      fill: rgb(219, 70, 70);
+      color: rgb(219, 70, 70);
+    }
+    .neutral{
+      fill: rgb(219, 132, 70);
+      color: rgb(230 159 0);
+    }
+    .text-container{
+      font-size:22px;
+    }
+    .value{
+      stroke-width:9;
+      transition: stroke 3000ms ease 0s!important;
+    }
+    .dial{
+      stroke-width:10;
+      stroke: #80808054;
+    }
+    .teamStats {
+      box-shadow: 0px 0px 7px -1px #00000038;
+      background: white;
+      display: flex;
+      margin: 10px;
+      padding: 5px;
+      white-space: nowrap;
+      flex-wrap: wrap;
+    }
+    h5.header {
+      flex-basis: 100%;
+    }
+    .gaugeStats {
+      flex-basis: 50%;
+      display: flex;
+      flex-wrap: wrap;
+      padding: 20px;
+      justify-content: space-evenly;
+    }
+    .stat {
+      flex-basis: 33%;
+    }
+    .tableStats {
+      flex-basis: 50%;
+    }
+    .gauge-container{
+      width:175px;
+      margin: auto;
+    }
+    .viewerHeight {
+      overflow: scroll;
+      display:flex;
+    }
+    .agentList {
+      width: 100%;
+      text-align: center;
+      margin: auto;
+    }
+    .agentList tr{
+      border: 1px solid gray;
+      cursor:pointer;
+    }
+    .dataTables_filter{
+      display:none;
+    }
+    table.dataTable tbody th, table.dataTable tbody td {
+      padding: 2px;
+    }
+    .container {
+      max-width: fit-content;
+    }
+    .dropdown.bootstrap-select{
+      width: 103px;
+      font-size: 25px;
+    }
+    .smallStat{
+      font-size: 18px
+    }
+    .infoTooltip {
+      text-decoration: underline 2px dotted gainsboro;
+      cursor: help;
+    }
+    .fixedCont {
+      position: absolute;
+      top: -38px;
+      left: 137px;
+      transform: scale(0.5);
+    }
+  </style>
+  <%
+  function dateIf(inDate, seperator, order){
+    let day =''
+    if (new Date(inDate).getDate() < 10) {
+      day = '0' + new Date(inDate).getDate()
+    } else {
+      day = new Date(inDate).getDate()
+    }
+    let month =''
+    if (new Date(inDate).getMonth()+1 < 10) {
+      month = '0' + (new Date(inDate).getMonth()+1)
+    } else {
+      month = (new Date(inDate).getMonth()+1)
+    }
+    let year = new Date(inDate).getFullYear()
+    if(order=="f"){
+      return(day+seperator+month+seperator+year)
+    }
+    if(order=="r"){
+      return(year+seperator+month+seperator+day)
+    }
+  }
+  %>
+  <div class="container" style="padding-top:70px;">
+    <div class="card text-dark bg-light mb-2 text-center viewerHeight">
+      <div class="card-body">
+        <%
+        var maxDate=new Date()
+        maxDate.setDate(maxDate.getDate()-1)
+        %>
+        <h5 class="card-title">Team performance report</h5>
+        <div class="pageFilters" id="oldFilters" style="display:none;">
+          <div class="pageFilterFields">
+            <input type="date" style="display:inline; width:auto;" max='<%=dateIf(maxDate,"-","r")%>' class="form-control inputdate" id="stdate" name="stdate" style="width:200px; margin:auto;"> to <input type="date" max='<%=dateIf(maxDate,"-","r")%>' style="display:inline; width:auto;" class="inputdate form-control" id="endate" name="endate" style="width:200px; margin:auto;">
+            <br>
+            Contribution
+            <select class="selectpicker" id="hourlyFilter">
+              <option value="0">excludes</option>
+              <option value="1">includes</option>
+            </select>
+            hourly Rigour jobs
+            <br>
+          </div>
+          <div class="pageFilterButton">
+            <button id="dateChange" class="btn btn-primary">Confirm</button>
+          </div>
+        </div>
+        <div class="alert alert-danger fade show" id="datemessage" role="alert">Please enter a valid date range</div>
+        <% teamStats.forEach((team, i) => {%>
+          <div class="teamStats">
+            <h5 class="header">
+              <%=team.teamName%>
+            </h5>
+            <div class="gaugeStats">
+              <div class="stat">
+                <div class="gauge-container" id="contribution_<%=i%>"></div>Real-time Contribution <i class="fas fa-pound-sign"></i>
+              </div>
+              <div class="stat">
+                <div class="gauge-container" id="fixedContribution_<%=i%>"></div>Fixed Contribution <i class="fas fa-pound-sign"></i>
+              </div>
+              <div class="stat">
+                <div class="gauge-container" id="avgOnTarget_<%=i%>"></div>Shifts on target <i class="fas fa-bullseye"></i>
+              </div>
+              <div class="stat">
+                <div class="gauge-container" id="QCscore_<%=i%>"></div>Avg QC score <i class="fas far fa-check-square"></i>
+              </div>
+              <div class="stat">
+                <div class="gauge-container" id="avgDials_<%=i%>"></div>Dials p/h <i class="fas fa-phone"></i>
+              </div>
+              <div class="stat">
+                <div class="gauge-container" id="coachingCount_<%=i%>"></div><span class="infoTooltip" title="Number of 'Coaching' or 'QC feedback' coachings conducted <u>with members of this team</u>, divided by the number of working days.">Avg team coaching/day <i class="fas fa-graduation-cap"></i></span>
+              </div>
+              <div class="stat">
+                <div class="gauge-container" id="userCoachingCount_<%=i%>"></div><span class="infoTooltip" title="Number of 'Coaching' or 'QC feedback' coachings conducted <u>by the Team Leader who manages this team</u>, divided by the number of working days.">Avg TL coaching/day <i class="fas fa-graduation-cap"></i></span>
+              </div>
+              <div class="stat">
+                <div class="gauge-container" id="coachingCountGen_<%=i%>"></div><span class="infoTooltip" title="Number of <u>'General feedback'</u> coachings conducted <u>with members of this team</u>, divided by the number of working days.">Avg team feedback/day <i class="fas fa-graduation-cap"></i></span>
+              </div>
+              <div class="stat">
+                <div class="gauge-container" id="userCoachingCountGen_<%=i%>"></div><span class="infoTooltip" title="Number of <u>'General feedback'</u> coachings conducted <u>by the Team Leader who manages this team</u>, divided by the number of working days.">Avg TL feedback/day <i class="fas fa-graduation-cap"></i></span>
+              </div>
+              <div class="stat">
+                <div class="gauge-container" id="qcFedBack_<%=i%>"></div><span class="infoTooltip" title="Percentage of QC checks with a score of &lt;85 which have been fed back.">QC checks fed back <i class="fas far fa-check-square"></i></span>
+              </div>
+              <div class="stat">
+                <div class="gauge-container" id="qcFedBackW2d_<%=i%>"></div><span class="infoTooltip" title="Percentage of QC checks with a score of &lt;85 which have been fed back <u>within 5 working days</u>.">QCs fed back within 5 days <i class="fas far fa-check-square"></i></span>
+              </div>
+              <div class="stat">
+                <div class="gauge-container" id="o2oPerAgent_<%=i%>"></div><span class="infoTooltip" title="Percentage of agents who have received at least one 1-2-1 during the time period.">Agents with 1-2-1 <i class="fas fa-comments"></i></span>
+              </div>
+            </div>
+          <div class="tableStats">
+          <table class="agentList table-hover" id="agentList_<%=i%>">
+            <thead>
+              <th>Agent</th>
+              <th class="hover-content" data-toggle="tooltip" title="Contribution"><i class="fas fa-pound-sign"></i></th>
+              <th class="hover-content" data-toggle="tooltip" title="% shifts on target"><i class="fas fa-bullseye"></i></th>
+              <th class="hover-content" data-toggle="tooltip" title="Avg QC score"><i class="fas far fa-check-square"></i></th>
+              <th class="hover-content" data-toggle="tooltip" title="Dials p/h"><i class="fas fa-phone"></i></th>
+              <th class="hover-content" data-toggle="tooltip" title="Hours worked"><i class="far fa-clock"></i></th>
+              <th class="hover-content" data-toggle="tooltip" title="1-2-1s"><i class="fas fa-comments"></i></th>
+            </thead>
+          <% agentStats.forEach((agent, i2) => {
+            if (agent.teamID==team.teamID) {
+              var cont=agent.fixedContribution==null?null:agent.fixedContribution*100
+              %>
+            <tr id="agent_<%=agent.agentID%>_<%=agent.teamID%>" class="agentRow">
+              <td><%=agent.agentName%></td>
+              <td class="<%=(team.isDay) ? targetClass(cont,40,true) : targetClass(cont,35,true)%>"><%=(cont==null) ? (agent.pay>0?'999%':'-') : Math.round(cont)+"%"%></td>
+              <td class="<%=targetClass(agent.onTarget*100,60,false)%>"><%=agent.onTarget?Math.round(agent.onTarget*100)+'%':''%></td>
+              <td class="<%=targetClass(agent.QCscore,85,false)%>"><%=(agent.QCscore==null) ? "" : Math.round(agent.QCscore)%></td>
+              <td class="<%=targetClass(agent.avgDials,60,false)%>"><%=agent.avgDials?Math.round(agent.avgDials):''%></td>
+              <td><%=agent.hrs%></td>
+              <td class="<%=targetClass(agent.o2oCount,1,false)%>"><%=agent.o2oCount?Math.round(agent.o2oCount):''%></td>
+            </tr>
+            <%}%>
+          <%});%>
+          </table>
+          </div>
+          </div>
+        <%});%>
+      </div>
+    </div>
+  </div>
+  <script>
+    try{
+      $().reportFilter({
+        filters:{stDate:'<%=stdate%>',enDate:'<%=endate%>',rigourHourly:<%=hourly%>,bmgHourly:<%=bmgHourly%>},
+        onRefresh:(vals)=>{
+          window.location.href=("/team-report?stdate=" + vals.stDate + "&endate=" + vals.enDate+"&hourly="+(vals.rigourHourly?1:0)+"&bmgHourly="+(vals.bmgHourly?1:0))
+        }
+      })
+    }catch(e){
+      $('#oldFilters').show()
+    }
+   function dateIf(inDate, seperator, order){
+     let day =''
+     if (new Date(inDate).getDate() < 10) {
+       day = '0' + new Date(inDate).getDate()
+     } else {
+       day = new Date(inDate).getDate()
+     }
+     let month =''
+     if (new Date(inDate).getMonth()+1 < 10) {
+       month = '0' + (new Date(inDate).getMonth()+1)
+     } else {
+       month = (new Date(inDate).getMonth()+1)
+     }
+     let year = new Date(inDate).getFullYear()
+     if(order=="f"){
+       return(day+seperator+month+seperator+year)
+     }
+     if(order=="r"){
+       return(year+seperator+month+seperator+day)
+     }
+   }
+   $(document).ready(function() {
+     $('.infoTooltip').tooltip({
+       santize:false,
+       html:true
+     })
+     $('#datemessage').css("display","none")
+     $("#stdate").val('<%=stdate%>')
+     $("#endate").val('<%=endate%>')
+     $('#hourlyFilter').val(<%=hourly%>)
+     $('#hourlyFilter').selectpicker("refresh")
+     $('#dateChange').css("visibility","hidden")
+     $('.inputdate, #hourlyFilter').change(function() {
+       $('#dateChange').css("visibility","visible")
+     })
+     function getNumWorkDays(st, en) {
+         var numWorkDays = 0;
+         var currentDate = new Date(st);
+         var startDate = new Date(st);
+         var endDate = new Date(en);
+         while (currentDate <= endDate) {
+             if (currentDate.getDay() != 0 && currentDate.getDay() != 6) {
+                 numWorkDays++;
+             }
+             currentDate.setDate(currentDate.getDate()+1);
+         }
+         return numWorkDays;
+     }
+     $('#dateChange').click(function() {
+       let en=new Date($("#endate").val())
+       let st=new Date($("#stdate").val())
+       let hourly=$('#hourlyFilter').val()
+       let empty=new Date("1970-01-01")
+       if (st<=en && en > empty && st > empty) {
+         $('#datemessage').css("visibility","hidden")
+         if (getNumWorkDays(st, en) < 60 || confirm("The period you've selected may take a few minutes to load, are you sure you want to continue?")) {
+           window.location.href=("/team-report/" + dateIf(st,"-","r") + "/" + dateIf(en,"-","r")+"/"+hourly)
+         }
+       }else if (st>en) {
+         $("#datemessage").text('Start date cannot be after end date')
+         $('#datemessage').css("display","block")
+       }else if (en <= empty || st <= empty) {
+         $("#datemessage").text('Must enter both dates')
+         $('#datemessage').css("display","block")
+       }
+     })
+     $('.agentRow').click(function() {
+       let en=new Date($("#endate").val())
+       let st=new Date($("#stdate").val())
+       let empty=new Date("1970-01-01")
+       window.open("/int-performance/" + dateIf(st,"-","r") + "/" + dateIf(en,"-","r") + "/" + this.id.split("_")[1] + "/" + this.id.split("_")[2])
+     })
+     $('[data-toggle="tooltip"]').tooltip()
+     <%
+     function targetClass(f,t,reverse){
+       var valClass
+       if (reverse) {
+         if (f*0.8>t) {
+           valClass="bad"
+         }else if (f<=t) {
+           valClass="good"
+         }else {
+           valClass="neutral"
+         }
+       }else {
+         if (f<t*0.8) {
+           valClass="bad"
+         }else if (f>=t) {
+           valClass="good"
+         }else {
+           valClass="neutral"
+         }
+       }
+       if (f==null) {
+         valClass="bad"
+       }
+       return valClass
+     }
+     function getNumWorkDays(st, en) {
+         var numWorkDays = 0;
+         var currentDate = new Date(st);
+         var startDate = new Date(st);
+         var endDate = new Date(en);
+         while (currentDate <= endDate) {
+             // Skips Sunday and Saturday
+             if (currentDate.getDay() != 0 && currentDate.getDay() != 6) {
+                 numWorkDays++;
+             }
+             currentDate = currentDate.addDays(1);
+         }
+         return numWorkDays;
+     }
+     var days=getNumWorkDays(stdate,endate)
+     teamStats.forEach((team, i) => {
+       var avgCoachings=0
+       if (team.coachingCount==null) {
+         avgCoachings=0
+       }else {
+         avgCoachings=team.coachingCount/days
+       }
+       var avgUserCoachings=0
+       if (team.userCoachCount==null) {
+         avgUserCoachings=0
+       }else {
+         avgUserCoachings=team.userCoachCount/days
+       }
+       var avgUserCoachingsGen=team.userCoachCountGen?team.userCoachCountGen/days:0
+       var avgGenCoaching=team.coachingCountGen?team.coachingCountGen/days:0
+       var qcFedBack=team.coachingCountQC?(team.coachingCountQC/team.qcPoorCount)*100:null
+       var qcFedBackW2d=team.qcPoorCountW2d?(team.w2dCoachCount/team.qcPoorCountW2d)*100:null
+       let teamAgents=agentStats.filter(el=>el.teamID==team.teamID)
+       var o2oPerAgent=(teamAgents.filter(el=>el.o2oCount>0).length/teamAgents.length)*100
+       %>
+       $('#agentList_<%=i%>').DataTable({
+     			"paging": false
+     		});
+       createGauge(<%=Math.round(team.avgDials)%>,"<%-team.teamName%>","avgDials_<%=i%>","Average dials p/h",60,0,100,false,false,false,0)
+       createGauge(<%=(team.contribution)?(team.contribution*100).toFixed(2):0%>,"<%-team.teamName%>","contribution_<%=i%>","Contribution",<%if(team.isDay){%>40<%}else{%>35<%}%>,0,100,true,true,<%=!team.contribution%>,2)
+       createGauge(<%=(team.fixedContribution)?(team.fixedContribution*100).toFixed(2):0%>,"<%-team.teamName%>","fixedContribution_<%=i%>","Fixed Contribution",<%if(team.isDay){%>40<%}else{%>35<%}%>,0,100,true,true,<%=!team.fixedContribution%>,2)
+       createGauge(<%=(team.QCscore)?team.QCscore:0%>,"<%-team.teamName%>","QCscore_<%=i%>","Avg QC score",80,0,130,false,false,<%=!team.QCscore%>,0)
+       createGauge(<%=avgCoachings.toFixed(1)%>,"<%-team.teamName%>","coachingCount_<%=i%>","Avg coaching per day",4,0,8,false,false,false,1)
+       createGauge(<%=Math.round(team.onTarget*100)%>,"<%-team.teamName%>","avgOnTarget_<%=i%>","% shifts on target",60,0,100,false,true,false,0)
+       createGauge(<%=avgUserCoachings.toFixed(1)%>,"<%-team.teamName%>","userCoachingCount_<%=i%>","Avg coaching per day",4,0,8,false,false,false,1)
+       createGauge(<%=avgUserCoachingsGen.toFixed(1)%>,"<%-team.teamName%>","userCoachingCountGen_<%=i%>","Avg feedback per day",4,0,8,false,false,false,1)
+       createGauge(<%=avgGenCoaching.toFixed(1)%>,"<%-team.teamName%>","coachingCountGen_<%=i%>","Avg feedback per day",4,0,8,false,false,false,1)
+       createGauge(<%=Math.round(qcFedBack)%>,"<%-team.teamName%>","qcFedBack_<%=i%>","% QC checks fed back",60,0,100,false,true,false,0)
+       createGauge(<%=Math.round(qcFedBackW2d)%>,"<%-team.teamName%>","qcFedBackW2d_<%=i%>","% QCs fed back within 2 days",60,0,100,false,true,false,0)
+       createGauge(<%=Math.round(o2oPerAgent)%>,"<%-team.teamName%>","o2oPerAgent_<%=i%>","% agents with 1-2-1",60,0,100,false,true,false,0)
+     <%});%>
+   })
+   function createGauge(data,team,id,title,target,min,max,reverse,perc,isnull,dp){
+     var valClass=""
+     if (reverse) {
+       if (data*0.8>target) {
+         valClass="bad"
+       }else if (data<=target) {
+         valClass="good"
+       }else {
+         valClass="neutral"
+       }
+     }else {
+       if (data<target*0.8) {
+         valClass="bad"
+       }else if (data>=target) {
+         valClass="good"
+       }else {
+         valClass="neutral"
+       }
+     }
+     if (dp>0) {
+       valClass=valClass+" smallStat"
+     }
+     data=Math.round(data*Math.pow(10,dp))/Math.pow(10,dp)
+     Gauge(
+        document.getElementById(id),
+        {
+          min: min,
+          max: max,
+          dialStartAngle: 180,
+          dialEndAngle: 0,
+          value: 0.00,
+          label: function(val) {
+            var gVal=data
+            if (perc) {
+              gVal=data+"%"
+            }
+            if(isnull){
+              gVal=''
+            }
+            return gVal
+          },
+          valueClass: valClass,
+          viewBox: "0 0 100 57",
+          title: title,
+          color: function(value) {
+            let col
+            if (reverse) {
+              if (value*0.8>target) {
+                col="rgb(219, 70, 70)"
+              }else if (value<=target) {
+                col="rgb(50, 168, 82)"
+              }else {
+                col="rgb(219, 132, 70)"
+              }
+            }else {
+              if (value<target*0.8) {
+                col="rgb(219, 70, 70)"
+              }else if (value>=target) {
+                col="rgb(50, 168, 82)"
+              }else {
+                col="rgb(219, 132, 70)"
+              }
+            }
+            return col
+          }
+        }
+      ).setValueAnimated(data,1.5)
+   }
+   function createBar(data,team,id,title,target,min,max,reverse,perc){
+    //bar
+    var colors=[]
+    var val=parseInt(data)
+    if (reverse) {
+      if (val*0.8>target) {
+        colors.push("rgb(219, 70, 70)")
+      }else if (val<target) {
+        colors.push("rgb(50, 168, 82)")
+      }else {
+        colors.push("rgb(219, 132, 70)")
+      }
+    }else {
+      if (val<target*0.8) {
+        colors.push("rgb(219, 70, 70)")
+      }else if (val>target) {
+        colors.push("rgb(50, 168, 82)")
+      }else {
+        colors.push("rgb(219, 132, 70)")
+      }
+    }
+    var dataArr=[data]
+    var titleArr=[title]
+    var ctxB = document.getElementById(id).getContext('2d');
+    var myBarChart = new Chart(ctxB, {
+      type: 'bar',
+      data: {
+        labels: titleArr,
+        datasets: [{
+          label: team,
+          data: dataArr,
+          borderWidth: 0,
+          barThickness: 1,
+          backgroundColor: colors
+        }]
+      },
+      options: {
+        tooltips: {
+          callbacks: {
+            label: function(tooltipItems, data) {
+              var labVal=""
+              if (perc) {
+                labVal=data.datasets[tooltipItems.datasetIndex].label +': ' + tooltipItems.yLabel + '%';;
+              }else {
+                labVal=data.datasets[tooltipItems.datasetIndex].label +': ' + tooltipItems.yLabel;;
+              }
+              return labVal
+            }
+          }
+        },
+        plugins: {
+          datalabels: {
+            color:'white',
+            font:{
+              weight:'bold',
+              size:42
+            },
+            formatter: function (value) {
+              var labVal=""
+              if (perc) {
+                labVal=value + "%";
+              }else {
+                labVal=value;
+              }
+              return labVal
+            },
+            textShadowBlur: 2,
+      			textShadowColor: 'rgba(0, 0, 0, 1)'
+          }
+        },
+        scales: {
+          xAxes: [{
+            display:false
+          }],
+          yAxes: [{
+            display:false,
+            ticks: {
+              beginAtZero: true,
+              suggestedMax: max,
+              display:false
+            },
+            gridLines: {
+                  display: false
+              }
+          }]
+        },
+        legend: {
+          display:false
+        }
+      }
+    });
+   }
+  </script>
+  </body>
+  </html>

@@ -1,0 +1,16 @@
+<%- include('partials/'+versionPages.header) %>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <%=message%>
+      <%if(redirect){%>
+        <br><br>You will now be redirected back to <%=redirect%>
+        <script type="text/javascript">
+          setTimeout(function(){ window.location='<%-redirect%>'}, 2000);
+        </script>
+      <%}%>
+    </div>
+  </div>
+</div>
+</body>
+</html>

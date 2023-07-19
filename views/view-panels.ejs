@@ -1,0 +1,85 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+  var year = new Date().getFullYear()
+  function searchQuote(client) {
+    if ($('#start_date').val()==0 || $('#end_date').val()==0)
+    {
+      window.location.href=("/getquotes/1700-01-01/9999-01-01/" + client + "/")
+    }
+    else if  ($('#start_date').val() > $('#end_date').val())
+    {
+      alert("Start date can't be higher than end date")
+    }
+    else
+    {
+      window.location.href=("/getquotes/" + $('#start_date').val() + "/" + $('#end_date').val() + "/" + client + "/")
+    }
+
+  };
+
+  function searchPerformance(panel) {
+    if ($('#start_date').val()==0 || $('#end_date').val()==0)
+    {
+      window.location.href=("/panelPerformance/1700-01-01/9999-01-01/" + panel + "/")
+    }
+    else if  ($('#start_date').val() > $('#end_date').val())
+    {
+      alert("Start date can't be higher than end date")
+    }
+    else
+    {
+      window.location.href=("/panelPerformance/" + $('#start_date').val() + "/" + $('#end_date').val() + "/" + panel + "/")
+    }
+  };
+
+  $(document).ready(function () {
+    $('#client_table').DataTable({
+      "paging": false,
+    });
+  });
+
+</script>
+<div class="container" style="padding-top:70px;">
+  <div class="card text-dark bg-light mb-2 text-center">
+    <div class="card-body">
+      <h5 class="card-title">Panels</h5>
+      <p class="text-center text-danger"><%= message %></p>
+      <table class="table table-bordered">
+        <thead class="thead">
+          <th>Search Start date</th>
+          <th>Search End date</th>
+        </thead>
+        <tbody>
+          <tr>
+            <td><input type="date" class="form-control" id="start_date" name="start_date"></td>
+            <td><input type="date" class="form-control" id="end_date" name="end_date"></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <% if (panels.length > 0) {%>
+        <table class="table table-sm table-striped table-bordered" id="client_table">
+          <thead class="thead">
+            <tr>
+              <th scope="col">Panel name</th>
+              <th scope="col">Performance</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% panels.forEach((panel, index) => { if (panel.onlinePanelID > 1) {%>
+              <tr>
+                <td><%= panel.onlinePanelName %></td>
+                <td><button class="btn btn-sm btn-secondary" id="Redirect" value="Performance" onclick="searchPerformance('<%= panel.onlinePanelID %>')" >View performance</button></td>
+              </tr>
+              <% }}) %>
+            </tbody>
+          </table>
+          <% } else { %>
+            <p class="text-center">No panels found. Go <a href="/add-panel" >here</a> to add panels.</p>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+  </html>

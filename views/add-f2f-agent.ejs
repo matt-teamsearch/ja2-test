@@ -1,0 +1,98 @@
+<%- include('partials/'+versionPages.header) %>
+<script>
+</script>
+<style>
+  #isActive,#isWatchlist{
+    -webkit-transform: scale(2);
+    margin: 12px 7px;
+    width:auto;
+    display: inline;
+    text-align: center;
+  }
+  .form-row{
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+  .avatarImg {
+    border-radius: 8px;
+    border: 2px solid black;
+  }
+  .input-group {
+    justify-content: center;
+  }
+</style>
+<div class="container" style="padding-top:70px;">
+    <div class="card text-dark bg-light mb-2 text-center">
+      <div class="card-body">
+        <h5 class="card-title"><%= agent.agentID?"Edit":"Add"%> F2F Agent</h5>
+        <form class="form-styles" action="/<%=agent.agentID?"edit":"add"%>-F2f-Agent/<%=agent.agentID?agent.agentID:""%>" method="post" enctype="multipart/form-data">
+          <input type="text" name="user" id="user" style="display:none;">
+          <input type="text" name="agentID" id="agentID" style="display:none;" value="<%=agent.agentID?agent.agentID:""%>">
+          <div class="form-row col-md-12" style="text-align:center;margin-bottom:0px;width: 58%;margin: auto;">
+            <div style="margin:auto;padding: 10px;">
+              <%if(agent.agentID){%>
+                <img src='<%=profileImg?"/F2F Agents/"+profileImg:"/blank-user.jpg"%>' width="187px" class="avatarImg" alt="Image is missing">
+              <%}else {%>
+                <img src='/blank-user.jpg' width="187px" class="avatarImg" alt="Image is missing">
+              <%}%>
+              <input type="file" name="profileImg" id="profileImg" class="filestyle" data-input="false" data-text="Upload a profile photo">
+            </div>
+            <div style="border:1px solid gainsboro;margin:auto;padding: 10px;">
+              <label for="badgeID" style="white-space: nowrap;margin: 0px 5px;align-self: center;">Badge ID:</label>
+              <input type="text" class="form-control" name="badgeID" id="badgeID" placeholder="Badge ID" value="<%=agent.agentID?agent.badgeID:""%>"><br>
+              <label for="badgeIssued" style="white-space: nowrap;margin: 0px 5px;align-self: center;">Badge last issued:</label>
+              <input type="date" class="form-control" name="badgeIssued" id="badgeIssued" value="<%=agent.agentID?(agent.badgeIssued?moment(agent.badgeIssued).format("YYYY-MM-DD"):''):""%>">
+            </div>
+          </div>
+          <div class="form-group col-md-12 d-flex">
+            <input type="text" class="form-control" name="agentName" id="agentName" placeholder="Agent name" value="<%=agent.agentID?agent.agentName:""%>" required>
+          </div>
+          <div class="form-group col-md-12">
+            <select id="supervisorID" name="supervisorID" title="Supervisor" data-width="100%" class="selectpicker customfilters" data-container="body" data-live-search="true">
+              <% sups.forEach((sup, i) => {%>
+                <option value='<%= sup.id%>' <%=sup.id==agent.supervisorID?'selected':''%> ><%= sup.supervisorName%></option>
+              <%});%>
+            </select>
+          </div>
+          <div class="form-group col-md-12 d-flex">
+            <input type="text" class="form-control" name="add1" id="add1" placeholder="Address line 1" value="<%=agent.agentID?agent.add1:""%>">
+            <input type="text" class="form-control" name="add2" id="add2" placeholder="Address line 2" value="<%=agent.agentID?agent.add2:""%>">
+            <input type="text" class="form-control" name="add3" id="add3" placeholder="Address line 3" value="<%=agent.agentID?agent.add3:""%>">
+            <input type="text" class="form-control" name="add4" id="add4" placeholder="Address line 4" value="<%=agent.agentID?agent.add4:""%>">
+            <input type="text" class="form-control" name="postcode" id="postcode" placeholder="Postcode" value="<%=agent.agentID?agent.postcode:""%>">
+          </div>
+          <div class="form-group col-md-12 d-flex">
+            <input type="text" class="form-control" name="landlinePhone" id="landlinePhone" placeholder="Landline" value="<%=agent.agentID?agent.landlinePhone:""%>" >
+          </div>
+          <div class="form-group col-md-12 d-flex">
+            <input type="text" class="form-control" name="mobilePhone" id="mobilePhone" placeholder="Mobile" value="<%=agent.agentID?agent.mobilePhone:""%>" >
+          </div>
+          <div class="form-group col-md-12 d-flex">
+            <input type="email" class="form-control" name="email" id="email" placeholder="Email" value="<%=agent.agentID?agent.email:""%>" >
+          </div>
+          <div class="form-group col-md-12 d-flex">
+
+          </div>
+          <div class="form-group col-md-12">
+            <input type="checkbox" class="form-control" name="isActive" id="isActive" <%=agent.agentID?(agent.isActive?'checked':""):""%> >
+            <label for="isActive">Active</label>
+          </div>
+          <div class="form-group col-md-12">
+            <input type="checkbox" class="form-control" name="isWatchlist" onchange="$('#watchlistNote').toggle();" id="isWatchlist" <%=agent.agentID?(agent.isWatchlist?'checked':""):""%> >
+            <label for="isWatchlist">On watch list</label>
+            <input type="text" id="watchlistNote" style="<%=agent.agentID?(agent.isWatchlist?'':"display:none;"):"display:none;"%>" name="watchlistNote" placeholder="Add note" value="<%=agent.agentID?(agent.isWatchlist?watchlistNote.note:""):""%>">
+          </div>
+          <div class="form-group col-md-12">
+            <button type="submit" class="btn btn-primary "><%= agent.agentID?"Update":"Add"%> Agent</button>
+            <% if(agent.agentID){%>
+            <a style="margin-top: 30px;" href="/delete-f2f-agent/<%= agent.agentID%>" type="button" class="btn btn-danger">Delete Agent</a>
+            <%}%>
+          </div>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+</div>
+</body>
+</html>

@@ -1,0 +1,740 @@
+<%- include('partials/'+versionPages.header) %>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.min.js"></script>
+<link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/daterangepicker/daterangepicker.css" />
+<style>
+  @keyframes blur {
+    from {
+      filter: blur(0px);
+      opacity: 1
+    }
+    to {
+      filter: blur(5px);
+      opacity: 0.7
+    }
+  }
+  @keyframes unblur {
+    from {
+      filter: blur(5px);
+      opacity: 0.7
+    }
+    to {
+      filter: blur(0px);
+      opacity: 1
+    }
+  }
+  @keyframes grow {
+    from {
+      transform:translateY(-100px);
+    }
+    to {
+      transform:translateY(0px);
+    }
+  }
+  .tabulator-row .tabulator-cell{
+    border-right:none;
+  }
+.dailyCell{
+  padding: 0px!important;
+  border-right: none!important;
+  mix-blend-mode: unset!important;
+  text-align: center;
+  background: white;
+}
+.tabulator .tabulator-header .tabulator-col .tabulator-col-content {
+  padding: 2px;
+  font-size: small;
+}
+.notOnTarget{
+  background: black;
+  color: white
+}
+.onTarget{
+  background: green;
+  color: white
+}
+.dailyinners{
+  width:100%;
+  height:100%;
+}
+.today{
+  border-left:1px solid red;
+  border-right:1px solid red
+}
+.escalate{
+  color:red;
+}
+.blurred{
+  animation-name: blur;
+  animation-duration: 0.5s;
+  animation-fill-mode: forwards;
+  mix-blend-mode: luminosity;
+}
+.blurred:hover{
+  animation-name: unblur;
+  animation-duration: 0.1s;
+  animation-fill-mode: forwards;
+  mix-blend-mode: unset;
+}
+.progress > div:not(.tabulator-col-resize-handle):not([data-min="0"]) {
+  top: 1px!important;
+}
+.super {
+  font-size: 11px;
+  font-weight: 700;
+  margin-left: 1px;
+}
+.super.danger {
+  color:var(--danger);
+}
+.super.success {
+  color:var(--success);
+}
+.dateApplied::after{
+  content: 'Applied';
+  font-size: 11px;
+  position: absolute;
+  line-height: 25px;
+  top: 2px;
+  left: 2px;
+  background: #dce5f9;
+  height: calc(100% - 4px);
+  width: calc(100% - 4px);
+  pointer-events: none;
+}
+.daterangepicker td.in-range {
+  background-color: var(--subtle);
+}
+.daterangepicker .ranges li.active {
+  background-color: var(--secondary);
+}
+.daterangepicker td.active, .daterangepicker td.active:hover {
+  background-color: var(--secondary);
+}
+.rowMirror {
+  position: absolute;
+  top: 0px;
+  left: 0px;
+}
+</style>
+<script>
+  function dateIf(inDate, seperator, order){
+    let s=seperator
+    if(order=="f"){
+      return(moment.utc(inDate).format("DD"+s+"MM"+s+"YYYY"))
+    }
+    if(order=="r"){
+      return(moment.utc(inDate).format("YYYY"+s+"MM"+s+"DD"))
+    }
+  }
+  var dateParams={
+    inputFormat:"YYYY-MM-DD",
+    outputFormat:"DD/MM/YY",
+    invalidPlaceholder:"N/A",
+  }
+  var percFormat = function(cell, formatterParams, onRendered){
+    var ret=''
+    if (isFinite(cell.getValue()) && cell.getValue()>0) {
+      ret=(cell.getValue()*100).toFixed(0)+"%"
+    }
+    return ret
+  }
+  var editClick=function(e, row){
+    if (typeof(row.getData().id)==='string') {
+      window.location.href = "/edit-group-page/"+row.getData().id.replace('j','')
+    }else {
+      window.location.href = "/edit/"+row.getData().quoteID
+    }
+  }
+  var focusClick=function(e, row){
+    $(row.getElement()).click()
+  }
+  var viewClick=function(e, row){
+    window.location.href = "/overview/"+row.getData().quoteID
+  }
+  var unfocusClick=function(e, row){
+    if ($('.blurred').length>0){
+      row.getTable().getRows().forEach((xrow, i) => {
+          if ($(xrow.getElement()).hasClass('expanded')) {
+            xrow.treeCollapse();
+          }
+      });
+      $('.blurred').removeClass('blurred')
+    }
+  }
+  function filterClick(row){
+    tdy=dateIf(moment.utc().startOf('d'),"-","r")
+    $('.blurred').removeClass('blurred')
+    return tdy
+  }
+  function getInitials(str){
+    var arr=str.split(" ")
+    var init=""
+    arr.forEach((word, i) => {
+      init=init+word[0]
+    })
+    return init.toUpperCase()
+  }
+  function workday_count(start,end) {
+    var first = start.clone().endOf('week'); // end of first week
+    var last = end.clone().startOf('week'); // start of last week
+    var days = last.diff(first,'days') * 5 / 7; // this will always multiply of 7
+    var wfirst = first.day() - start.day(); // check first week
+    if(start.day() == 0) --wfirst; // -1 if start with sunday
+    var wlast = end.day() - last.day(); // check last week
+    if(end.day() == 6) --wlast; // -1 if end with saturday
+    return wfirst + Math.floor(days) + wlast; // get the total
+  }
+  function prepareRow(job){
+    var idField=job.jobID?'jobID':'projectID'
+    var rowData={
+      id:job.jobID?'j'+job.jobID:job.projectID,
+      projectID:job.projectID,
+      quoteID:job.quoteID,
+      quoteNo:job.quoteNo,
+      quoteName:(job.jobID?job.quoteName+" - "+job.jobName:job.quoteName)+(job.hasHourly?' <i class="far fa-clock"></i>':''),
+      clientName:job.clientName,
+      CM:job.CM?getInitials(job.CM):'',
+      PM:job.PM?getInitials(job.PM):'',
+      startDate: dateIf(job.startDate,"-","r"),
+      endDate: dateIf(job.endDate,"-","r"),
+      dataDate: dateIf(job.endDate,"-","r"),
+      tablesDate: dateIf(job.endDate,"-","r"),
+      interviewsTarget:job.interviewsTarget,
+      ints:Math.ceil(job.ints),
+      targetAHR:job.targetAHR,
+      ahr:Math.round((job.ints/job.hrs)*100)/100,
+      expectedLOI:job.expectedLOI,
+      targetLOI:job.targetLOI,
+      progress:job.ints/job.interviewsTarget,
+      cont:job.pay/job.sales,
+      pay:job.pay,
+      sales:job.sales,
+      hasEve: job.hasEve,
+      hasDay: job.hasDay,
+      hasOnline: job.hasOnline,
+      hasFace: job.hasFace,
+      hasOut: job.hasOut,
+      hasHourly: job.hasHourly,
+      sorter: job.hasDay+""+job.hasEve+""+job.hasOnline+""+job.hasFace,
+      qcChecks:job.catiInts?job.qcCount/job.catiInts:0
+    }
+    return rowData
+  }
+  function prepareAjax(response){
+    var rowCollection=[]
+    var jobRS=response.view=='Projects'?'projects':'jobs'
+    response.data[jobRS].forEach((project, i) => {
+      var projectRow=prepareRow(project)
+      var jobs=response.data.jobs.filter(el=>el.projectID==project.projectID)
+      if (response.view=='Projects' && jobs.length>1) {
+        projectRow['_children']=[]
+        jobs.forEach((job, i) => {
+          projectRow['_children'].push(prepareRow(job))
+        });
+      }
+      rowCollection.push(projectRow)
+    })
+    // return {data:rowCollection,last_page:response.last_page}
+    return rowCollection
+  }
+  let dateHeaderFilter=function(headerValue, rowValue, rowData, filterParams){
+    return (rowValue && headerValue?rowValue>=headerValue.split(" ")[0] && rowValue<=headerValue.split(" ")[1]:false) || !headerValue
+  }
+  var dateEditor = function(cell, onRendered, success, cancel, editorParams){
+    var editor = document.createElement("input");
+    editor.setAttribute("type", "text");
+    editor.style.padding = "3px";
+    editor.style.width = "100%";
+    editor.style.boxSizing = "border-box";
+    $(editor).parent().addClass("dateApplied")
+    let val=""
+    $(editor).daterangepicker({
+      // autoApply:true,
+      ranges: {
+        'Today': [moment(), moment()],
+        'Yesterday': [moment().subtract(1, 'days'), moment().subtract(1, 'days')],
+        'Last 7 Days': [moment().subtract(6, 'days'), moment()],
+        'Last 30 Days': [moment().subtract(29, 'days'), moment()],
+        'This Month': [moment().startOf('month'), moment().endOf('month')],
+        'Last Month': [moment().subtract(1, 'month').startOf('month'), moment().subtract(1, 'month').endOf('month')]
+      },
+      alwaysShowCalendars: true,
+    },(start,end,label)=>{
+      $(editor).parent().addClass("dateApplied")
+      val=start.format("YYYY-MM-DD")+" "+end.format("YYYY-MM-DD")
+      success(val)
+    }).val("")
+    $(editor).on('cancel.daterangepicker', function(ev, picker) {
+      val=""
+      $(editor).parent().removeClass("dateApplied")
+      $(editor).val(val)
+      success(val)
+    });
+    $(editor).on('hide.daterangepicker', function(ev, picker) {
+      $(editor).val(val)
+    });
+    function successFunc(){
+      success(editor.value);
+    }
+    // editor.addEventListener("change", successFunc);
+    // editor.addEventListener("blur", successFunc);
+    return editor;
+  };
+  function isFilterApplied(table,filtTest){
+    var lab=""
+    table.getFilters().forEach((filter, i) => {
+      if(JSON.stringify(filter)==JSON.stringify(filtTest)){
+        lab=lab+' <i class="fas fa-check"></i>'
+      }
+    })
+    return lab
+  }
+  function clearFilterField(table,field){
+    table.getFilters().forEach((filter, i) => {
+      if(filter.field=field){
+        table.removeFilter(filter.field,filter.type,filter.value)
+      }
+    })
+  }
+  var contCalc = function(values, data, calcParams){
+    var sales = 0;
+    var pay = 0;
+    data.forEach(function(rowData){
+      sales=sales+rowData.sales || 0
+      pay=pay+rowData.pay || 0
+    });
+    return Math.ceil((pay/sales)*100)+'%';
+  }
+  var projectCount=function(values, data, calcParams){
+    var cnt=0
+    values.forEach((val, i) => {
+      cnt++
+    });
+    return cnt+" projects"
+  }
+  $(document).ready(function () {
+    const projectsTable = new Tabulator("#projectsTable", {
+      // data:projectsData,
+      autoResize:true,
+      height:"85vh",
+      layout:"fitDataTable",
+      dataTree:true,
+      ajaxURL:"/get-all-projects",
+      // pagination:"remote",
+      // ajaxFiltering:true,
+      // ajaxSorting:true,
+      // paginationSize:25,
+      ajaxParams:{view:'Projects',size:999999,page:1},
+      initialSort:[
+        {column:"sorter", dir:"desc"}
+      ],
+      rowContextMenu:[
+        {
+          label:function(row){
+            return $('.blurred').length==0?'<i class="far fa-eye"></i> Focus on project':'<i class="far fa-eye-slash"></i> Reset focus'
+          },
+          action:function(row){
+            return $('.blurred').length==0?focusClick:unfocusClick
+          },
+          disabled:function(row){
+            return typeof row.getData().id === 'string' && row.getTreeParent()==false
+          }
+        },
+        {
+          label:'<i class="fas fa-chart-line"></i> View project',
+          action:viewClick
+        },
+        {
+          label:'<i class="fas fa-edit"></i> Edit project',
+          action:editClick
+        },
+        {
+            separator:true,
+        },
+        {
+          label:"Filters",
+          menu:[
+            {
+              label: function(row){
+                var lab='In field now'
+                var tdy=dateIf(moment.utc(),"-","r")
+                var filt1={field:"endDate", type:">=", value:tdy}
+                var filt2={field:"startDate", type:"<=", value:tdy}
+                return lab+(isFilterApplied(row.getTable(),filt2) || isFilterApplied(row.getTable(),filt1))
+              },
+              action:function(e, row){
+                var tdy=filterClick(row)
+                var filt=[{field:"startDate", type:"<=", value:tdy},
+                {field:"endDate", type:">=", value:tdy}]
+                clearFilterField(row.getTable(),'startDate')
+                clearFilterField(row.getTable(),'endDate')
+                row.getTable().addFilter([
+                  {field:"startDate", type:"<=", value:tdy},
+                  {field:"endDate", type:">=", value:tdy},
+                ]);
+              },
+              disabled: function(row){
+                var tdy=dateIf(moment.utc(),"-","r")
+                var filt1={field:"endDate", type:">=", value:tdy}
+                var filt2={field:"startDate", type:"<=", value:tdy}
+                return isFilterApplied(row.getTable(),filt2) && isFilterApplied(row.getTable(),filt1)
+              }
+            },
+            {
+              label: function(row){
+                var lab='Starting soon (next 7 days)'
+                var tdy=dateIf(moment.utc(),"-","r")
+                var dte=moment.utc()
+                var in7days=dateIf(dte.add(7,'d'),"-","r")
+                var filt1={field:"startDate", type:">=", value:tdy}
+                var filt2={field:"startDate", type:"<=", value:in7days}
+                return lab+(isFilterApplied(row.getTable(),filt2) || isFilterApplied(row.getTable(),filt1))
+              },
+              action:function(e, row){
+                var tdy=filterClick(row)
+                var dte=moment.utc()
+                var in7days=dateIf(dte.add(7,'d'),"-","r")
+                var filt=[{field:"startDate", type:">=", value:tdy},
+                {field:"startDate", type:"<=", value:in7days}]
+                clearFilterField(row.getTable(),'startDate')
+                clearFilterField(row.getTable(),'endDate')
+                row.getTable().addFilter(filt);
+              },
+              disabled: function(row){
+                var tdy=dateIf(moment.utc(),"-","r")
+                var dte=moment.utc()
+                var in7days=dateIf(dte.add(7,'d'),"-","r")
+                var filt1={field:"startDate", type:">=", value:tdy}
+                var filt2={field:"startDate", type:"<=", value:in7days}
+                return isFilterApplied(row.getTable(),filt2) && isFilterApplied(row.getTable(),filt1)
+              }
+            },
+            {
+              label: function(row){
+                var lab='Finished fieldwork'
+                var tdy=dateIf(moment.utc(),"-","r")
+                var filt={field:"endDate", type:"<", value:tdy}
+                return lab+isFilterApplied(row.getTable(),filt)
+              },
+              action:function(e, row){
+                var tdy=filterClick(row)
+                clearFilterField(row.getTable(),'startDate')
+                clearFilterField(row.getTable(),'endDate')
+                row.getTable().addFilter([
+                  {field:"endDate", type:"<", value:tdy},
+                ]);
+              },
+              disabled: function(row){
+                var tdy=dateIf(moment.utc(),"-","r")
+                var filt={field:"endDate", type:"<", value:tdy}
+                return isFilterApplied(row.getTable(),filt).length>0
+              }
+            },
+            {
+              label:function(row){
+                var lab='Not started fieldwork'
+                var tdy=dateIf(moment.utc(),"-","r")
+                var filt={field:"startDate", type:">", value:tdy}
+                return lab+isFilterApplied(row.getTable(),filt)
+              },
+              action:function(e, row){
+                var tdy=filterClick(row)
+                clearFilterField(row.getTable(),'startDate')
+                clearFilterField(row.getTable(),'endDate')
+                row.getTable().addFilter([
+                  {field:"startDate", type:">", value:tdy}
+                ]);
+              },
+              disabled: function(row){
+                var tdy=dateIf(moment.utc(),"-","r")
+                var filt={field:"startDate", type:">", value:tdy}
+                return isFilterApplied(row.getTable(),filt).length>0
+              }
+            },
+            {
+                separator:true,
+            },
+            {
+              label: function(row){
+                var lab='CATI'
+                var filt1=[
+                  {field:"hasEve", type:">", value:0},
+                  {field:"hasDay", type:">", value:0},
+                ]
+                return lab+isFilterApplied(row.getTable(),filt1)
+              },
+              action:function(e, row){
+                var tdy=filterClick(row)
+                row.getTable().addFilter([
+                  [
+                    {field:"hasEve", type:">", value:0},
+                    {field:"hasDay", type:">", value:0},
+                  ]
+                ]);
+              },
+              disabled: function(row){
+                var tdy=dateIf(moment.utc(),"-","r")
+                var filt=[
+                  {field:"hasEve", type:">", value:0},
+                  {field:"hasDay", type:">", value:0},
+                ]
+                return isFilterApplied(row.getTable(),filt).length>0
+              }
+            },
+            {
+              label:function(row){
+                var lab='Online'
+                var filt1={field:"hasOnline", type:">", value:0}
+                return lab+isFilterApplied(row.getTable(),filt1)
+              },
+              action:function(e, row){
+                var tdy=filterClick(row)
+                row.getTable().addFilter([
+                  {field:"hasOnline", type:">", value:0}
+                ]);
+              },
+              disabled: function(row){
+                var tdy=dateIf(moment.utc(),"-","r")
+                var filt={field:"hasOnline", type:">", value:0}
+                return isFilterApplied(row.getTable(),filt).length>0
+              }
+            },
+            {
+              label:function(row){
+                var lab='F2F'
+                var filt1={field:"hasFace", type:">", value:0}
+                return lab+isFilterApplied(row.getTable(),filt1)
+              },
+              action:function(e, row){
+                row.getTable().addFilter([
+                  {field:"hasFace", type:">", value:0}
+                ]);
+              },
+              disabled: function(row){
+                var tdy=dateIf(moment.utc(),"-","r")
+                var filt={field:"hasFace", type:">", value:0}
+                return isFilterApplied(row.getTable(),filt).length>0
+              }
+            },
+            {
+              label:function(row){
+                var lab='Outsourced'
+                var filt1={field:"hasOut", type:">", value:0}
+                return lab+isFilterApplied(row.getTable(),filt1)
+              },
+              action:function(e, row){
+                var tdy=filterClick(row)
+                row.getTable().addFilter([
+                  {field:"hasOut", type:">", value:0}
+                ]);
+              },
+              disabled: function(row){
+                var tdy=dateIf(moment.utc(),"-","r")
+                var filt={field:"hasOut", type:">", value:0}
+                return isFilterApplied(row.getTable(),filt).length>0
+              }
+            },
+            {
+                separator:true,
+            },
+            {
+              label:'Clear filters',
+              action:function(e, row){
+                var tdy=filterClick(row)
+                row.getTable().clearFilter();
+              }
+            },
+          ],
+        },
+        {
+          label:"Change view",
+          menu:[
+            {
+              label:'<i class="fas fa-stream"></i> Project view (default)',
+              action:function(e, row){
+                row.getTable().setData("/get-live-jobs", {view:'Projects'}, "POST");
+              },
+              disabled: function(row){
+                return typeof row.getData().id !== 'string' || row.getTreeParent()!=false
+              }
+            },
+            {
+              label:'<i class="fas fa-bars"></i> Target group view',
+              action:function(e, row){
+                row.getTable().setData("/get-live-jobs", {view:'TargetGroups'}, "POST");
+              },
+              disabled: function(row){
+                return typeof row.getData().id === 'string' && row.getTreeParent()==false
+              }
+            },
+          ],
+        },
+        {
+          separator:true,
+        },
+        {
+          label:'<i class="fas fa-sign-out-alt"></i> Mark as completed',
+          action:function(e, row){window.location.href = "/close-project/"+row.getData().projectID}
+        },
+        {
+          label:'Download current table',
+          action:(e,row)=>row.getTable().download("xlsx", "JA2 live projects "+moment().format("DD-MM-YYYY")+".xlsx", {sheetName:"Live Projects"})
+        }
+      ],
+      rowFormatter:function(row){
+        row.getElement().style.height= "25px";
+        row.getCells().forEach((cell, i) => {
+          cell.getElement().style['font-size']= "small";
+          cell.getElement().style.padding= "2px";
+          // cell.getElement().style['mix-blend-mode']='difference';
+          if (cell.getData().hasHourly==1) {
+            cell.getElement().style.color= '#ff8d8d';
+          }
+        })
+        var gradArr=[]
+        var txtColArr=[]
+        if (row.getData().hasDay) {
+          gradArr.push('rgba(255,192,0,0.8)')
+          txtColArr.push('black')
+        }
+        if (row.getData().hasEve) {
+          gradArr.push('rgba(255,255,255,0.8)')
+          txtColArr.push('black')
+        }
+        if (row.getData().hasOnline) {
+          gradArr.push('rgba(0,0,255,0.8)')
+          txtColArr.push('white')
+        }
+        if (row.getData().hasFace || row.getData().hasOut) {
+          gradArr.push('rgba(255,0,255,0.8)')
+          txtColArr.push('white')
+        }
+        var grad="linear-gradient(90deg, "
+        var gradTxtArr=[]
+        var cellArr=row.getCells()
+        var cellCount=cellArr.length-1
+        var cellGrpCnt=cellCount/gradArr.length
+        for (var i = 0; i < gradArr.length; i++) {
+          gradTxtArr.push(gradArr[i]+" "+((70/(gradArr.length-1))*i).toFixed(0)+"%")
+          gradTxtArr.push(gradArr[i]+" "+((70/(gradArr.length-1))*(i+0.5)).toFixed(0)+"%")
+          for (var n = 0; n < cellGrpCnt; n++) {
+            cellArr[n+Math.ceil(i*cellGrpCnt)].getElement().style.color=txtColArr[i]
+          }
+        }
+        grad=grad+gradTxtArr.join(", ")+")"
+        row.getElement().style.background=gradArr[0];
+        row.getElement().style.background=grad;
+      },
+      columns:[
+        // {title:"id", visible:false, field:"id"},
+        // {title:"sorter", visible:false, field:"sorter"},
+        {title:"Proj No.", field:"quoteNo", cssClass:'Q1', headerFilter:true, topCalc:projectCount},
+        {title:"Project Name", field:"quoteName", cssClass:'Q1', headerFilter:true, formatter:'html'},
+        {title:"Client", field:"clientName", cssClass:'Q2', headerFilter:true},
+        {title:"CM", field:"CM", cssClass:'Q3', headerFilter:true},
+        {title:"PM", field:"PM", cssClass:'Q3', headerFilter:true},
+        {title:"Start", field:"startDate", cssClass:'Q3', formatter:"datetime", formatterParams:dateParams,headerFilterFunc:dateHeaderFilter,headerFilter:dateEditor},
+        {title:"End", field:"endDate", cssClass:'Q3', formatter:"datetime", formatterParams:dateParams,headerFilterFunc:dateHeaderFilter,headerFilter:dateEditor},
+        {title:"Data", field:"dataDate", cssClass:'Q3', formatter:"datetime", formatterParams:dateParams,headerFilterFunc:dateHeaderFilter,headerFilter:dateEditor},
+        {title:"Tables", field:"tablesDate", cssClass:'Q3', formatter:"datetime", formatterParams:dateParams,headerFilterFunc:dateHeaderFilter,headerFilter:dateEditor},
+        {title:"Target", cssClass:'Q4', field:"interviewsTarget"},
+        {title:"Completed", cssClass:'Q4', field:"ints"},
+        {title:"Cont", field:"cont", cssClass:'Q4', formatter: percFormat, topCalc:contCalc},
+        {title:'AHR',columns:[
+          {field:'targetAHR',title:"Target",formatter:function(cell){return cell.getValue()?cell.getValue().toFixed(2):''}},
+          {field:'ahr',title:"Actual",formatter:function(cell){return cell.getValue()?cell.getValue().toFixed(2):''}},
+        ]},
+        {title:'LOI',columns:[
+          {field:'expectedLOI',title:'Expected',formatter:c=>c.getValue()?Math.round(c.getValue()):''},
+          {field:'timedLOI',title:'Actual',formatter:c=>c.getValue()?Math.round(c.getValue()):''},
+        ]},
+        {title:"QC", field:"qcChecks", formatter:"progress", cssClass:"progress", formatterParams:{
+          min:0,
+          max:0.05,
+          color:function(value){return value>=0.05?"var(--success)":"#808080"},
+          legend: function(value){return value>0.05?'>5%':(value*100).toFixed(0)+"%"},
+          legendColor:"rgb(210 210 210)",
+          legendAlign:"center",
+        }},
+        {title:"Progress", field:"progress", formatter:"progress", cssClass:"progress", formatterParams:{
+          min:0,
+          max:1,
+          color:function(value){return value>=1?"var(--success)":"#808080"},
+          legend: function(value){return (value*100).toFixed(0)+"%"},
+          legendColor:"rgb(210 210 210)",
+          legendAlign:"center",
+        }},
+        {field: 'ProjStatus',title:'Status',headerFilter:true},
+      ],
+      rowUpdated:function(row){
+        row.reformat()
+      },
+      dataFiltered:function(filters, rows){
+        if (rows.length<1) {
+          alert("No matching rows found")
+          rows[0].getTable().clearFilter();
+        }
+      },
+      dataTreeRowExpanded:function(row, level){
+        $(row.getElement()).addClass('expanded')
+        $(row.getElement()).removeClass('blurred')
+        $('.tabulator-row.tabulator-tree-level-0:not(.expanded)').addClass('blurred')
+      },
+      dataTreeRowCollapsed:function(row, level){
+        $(row.getElement()).removeClass('expanded')
+        $(row.getElement()).addClass('blurred')
+        // $('.tabulator-row.tabulator-tree-level-0:not(.expanded)').addClass('blurred')
+        if ($('.expanded').length<1) {
+          $('.blurred').removeClass('blurred')
+        }
+      },
+      rowClick:function(e, row){
+        if (typeof row.getData().id === 'string') {
+          viewClick(e,row)
+        }else {
+          row.treeToggle();
+        }
+      },
+      ajaxResponse:function(url, params, response){
+        return prepareAjax(response)
+      },
+      dataLoaded:function(){
+        <% if (staffFilter) { %>
+          var tdy=dateIf(moment.utc(),"-","r")
+          var filt1={field:"endDate", type:">=", value:tdy}
+          var filt2={field:"startDate", type:"<=", value:tdy}
+          this.setFilter([
+          [
+            {field:"CM",type:"=",value:"<%=staffFilter%>"},
+            {field:"PM",type:"=",value:"<%=staffFilter%>"},
+          ],
+          filt1,filt2
+          ]);
+        <%}%>
+      },renderComplete:function(){
+        updateInfo()
+      },
+    })
+    function updateInfo(){
+      let d=projectsTable.getData("active")
+      console.log(d)
+      $('#projectCount').html(d.length)
+      $('#CATICount').html(d.filter(el=>el.hasEve+el.hasDay>0).length)
+      $('#onlineCount').html(d.filter(el=>el.hasOnline>0).length)
+      $('#F2FCount').html(d.filter(el=>el.hasFace>0).length)
+    }
+  })
+</script>
+
+<div class="table-wrapper" style="text-align: center;">
+<div id="infoBar">
+  <span class="infoElements" id="projectCount"></span> projects total:
+  <span class="infoElements" id="CATICount"></span> CATI,
+  <span class="infoElements" id="onlineCount"></span> online,
+  <span class="infoElements" id="F2FCount"></span> F2F
+</div>
+<div id="projectsTable" style="width:99%;margin:auto;"></div>
+      </div>
+    </div>
+  </body>
+  </html>
